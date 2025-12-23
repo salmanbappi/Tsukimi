@@ -43,6 +43,15 @@
 			tools:textColor="?android:textColorTertiary" />
 	</LinearLayout>
 
+	<ImageButton
+		android:id="@+id/button_download"
+		android:layout_width="48dp"
+		android:layout_height="match_parent"
+		android:background="?attr/selectableItemBackgroundBorderless"
+		android:contentDescription="@string/download"
+		android:src="@drawable/ic_download"
+		app:tint="?android:textColorPrimary" />
+
 	<ImageView
 		android:id="@+id/imageView_bookmarked"
 		android:layout_width="wrap_content"

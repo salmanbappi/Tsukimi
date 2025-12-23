@@ -109,6 +109,10 @@ class ChaptersFragment :
 	}
 
 	override fun onItemClick(item: ChapterListItem, view: View) {
+		if (view.id == R.id.button_download) {
+			viewModel.download(setOf(item.chapter.id), false)
+			return
+		}
 		if (selectionController?.onItemClick(item.chapter.id) == true) {
 			return
 		}

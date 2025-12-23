@@ -23,6 +23,7 @@ fun chapterListItemAD(
 ) {
 
 	AdapterDelegateClickListenerAdapter(this, clickListener).attach(itemView)
+	binding.buttonDownload.setOnClickListener { clickListener.onItemClick(item, it) }
 
 	bind {
 		binding.textViewTitle.text = item.getTitle(context.resources)

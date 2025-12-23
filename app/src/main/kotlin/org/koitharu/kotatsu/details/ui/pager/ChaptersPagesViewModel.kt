@@ -138,7 +138,7 @@ abstract class ChaptersPagesViewModel(
 		}
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, emptyList())
 
-	val chapters = combine(
+	private val mappedChapters = combine(
 		mangaDetails,
 		readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
 		mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
@@ -159,7 +159,7 @@ abstract class ChaptersPagesViewModel(
 		val grid = args[7] as Boolean
 		val downloadedOnly = args[8] as Boolean
 
-		val list = details?.mapChapters(
+		details?.mapChapters(
 			currentChapterId = currentChapterId,
 			maxPercent = maxPercent,
 			readChapters = readEntities,
@@ -169,9 +169,13 @@ abstract class ChaptersPagesViewModel(
 			isGrid = grid,
 			isDownloadedOnly = downloadedOnly,
 		).orEmpty()
+	}
 
-		val reversed = isChaptersReversed.value
-		val query = chaptersQuery.value
+	val chapters = combine(
+		mappedChapters,
+		isChaptersReversed,
+		chaptersQuery,
+	) { list, reversed, query ->
 		(if (reversed) list.asReversed() else list).filterSearch(query)
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Eagerly, emptyList())
 
