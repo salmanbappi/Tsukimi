@@ -23,6 +23,7 @@ fun MangaDetails.mapChapters(
 	isDownloadedOnly: Boolean,
 	deletionConfirmation: Set<Long> = emptySet(),
 	downloadingChapters: Map<Long, Float> = emptyMap(),
+	deletingChapters: Set<Long> = emptySet(),
 ): List<ChapterListItem> {
 	val remoteChapters = chapters[branch].orEmpty()
 	val localChapters = local?.manga?.getChapters(branch).orEmpty()
@@ -52,7 +53,7 @@ fun MangaDetails.mapChapters(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
 				isNew = isUnread && result.size >= newFrom,
-				isDownloaded = local != null,
+				isDownloaded = local != null && chapter.id !in deletingChapters,
 				isBookmarked = chapter.id in bookmarked,
 				isGrid = isGrid,
 				timeAgo = timeAgo,
@@ -72,7 +73,7 @@ fun MangaDetails.mapChapters(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
 				isNew = false,
-				isDownloaded = !isLocal,
+				isDownloaded = !isLocal && chapter.id !in deletingChapters,
 				isBookmarked = chapter.id in bookmarked,
 				isGrid = isGrid,
 				descriptionOverride = pageText,

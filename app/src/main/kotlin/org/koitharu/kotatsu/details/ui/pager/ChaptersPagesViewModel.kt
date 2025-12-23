@@ -94,6 +94,7 @@ abstract class ChaptersPagesViewModel(
 
 	val isDownloadedOnly = MutableStateFlow(false)
 	private val deletionConfirmation = MutableStateFlow(emptySet<Long>())
+	private val deletingChapters = MutableStateFlow(emptySet<Long>())
 
 	private val downloadingChapters = combine(
 		downloadScheduler.observeWorks(),
@@ -183,6 +184,7 @@ abstract class ChaptersPagesViewModel(
 		isDownloadedOnly,
 		deletionConfirmation,
 		downloadingChapters,
+		deletingChapters,
 	) { args: Array<Any?> ->
 		val details = args[0] as? MangaDetails
 		val currentChapterId = args[1] as Long
@@ -199,6 +201,8 @@ abstract class ChaptersPagesViewModel(
 		val deletionConfirm = args[9] as Set<Long>
 		@Suppress("UNCHECKED_CAST")
 		val downloading = args[10] as Map<Long, Float>
+		@Suppress("UNCHECKED_CAST")
+		val deleting = args[11] as Set<Long>
 
 		details?.mapChapters(
 			currentChapterId = currentChapterId,
@@ -211,6 +215,7 @@ abstract class ChaptersPagesViewModel(
 			isDownloadedOnly = downloadedOnly,
 			deletionConfirmation = deletionConfirm,
 			downloadingChapters = downloading,
+			deletingChapters = deleting,
 		).orEmpty()
 	}
 
@@ -303,12 +308,12 @@ abstract class ChaptersPagesViewModel(
 				allowMeteredNetwork = allowMeteredNetwork,
 			)
 			downloadScheduler.schedule(setOf(manga to task))
-			onDownloadStarted.call(Unit)
 		}
 	}
 
 	fun deleteChapter(context: android.content.Context, chapterId: Long) {
 		deletionConfirmation.update { it - chapterId }
+		deletingChapters.update { it + chapterId }
 		deleteChapters(context, setOf(chapterId))
 	}
 

@@ -111,25 +111,10 @@ class ChaptersFragment :
 
 	override fun onItemClick(item: ChapterListItem, view: View) {
 		if (view.id == R.id.button_download) {
-			if (item.isDownloaded) {
-				viewModel.toggleDeletionConfirmation(item.chapter.id)
-				PopupMenu(view.context, view).apply {
-					inflate(R.menu.popup_chapter_delete)
-					setOnMenuItemClickListener {
-						if (it.itemId == R.id.action_delete) {
-							viewModel.deleteChapter(requireContext(), item.chapter.id)
-							true
-						} else {
-							false
-						}
-					}
-					setOnDismissListener {
-						viewModel.toggleDeletionConfirmation(item.chapter.id)
-					}
-					show()
-				}
-			} else {
-				viewModel.download(setOf(item.chapter.id), false)
+			when {
+				item.isDeletionConfirmation -> viewModel.deleteChapter(requireContext(), item.chapter.id)
+				item.isDownloaded -> viewModel.toggleDeletionConfirmation(item.chapter.id)
+				else -> viewModel.download(setOf(item.chapter.id), false)
 			}
 			return
 		}

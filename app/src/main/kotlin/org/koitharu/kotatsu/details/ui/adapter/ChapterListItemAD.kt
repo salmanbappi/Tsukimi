@@ -8,6 +8,7 @@ import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.ui.list.AdapterDelegateClickListenerAdapter
 import org.koitharu.kotatsu.core.ui.list.OnListItemClickListener
 import org.koitharu.kotatsu.core.util.ext.drawableStart
+import org.koitharu.kotatsu.core.util.ext.getThemeColor
 import org.koitharu.kotatsu.core.util.ext.getThemeColorStateList
 import org.koitharu.kotatsu.core.util.ext.textAndVisible
 import org.koitharu.kotatsu.databinding.ItemChapterBinding
@@ -52,15 +53,16 @@ fun chapterListItemAD(
 			binding.buttonDownload.setImageResource(
 				when {
 					item.isDeletionConfirmation -> R.drawable.ic_delete
-					item.isDownloaded -> R.drawable.ic_save_ok
+					item.isDownloaded -> R.drawable.ic_delete
 					else -> R.drawable.ic_download
 				}
 			)
 		}
 
 		if (item.isDeletionConfirmation) {
-			binding.buttonDownload.animate().rotation(360f).setDuration(200).start()
+			binding.buttonDownload.setColorFilter(context.getThemeColor(androidx.appcompat.R.attr.colorPrimary))
 		} else {
+			binding.buttonDownload.clearColorFilter()
 			binding.buttonDownload.rotation = 0f
 		}
 
