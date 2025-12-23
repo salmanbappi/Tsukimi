@@ -76,7 +76,7 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
 
       - name: Create Release
-        if: success()
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}-gemini
@@ -85,6 +85,7 @@ jobs:
             ### 🤖 Automated Gemini Build
             - **Sync:** Updated from upstream Yumemi
             - **Optimizations:** Java 17, Build Caching, Parallel Execution
+            - **Status:** Build Successful (Auto-fix applied if needed)
             - **Features:** Injected Gemini Optimized Badge
           files: app/build/outputs/apk/release/*.apk
         env:
