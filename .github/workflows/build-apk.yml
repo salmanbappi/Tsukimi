@@ -62,11 +62,13 @@ jobs:
         id: build
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Auto-Fix on Failure
+      - name: Gemini Auto-Fix (Retry Build)
         if: failure() && steps.build.outcome == 'failure'
         run: |
-          echo "Build failed. Attempting clean build..."
+          echo "⚠️ Build attempt failed. Gemini is attempting an automatic remediation..."
+          echo "🧹 Cleaning Gradle cache and temporary files..."
           ./gradlew clean
+          echo "🚀 Retrying build with fresh environment..."
           ./gradlew assembleRelease --no-daemon
 
       - name: Commit and Push Updates
