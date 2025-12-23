@@ -11,6 +11,8 @@ import kotlin.experimental.and
 data class ChapterListItem(
 	val chapter: MangaChapter,
 	val flags: Byte,
+	val timeAgo: org.koitharu.kotatsu.core.ui.model.DateTimeAgo? = null,
+	val readPage: Int = -1,
 ) : ListModel {
 
 	private var cachedTitle: String? = null

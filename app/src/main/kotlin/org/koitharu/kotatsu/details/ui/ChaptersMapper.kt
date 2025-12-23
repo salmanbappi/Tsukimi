@@ -9,6 +9,8 @@ import org.koitharu.kotatsu.details.ui.model.toListItem
 import org.koitharu.kotatsu.list.ui.model.ListHeader
 import org.koitharu.kotatsu.list.ui.model.ListModel
 import org.koitharu.kotatsu.parsers.util.mapToSet
+import org.koitharu.kotatsu.core.util.ext.calculateTimeAgo
+import java.time.Instant
 
 fun MangaDetails.mapChapters(
 	currentChapterId: Long,
@@ -43,8 +45,7 @@ fun MangaDetails.mapChapters(
 			val local = localMap?.remove(chapter.id)
 			val readEntity = readMap[chapter.id]
 			val isUnread = readEntity == null && chapter.id != currentChapterId
-			val pageText = if (readEntity != null && readEntity.page > 0) "Page ${readEntity.page + 1}" else null
-			
+			val timeAgo = readEntity?.readAt?.let { calculateTimeAgo(Instant.ofEpochMilli(it)) }
 			result += (local ?: chapter).toListItem(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
@@ -52,7 +53,8 @@ fun MangaDetails.mapChapters(
 				isDownloaded = local != null,
 				isBookmarked = chapter.id in bookmarked,
 				isGrid = isGrid,
-				descriptionOverride = pageText
+				timeAgo = timeAgo,
+				readPage = readEntity?.page ?: -1
 			)
 		}
 	}

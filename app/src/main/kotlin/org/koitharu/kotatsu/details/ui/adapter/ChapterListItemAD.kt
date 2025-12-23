@@ -26,7 +26,21 @@ fun chapterListItemAD(
 
 	bind {
 		binding.textViewTitle.text = item.getTitle(context.resources)
-		binding.textViewDescription.textAndVisible = item.description
+		
+		val description = StringBuilder()
+		item.description?.let { description.append(it) }
+
+		if (item.readPage >= 0) {
+			if (description.isNotEmpty()) description.append(" • ")
+			description.append("Page: ").append(item.readPage + 1)
+		}
+
+		item.timeAgo?.let {
+			if (description.isNotEmpty()) description.append(" • ")
+			description.append(it.format(context))
+		}
+
+		binding.textViewDescription.textAndVisible = description.toString()
 		when {
 			item.isCurrent -> {
 				binding.textViewTitle.drawableStart = ContextCompat.getDrawable(context, R.drawable.ic_current_chapter)

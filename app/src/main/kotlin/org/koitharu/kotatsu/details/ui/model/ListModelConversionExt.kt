@@ -17,6 +17,8 @@ fun MangaChapter.toListItem(
 	isBookmarked: Boolean,
 	isGrid: Boolean,
 	descriptionOverride: String? = null,
+	timeAgo: org.koitharu.kotatsu.core.ui.model.DateTimeAgo? = null,
+	readPage: Int = -1,
 ): ChapterListItem {
 	var flags: Byte = 0
 	if (isCurrent) flags = flags or FLAG_CURRENT
@@ -28,6 +30,8 @@ fun MangaChapter.toListItem(
 	return ChapterListItem(
 		chapter = this,
 		flags = flags,
+		timeAgo = timeAgo,
+		readPage = readPage,
 	).apply {
 		if (descriptionOverride != null) {
 			description = descriptionOverride
