@@ -12,7 +12,7 @@ echo "💉 Injecting Gemini Optimized Features..."
 if grep -q "KEY_GEMINI_OPTIMIZED" "$APP_SETTINGS"; then
     echo "  -> Key already exists in AppSettings.kt"
 else
-    sed -i '/const val KEY_WEBVIEW_CLEAR = "webview_clear"/a 				const val KEY_GEMINI_OPTIMIZED = "gemini_optimized"' "$APP_SETTINGS"
+    sed -i '/const val KEY_WEBVIEW_CLEAR = "webview_clear"/a \    const val KEY_GEMINI_OPTIMIZED = "gemini_optimized"' "$APP_SETTINGS"
     echo "  -> Added KEY_GEMINI_OPTIMIZED to AppSettings.kt"
 fi
 
@@ -20,7 +20,8 @@ fi
 if grep -q "gemini_optimized" "$PREF_ABOUT"; then
     echo "  -> Preference already exists in pref_about.xml"
 else
-    sed -i '/android:key="app_version"/!b;n;n;n;a \
+    # Better insertion for XML
+    sed -i '/android:key="app_version"/a \
 \
 	<Preference\
 		android:key="gemini_optimized"\
@@ -50,9 +51,18 @@ sed -i "s/targetCompatibility JavaVersion.VERSION_11/targetCompatibility JavaVer
 sed -i "s/jvmTarget = JavaVersion.VERSION_11.toString()/jvmTarget = JavaVersion.VERSION_17.toString()/" "app/build.gradle"
 
 if [ -f "$GRADLE_PROPS" ]; then
-    grep -q "org.gradle.daemon=true" "$GRADLE_PROPS" || echo "org.gradle.daemon=true" >> "$GRADLE_PROPS"
-    grep -q "org.gradle.caching=true" "$GRADLE_PROPS" || echo "org.gradle.caching=true" >> "$GRADLE_PROPS"
-    grep -q "org.gradle.parallel=true" "$GRADLE_PROPS" || echo "org.gradle.parallel=true" >> "$GRADLE_PROPS"
+    # Ensure file ends with newline before appending
+    [ -n "$(tail -c1 "$GRADLE_PROPS")" ] && echo "" >> "$GRADLE_PROPS"
+    
+    # Use sed to replace or append
+    for prop in "org.gradle.daemon=true" "org.gradle.caching=true" "org.gradle.parallel=true"; do
+        key=$(echo $prop | cut -d'=' -f1)
+        if grep -q "^$key=" "$GRADLE_PROPS"; then
+            sed -i "s/^$key=.*/$prop/" "$GRADLE_PROPS"
+        else
+            echo "$prop" >> "$GRADLE_PROPS"
+        fi
+    done
 fi
 
 echo "✅ Feature Injection Complete"
