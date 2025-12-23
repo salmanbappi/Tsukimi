@@ -92,6 +92,10 @@ class DetailsInteractor @Inject constructor(
 
 	suspend fun findRemote(seed: Manga) = localMangaRepository.getRemoteManga(seed)
 
+	fun observeReadChapters(mangaId: Long): Flow<List<Long>> {
+		return historyRepository.observeReadChapters(mangaId)
+	}
+
 	private fun observeIncognitoMode() = settings.observeAsFlow(AppSettings.KEY_INCOGNITO_MODE) {
 		isIncognitoModeEnabled
 	}

@@ -129,30 +129,48 @@ abstract class ChaptersPagesViewModel(
 		}
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, null)
 
+	val readChapterIds = manga.flatMapLatest {
+		if (it != null) {
+			interactor.observeReadChapters(it.id).withErrorHandling()
+		} else {
+			flowOf(emptyList())
+		}
+	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, emptyList())
+
 	val chapters = combine(
-		combine(
-			mangaDetails,
-			readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
-			mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
-			selectedBranch,
-			newChaptersCount,
-			bookmarks,
-			isChaptersInGridView,
-			isDownloadedOnly,
-		) { manga, currentChapterId, maxPercent, branch, news, bookmarks, grid, downloadedOnly ->
-			manga?.mapChapters(
-				currentChapterId = currentChapterId,
-				maxPercent = maxPercent,
-				newCount = news,
-				branch = branch,
-				bookmarks = bookmarks,
-				isGrid = grid,
-				isDownloadedOnly = downloadedOnly,
-			).orEmpty()
-		},
-		isChaptersReversed,
-		chaptersQuery,
-	) { list, reversed, query ->
+		mangaDetails,
+		readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
+		mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
+		readChapterIds.distinctUntilChanged(),
+		selectedBranch,
+		newChaptersCount,
+		bookmarks,
+		isChaptersInGridView,
+		isDownloadedOnly,
+	) { args: Array<Any?> ->
+		val details = args[0] as? MangaDetails
+		val currentChapterId = args[1] as Long
+		val maxPercent = args[2] as Float
+		val readIds = args[3] as List<Long>
+		val branch = args[4] as? String
+		val news = args[5] as Int
+		val bookmarked = args[6] as List<Bookmark>
+		val grid = args[7] as Boolean
+		val downloadedOnly = args[8] as Boolean
+
+		val list = details?.mapChapters(
+			currentChapterId = currentChapterId,
+			maxPercent = maxPercent,
+			readChapterIds = readIds.toSet(),
+			newCount = news,
+			branch = branch,
+			bookmarks = bookmarked,
+			isGrid = grid,
+			isDownloadedOnly = downloadedOnly,
+		).orEmpty()
+
+		val reversed = isChaptersReversed.value
+		val query = chaptersQuery.value
 		(if (reversed) list.asReversed() else list).filterSearch(query)
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Eagerly, emptyList())
 

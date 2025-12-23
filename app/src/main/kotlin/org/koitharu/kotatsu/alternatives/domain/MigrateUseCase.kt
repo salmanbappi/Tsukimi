@@ -139,6 +139,7 @@ constructor(
 				page = history.page,
 				scroll = history.scroll,
 				percent = history.percent,
+				maxPercent = history.maxPercent,
 				deletedAt = 0,
 				chaptersCount = chapters.count { it.branch == currentChapter.branch },
 			)
@@ -176,6 +177,7 @@ constructor(
 			page = history.page,
 			scroll = history.scroll,
 			percent = PROGRESS_NONE,
+			maxPercent = history.maxPercent,
 			deletedAt = 0,
 			chaptersCount = checkNotNull(newChapters[newBranch]).size,
 		)

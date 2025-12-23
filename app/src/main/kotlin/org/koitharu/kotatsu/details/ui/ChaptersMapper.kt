@@ -13,6 +13,7 @@ import org.koitharu.kotatsu.parsers.util.mapToSet
 fun MangaDetails.mapChapters(
 	currentChapterId: Long,
 	maxPercent: Float,
+	readChapterIds: Set<Long>,
 	newCount: Int,
 	branch: String?,
 	bookmarks: List<Bookmark>,
@@ -37,10 +38,9 @@ fun MangaDetails.mapChapters(
 		null
 	}
 	if (!isDownloadedOnly || local?.manga?.chapters == null) {
-		for ((index, chapter) in remoteChapters.withIndex()) {
+		for (chapter in remoteChapters) {
 			val local = localMap?.remove(chapter.id)
-			val chapterPercent = index / remoteChapters.size.toFloat()
-			val isUnread = chapterPercent > maxPercent && chapter.id != currentChapterId
+			val isUnread = chapter.id !in readChapterIds && chapter.id != currentChapterId
 			result += (local ?: chapter).toListItem(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
@@ -52,10 +52,8 @@ fun MangaDetails.mapChapters(
 		}
 	}
 	if (!localMap.isNullOrEmpty()) {
-		val totalSize = (remoteChapters.size + localMap.size).toFloat()
-		for ((index, chapter) in localMap.values.withIndex()) {
-			val chapterPercent = (remoteChapters.size + index) / totalSize
-			val isUnread = chapterPercent > maxPercent && chapter.id != currentChapterId
+		for (chapter in localMap.values) {
+			val isUnread = chapter.id !in readChapterIds && chapter.id != currentChapterId
 			result += chapter.toListItem(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,

@@ -16,6 +16,7 @@ class HistoryBackup(
 	@SerialName("page") val page: Int,
 	@SerialName("scroll") val scroll: Float,
 	@SerialName("percent") val percent: Float = PROGRESS_NONE,
+	@SerialName("max_percent") val maxPercent: Float = PROGRESS_NONE,
 	@SerialName("chapters") val chaptersCount: Int = 0,
 	@SerialName("manga") val manga: MangaBackup,
 ) {
@@ -28,6 +29,7 @@ class HistoryBackup(
 		page = entity.history.page,
 		scroll = entity.history.scroll,
 		percent = entity.history.percent,
+		maxPercent = entity.history.maxPercent,
 		chaptersCount = entity.history.chaptersCount,
 		manga = MangaBackup(MangaWithTags(entity.manga, entity.tags)),
 	)
@@ -40,6 +42,7 @@ class HistoryBackup(
 		page = page,
 		scroll = scroll,
 		percent = percent,
+		maxPercent = maxPercent,
 		deletedAt = 0L,
 		chaptersCount = chaptersCount,
 	)

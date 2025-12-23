@@ -110,6 +110,10 @@ class HistoryRepository @Inject constructor(
 		}
 	}
 
+	fun observeReadChapters(mangaId: Long): Flow<List<Long>> {
+		return db.getReadChaptersDao().observeReadChapterIds(mangaId)
+	}
+
 	suspend fun addOrUpdate(manga: Manga, chapterId: Long, page: Int, scroll: Int, percent: Float, force: Boolean) {
 		if (!force && shouldSkip(manga)) {
 			return
@@ -134,6 +138,17 @@ class HistoryRepository @Inject constructor(
 			)
 			newChaptersUseCaseProvider.get()(manga, chapterId)
 			scrobblers.forEach { it.tryScrobble(manga, chapterId) }
+			
+			// Mark chapters as read
+			val branch = manga.chapters?.findById(chapterId)?.branch
+			val chapters = manga.getChapters(branch)
+			val currentIndex = chapters.indexOfFirst { it.id == chapterId }
+			if (currentIndex >= 0) {
+				val readEntities = chapters.take(currentIndex + 1).map {
+					org.koitharu.kotatsu.core.db.entity.ReadChapterEntity(manga.id, it.id)
+				}
+				db.getReadChaptersDao().insert(readEntities)
+			}
 		}
 	}
 
