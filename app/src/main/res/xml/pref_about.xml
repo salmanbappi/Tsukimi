@@ -9,6 +9,13 @@
 		android:persistent="false"
 		android:summary="@string/check_for_updates" />
 
+	<Preference
+		android:key="gemini_optimized"
+		android:persistent="false"
+		android:title="Gemini Optimized"
+		android:summary="This build has been automatically optimized by Gemini CLI"
+		app:iconSpaceReserved="false" />
+
 	<SwitchPreferenceCompat
 		android:defaultValue="false"
 		android:key="updates_unstable"

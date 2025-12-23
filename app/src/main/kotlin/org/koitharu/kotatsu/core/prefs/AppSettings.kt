@@ -838,6 +838,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_CLEAR_MANGA_DATA = "manga_data_clear"
 		const val KEY_STORAGE_USAGE = "storage_usage"
 		const val KEY_WEBVIEW_CLEAR = "webview_clear"
+		const val KEY_GEMINI_OPTIMIZED = "gemini_optimized"
 
 		// old keys are for migration only
 		private const val KEY_IMAGES_PROXY_OLD = "images_proxy"

@@ -55,6 +55,11 @@ class AboutSettingsFragment : BasePreferenceFragment(R.string.about) {
 				true
 			}
 
+			AppSettings.KEY_GEMINI_OPTIMIZED -> {
+				Snackbar.make(listView, "Gemini AI: This build is optimized for performance!", Snackbar.LENGTH_SHORT).show()
+				true
+			}
+
 			AppSettings.KEY_LINK_WEBLATE -> {
 				openLink(R.string.url_weblate, preference.title)
 				true
