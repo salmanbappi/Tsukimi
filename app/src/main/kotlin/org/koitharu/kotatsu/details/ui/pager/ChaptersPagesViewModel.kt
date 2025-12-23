@@ -308,6 +308,7 @@ abstract class ChaptersPagesViewModel(
 	}
 
 	fun deleteChapter(context: android.content.Context, chapterId: Long) {
+		deletionConfirmation.update { it - chapterId }
 		deleteChapters(context, setOf(chapterId))
 	}
 

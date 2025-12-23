@@ -94,6 +94,5 @@ fun chapterListItemAD(
 			}
 		}
 		binding.imageViewBookmarked.isVisible = item.isBookmarked
-		binding.imageViewDownloaded.isVisible = item.isDownloaded && !item.isDeletionConfirmation
 	}
 }
