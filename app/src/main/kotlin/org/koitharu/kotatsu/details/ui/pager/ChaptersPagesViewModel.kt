@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -292,6 +293,20 @@ abstract class ChaptersPagesViewModel(
 	fun toggleDeletionConfirmation(chapterId: Long) {
 		deletionConfirmation.update {
 			if (it.contains(chapterId)) it - chapterId else setOf(chapterId)
+		}
+	}
+
+	fun cancelDownload(chapterId: Long) {
+		launchJob(Dispatchers.Default) {
+			val works = downloadScheduler.observeWorks().first()
+			for (work in works) {
+				if (work.state == androidx.work.WorkInfo.State.RUNNING || work.state == androidx.work.WorkInfo.State.ENQUEUED) {
+					val task = downloadScheduler.getTask(work.id) ?: continue
+					if (task.chaptersIds?.contains(chapterId) == true) {
+						downloadScheduler.cancel(work.id)
+					}
+				}
+			}
 		}
 	}
 

@@ -114,6 +114,7 @@ class ChaptersFragment :
 			when {
 				item.isDeletionConfirmation -> viewModel.deleteChapter(requireContext(), item.chapter.id)
 				item.isDownloaded -> viewModel.toggleDeletionConfirmation(item.chapter.id)
+				item.downloadProgress >= 0 -> viewModel.cancelDownload(item.chapter.id)
 				else -> viewModel.download(setOf(item.chapter.id), false)
 			}
 			return
