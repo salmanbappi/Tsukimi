@@ -30,6 +30,7 @@ import org.koitharu.kotatsu.core.util.LocaleStringComparator
 import org.koitharu.kotatsu.core.util.ext.MutableEventFlow
 import org.koitharu.kotatsu.core.util.ext.call
 import org.koitharu.kotatsu.core.util.ext.combine
+import org.koitharu.kotatsu.core.util.ext.isEmpty
 import org.koitharu.kotatsu.core.util.ext.requireValue
 import org.koitharu.kotatsu.core.util.ext.sortedWithSafe
 import org.koitharu.kotatsu.details.data.MangaDetails
@@ -178,10 +179,27 @@ abstract class ChaptersPagesViewModel(
 		selectedBranch,
 		newChaptersCount,
 		bookmarks,
-		combine(isChaptersInGridView, isDownloadedOnly, deletionConfirmation, downloadingChapters) { grid, downloadedOnly, deletionConfirm, downloading ->
-			ChapterMapArgs(grid, downloadedOnly, deletionConfirm, downloading)
-		}
-	) { details, currentChapterId, maxPercent, readEntities, branch, news, bookmarked, extra ->
+		isChaptersInGridView,
+		isDownloadedOnly,
+		deletionConfirmation,
+		downloadingChapters,
+	) { args: Array<Any?> ->
+		val details = args[0] as? MangaDetails
+		val currentChapterId = args[1] as Long
+		val maxPercent = args[2] as Float
+		@Suppress("UNCHECKED_CAST")
+		val readEntities = args[3] as List<org.koitharu.kotatsu.core.db.entity.ReadChapterEntity>
+		val branch = args[4] as? String
+		val news = args[5] as Int
+		@Suppress("UNCHECKED_CAST")
+		val bookmarked = args[6] as List<Bookmark>
+		val grid = args[7] as Boolean
+		val downloadedOnly = args[8] as Boolean
+		@Suppress("UNCHECKED_CAST")
+		val deletionConfirm = args[9] as Set<Long>
+		@Suppress("UNCHECKED_CAST")
+		val downloading = args[10] as Map<Long, Float>
+
 		details?.mapChapters(
 			currentChapterId = currentChapterId,
 			maxPercent = maxPercent,
@@ -189,19 +207,12 @@ abstract class ChaptersPagesViewModel(
 			newCount = news,
 			branch = branch,
 			bookmarks = bookmarked,
-			isGrid = extra.isGrid,
-			isDownloadedOnly = extra.isDownloadedOnly,
-			deletionConfirmation = extra.deletionConfirmation,
-			downloadingChapters = extra.downloadingChapters,
+			isGrid = grid,
+			isDownloadedOnly = downloadedOnly,
+			deletionConfirmation = deletionConfirm,
+			downloadingChapters = downloading,
 		).orEmpty()
 	}
-
-	private data class ChapterMapArgs(
-		val isGrid: Boolean,
-		val isDownloadedOnly: Boolean,
-		val deletionConfirmation: Set<Long>,
-		val downloadingChapters: Map<Long, Float>
-	)
 
 	val chapters = combine(
 		mappedChapters,
