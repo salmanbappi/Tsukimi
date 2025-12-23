@@ -24,7 +24,8 @@ jobs:
         run: |
           echo "🤖 Gemini CLI is active and taking control of this build."
           echo "📡 Mode: Cloud-Native Auto-Development"
-          echo "🛠️ Tasks: Upstream Sync, Feature Injection, Performance Patching, APK Signing"
+          echo "🔐 Signing: Permanent Personal Key (Update-Ready)"
+          echo "🛠️ Tasks: Upstream Sync, Feature Injection, APK Signing"
           echo "🟢 System Check: OK"
 
       - name: Setup Upstream and Sync
@@ -71,26 +72,18 @@ jobs:
           echo "🚀 Retrying build with fresh environment..."
           ./gradlew assembleRelease --no-daemon
 
-      - name: Sign APK (Self-Signed)
+      - name: Sign APK (Permanent Key)
         if: success()
         id: sign_app
-        run: |
-          # Generate a temporary keystore
-          keytool -genkey -v -keystore temp.keystore -alias gemini -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Gemini, OU=AI, O=Gemini, L=Cloud, S=Cloud, C=US"
-          
-          # Find the unsigned APK
-          UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*-unsigned.apk" | head -n 1)
-          if [ -z "$UNSIGNED_APK" ]; then
-            UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          fi
-          
-          SIGNED_APK="app/build/outputs/apk/release/Gemini-Optimized-Release.apk"
-          
-          # Use apksigner from Android SDK
-          $ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner sign --ks temp.keystore --ks-key-alias gemini --ks-pass pass:password --key-pass pass:password --out "$SIGNED_APK" "$UNSIGNED_APK"
-          
-          echo "SIGNED_APK_PATH=$SIGNED_APK" >> $GITHUB_ENV
-          echo "signed_file=$SIGNED_APK" >> $GITHUB_OUTPUT
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "36.0.0"
 
       - name: Commit and Push Updates
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -103,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: ${{ env.SIGNED_APK_PATH }}
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
@@ -114,9 +107,9 @@ jobs:
           body: |
             ### 🤖 Automated Gemini Build
             - **Sync:** Updated from upstream Yumemi
+            - **Security:** Signed with Permanent Key (Ready for Update)
             - **Optimizations:** Java 17, Build Caching, Parallel Execution
-            - **Status:** Build Successful & APK Signed
             - **Features:** Injected Gemini Optimized Badge
-          files: ${{ env.SIGNED_APK_PATH }}
+          files: ${{ steps.sign_app.outputs.signedReleaseFile }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
