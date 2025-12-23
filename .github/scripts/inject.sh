@@ -51,6 +51,9 @@ sed -i "s/targetCompatibility JavaVersion.VERSION_11/targetCompatibility JavaVer
 sed -i "s/jvmTarget = JavaVersion.VERSION_11.toString()/jvmTarget = JavaVersion.VERSION_17.toString()/" "app/build.gradle"
 
 if [ -f "$GRADLE_PROPS" ]; then
+    # Specific fix for the "8org.gradle.daemon" corruption
+    sed -i 's/8org.gradle.daemon=true/8/' "$GRADLE_PROPS"
+    
     # Ensure file ends with newline before appending
     [ -n "$(tail -c1 "$GRADLE_PROPS")" ] && echo "" >> "$GRADLE_PROPS"
     
