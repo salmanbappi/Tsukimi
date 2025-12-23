@@ -13,7 +13,7 @@ import org.koitharu.kotatsu.parsers.util.mapToSet
 fun MangaDetails.mapChapters(
 	currentChapterId: Long,
 	maxPercent: Float,
-	readChapterIds: Set<Long>,
+	readChapters: List<org.koitharu.kotatsu.core.db.entity.ReadChapterEntity>,
 	newCount: Int,
 	branch: String?,
 	bookmarks: List<Bookmark>,
@@ -25,6 +25,7 @@ fun MangaDetails.mapChapters(
 	if (remoteChapters.isEmpty() && localChapters.isEmpty()) {
 		return emptyList()
 	}
+	val readMap = readChapters.associateBy { it.chapterId }
 	val bookmarked = bookmarks.mapToSet { it.chapterId }
 	val newFrom = if (newCount == 0 || remoteChapters.isEmpty()) Int.MAX_VALUE else remoteChapters.size - newCount
 	val ids = buildSet(maxOf(remoteChapters.size, localChapters.size)) {
@@ -40,27 +41,35 @@ fun MangaDetails.mapChapters(
 	if (!isDownloadedOnly || local?.manga?.chapters == null) {
 		for (chapter in remoteChapters) {
 			val local = localMap?.remove(chapter.id)
-			val isUnread = chapter.id !in readChapterIds && chapter.id != currentChapterId
+			val readEntity = readMap[chapter.id]
+			val isUnread = readEntity == null && chapter.id != currentChapterId
+			val pageText = if (readEntity != null && readEntity.page > 0) "Page ${readEntity.page + 1}" else null
+			
 			result += (local ?: chapter).toListItem(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
 				isNew = isUnread && result.size >= newFrom,
 				isDownloaded = local != null,
 				isBookmarked = chapter.id in bookmarked,
-				isGrid = isGrid,
+				isGrid = grid,
+				descriptionOverride = pageText
 			)
 		}
 	}
 	if (!localMap.isNullOrEmpty()) {
 		for (chapter in localMap.values) {
-			val isUnread = chapter.id !in readChapterIds && chapter.id != currentChapterId
+			val readEntity = readMap[chapter.id]
+			val isUnread = readEntity == null && chapter.id != currentChapterId
+			val pageText = if (readEntity != null && readEntity.page > 0) "Page ${readEntity.page + 1}" else null
+			
 			result += chapter.toListItem(
 				isCurrent = chapter.id == currentChapterId,
 				isUnread = isUnread,
 				isNew = false,
 				isDownloaded = !isLocal,
 				isBookmarked = chapter.id in bookmarked,
-				isGrid = isGrid,
+				isGrid = grid,
+				descriptionOverride = pageText
 			)
 		}
 	}

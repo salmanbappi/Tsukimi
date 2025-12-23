@@ -20,5 +20,6 @@ import org.koitharu.kotatsu.core.db.TABLE_READ_CHAPTERS
 data class ReadChapterEntity(
 	@ColumnInfo(name = "manga_id") val mangaId: Long,
 	@ColumnInfo(name = "chapter_id") val chapterId: Long,
+	@ColumnInfo(name = "page") val page: Int = 0,
 	@ColumnInfo(name = "read_at") val readAt: Long = System.currentTimeMillis(),
 )

@@ -96,6 +96,8 @@ class DetailsInteractor @Inject constructor(
 		return historyRepository.observeReadChapters(mangaId)
 	}
 
+	fun observeReadChaptersEntities(mangaId: Long) = historyRepository.observeReadChaptersEntities(mangaId)
+
 	private fun observeIncognitoMode() = settings.observeAsFlow(AppSettings.KEY_INCOGNITO_MODE) {
 		isIncognitoModeEnabled
 	}

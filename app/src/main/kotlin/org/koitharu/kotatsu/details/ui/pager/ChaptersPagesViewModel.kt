@@ -130,9 +130,9 @@ abstract class ChaptersPagesViewModel(
 		}
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, null)
 
-	val readChapterIds = manga.flatMapLatest {
+	val readChapterEntities = manga.flatMapLatest {
 		if (it != null) {
-			interactor.observeReadChapters(it.id).withErrorHandling()
+			interactor.observeReadChaptersEntities(it.id).withErrorHandling()
 		} else {
 			flowOf(emptyList())
 		}
@@ -142,7 +142,7 @@ abstract class ChaptersPagesViewModel(
 		mangaDetails,
 		readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
 		mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
-		readChapterIds,
+		readChapterEntities,
 		selectedBranch,
 		newChaptersCount,
 		bookmarks,
@@ -152,7 +152,7 @@ abstract class ChaptersPagesViewModel(
 		val details = args[0] as? MangaDetails
 		val currentChapterId = args[1] as Long
 		val maxPercent = args[2] as Float
-		val readIds = args[3] as List<Long>
+		val readEntities = args[3] as List<org.koitharu.kotatsu.core.db.entity.ReadChapterEntity>
 		val branch = args[4] as? String
 		val news = args[5] as Int
 		val bookmarked = args[6] as List<Bookmark>
@@ -162,7 +162,7 @@ abstract class ChaptersPagesViewModel(
 		val list = details?.mapChapters(
 			currentChapterId = currentChapterId,
 			maxPercent = maxPercent,
-			readChapterIds = readIds.toSet(),
+			readChapters = readEntities,
 			newCount = news,
 			branch = branch,
 			bookmarks = bookmarked,

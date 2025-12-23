@@ -13,13 +13,16 @@ interface ReadChaptersDao {
 	@Query("SELECT chapter_id FROM read_chapters WHERE manga_id = :mangaId")
 	fun observeReadChapterIds(mangaId: Long): Flow<List<Long>>
 
+	@Query("SELECT * FROM read_chapters WHERE manga_id = :mangaId")
+	fun observeReadChapters(mangaId: Long): Flow<List<ReadChapterEntity>>
+
 	@Query("SELECT chapter_id FROM read_chapters WHERE manga_id = :mangaId")
 	suspend fun getReadChapterIds(mangaId: Long): List<Long>
 
-	@Insert(onConflict = OnConflictStrategy.IGNORE)
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
 	suspend fun insert(entity: ReadChapterEntity)
 
-	@Insert(onConflict = OnConflictStrategy.IGNORE)
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
 	suspend fun insert(entities: List<ReadChapterEntity>)
 
 	@Query("DELETE FROM read_chapters WHERE manga_id = :mangaId AND chapter_id = :chapterId")

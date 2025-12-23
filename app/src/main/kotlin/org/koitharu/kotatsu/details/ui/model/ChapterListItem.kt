@@ -16,7 +16,6 @@ data class ChapterListItem(
 	private var cachedTitle: String? = null
 
 	var description: String? = null
-		private set
 		get() {
 			if (field != null) return field
 			field = buildDescription()

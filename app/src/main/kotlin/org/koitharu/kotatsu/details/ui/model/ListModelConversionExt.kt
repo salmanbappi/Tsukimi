@@ -16,6 +16,7 @@ fun MangaChapter.toListItem(
 	isDownloaded: Boolean,
 	isBookmarked: Boolean,
 	isGrid: Boolean,
+	descriptionOverride: String? = null,
 ): ChapterListItem {
 	var flags: Byte = 0
 	if (isCurrent) flags = flags or FLAG_CURRENT
@@ -27,5 +28,9 @@ fun MangaChapter.toListItem(
 	return ChapterListItem(
 		chapter = this,
 		flags = flags,
-	)
+	).apply {
+		if (descriptionOverride != null) {
+			description = descriptionOverride
+		}
+	}
 }
