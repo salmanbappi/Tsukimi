@@ -51,7 +51,7 @@ fun MangaDetails.mapChapters(
 				isNew = isUnread && result.size >= newFrom,
 				isDownloaded = local != null,
 				isBookmarked = chapter.id in bookmarked,
-				isGrid = grid,
+				isGrid = isGrid,
 				descriptionOverride = pageText
 			)
 		}
@@ -68,7 +68,7 @@ fun MangaDetails.mapChapters(
 				isNew = false,
 				isDownloaded = !isLocal,
 				isBookmarked = chapter.id in bookmarked,
-				isGrid = grid,
+				isGrid = isGrid,
 				descriptionOverride = pageText
 			)
 		}
