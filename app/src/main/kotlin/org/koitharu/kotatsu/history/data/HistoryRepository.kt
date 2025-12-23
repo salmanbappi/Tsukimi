@@ -121,7 +121,7 @@ class HistoryRepository @Inject constructor(
 		assert(manga.chapters != null)
 		db.withTransaction {
 			mangaRepository.storeManga(manga, replaceExisting = true)
-			val branch = manga.chapters?.findById(chapterId)?.branch
+			val targetBranch = manga.chapters?.findById(chapterId)?.branch
 			db.getHistoryDao().upsert(
 				HistoryEntity(
 					mangaId = manga.id,
@@ -132,7 +132,7 @@ class HistoryRepository @Inject constructor(
 					scroll = scroll.toFloat(), // we migrate to int, but decide to not update database
 					percent = percent,
 					maxPercent = percent,
-					chaptersCount = manga.chapters?.count { it.branch == branch } ?: 0,
+					chaptersCount = manga.chapters?.count { it.branch == targetBranch } ?: 0,
 					deletedAt = 0L,
 				),
 			)
@@ -140,7 +140,7 @@ class HistoryRepository @Inject constructor(
 			scrobblers.forEach { it.tryScrobble(manga, chapterId) }
 			
 			// Mark chapters as read
-			val chapters = manga.getChapters(branch)
+			val chapters = manga.getChapters(targetBranch)
 			val currentIndex = chapters.indexOfFirst { it.id == chapterId }
 			if (currentIndex >= 0) {
 				val readEntities = chapters.take(currentIndex + 1).map {
