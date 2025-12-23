@@ -245,6 +245,9 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_INCOGNITO_MODE, false)
 		set(value) = prefs.edit { putBoolean(KEY_INCOGNITO_MODE, value) }
 
+	val isReaderZenModeEnabled: Boolean
+		get() = prefs.getBoolean(KEY_READER_ZEN_MODE, false)
+
 	val isReaderMultiTaskEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_MULTITASK, false)
 
@@ -758,6 +761,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_READER_CHAPTER_TOAST = "reader_chapter_toast"
 		const val KEY_READER_BACKGROUND = "reader_background"
 		const val KEY_READER_SCREEN_ON = "reader_screen_on"
+		const val KEY_READER_ZEN_MODE = "reader_zen_mode"
 		const val KEY_SHORTCUTS = "dynamic_shortcuts"
 		const val KEY_READER_TAP_ACTIONS = "reader_tap_actions"
 		const val KEY_READER_OPTIMIZE = "reader_optimize"

@@ -169,6 +169,12 @@
 		android:summary="@string/show_pages_numbers_summary"
 		android:title="@string/show_pages_numbers" />
 
+	<SwitchPreferenceCompat
+		android:defaultValue="false"
+		android:key="reader_zen_mode"
+		android:summary="Hide info bar and controls for an immersive reading experience"
+		android:title="Zen Mode" />
+
 	<ListPreference
 		android:defaultValue="2"
 		android:entries="@array/network_policy"
