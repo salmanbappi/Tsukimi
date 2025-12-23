@@ -142,7 +142,7 @@ abstract class ChaptersPagesViewModel(
 		mangaDetails,
 		readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
 		mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
-		readChapterIds.distinctUntilChanged(),
+		readChapterIds,
 		selectedBranch,
 		newChaptersCount,
 		bookmarks,
