@@ -192,7 +192,9 @@ abstract class ChaptersPagesViewModel(
 		val bookmarked = args[6] as List<Bookmark>
 		val grid = args[7] as Boolean
 		val downloadedOnly = args[8] as Boolean
+		@Suppress("UNCHECKED_CAST")
 		val deletionConfirm = args[9] as Set<Long>
+		@Suppress("UNCHECKED_CAST")
 		val downloading = args[10] as Map<Long, Float>
 
 		details?.mapChapters(
