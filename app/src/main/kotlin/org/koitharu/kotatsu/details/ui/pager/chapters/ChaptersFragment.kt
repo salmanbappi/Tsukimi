@@ -141,7 +141,34 @@ class ChaptersFragment :
 	}
 
 	override fun onItemLongClick(item: ChapterListItem, view: View): Boolean {
-		return selectionController?.onItemLongClick(view, item.chapter.id) == true
+		val controller = selectionController ?: return false
+		if (controller.count > 0) {
+			if (!controller.peekCheckedIds().contains(item.chapter.id)) {
+				controller.onItemClick(item.chapter.id)
+			}
+			val allItems = viewModel.chapters.value
+			val selectedIds = controller.peekCheckedIds()
+			var minIndex = -1
+			var maxIndex = -1
+			for ((index, listItem) in allItems.withIndex()) {
+				if (listItem is ChapterListItem && selectedIds.contains(listItem.chapter.id)) {
+					if (minIndex == -1) minIndex = index
+					maxIndex = index
+				}
+			}
+			if (minIndex != -1 && maxIndex != -1 && minIndex != maxIndex) {
+				val rangeIds = HashSet<Long>()
+				for (i in minIndex..maxIndex) {
+					val listItem = allItems[i]
+					if (listItem is ChapterListItem) {
+						rangeIds.add(listItem.chapter.id)
+					}
+				}
+				controller.addAll(rangeIds)
+			}
+			return true
+		}
+		return controller.onItemLongClick(view, item.chapter.id)
 	}
 
 	override fun onItemContextClick(item: ChapterListItem, view: View): Boolean {

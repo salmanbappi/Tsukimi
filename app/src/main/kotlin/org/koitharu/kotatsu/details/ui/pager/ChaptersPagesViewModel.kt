@@ -347,6 +347,21 @@ abstract class ChaptersPagesViewModel(
 		mangaDetails.update {
 			interactor.updateLocal(it, downloadedManga)
 		}
+		// Clear deleting state for chapters that are no longer local or have been updated
+		// Assuming downloadedManga reflects the new state. 
+		// Actually, if we deleted, downloadedManga might be the new state (without those chapters).
+		// We should just remove any IDs that are no longer "downloaded" from deletingChapters?
+		// Or simpler: just clear the specific IDs if we know they are done.
+		// But onDownloadComplete provides the *new* LocalManga. 
+		
+		val currentDeleting = deletingChapters.value
+		if (currentDeleting.isNotEmpty()) {
+			val remainingChapters = downloadedManga.manga.chapters?.map { it.id }?.toSet().orEmpty()
+			val deleted = currentDeleting.filter { it !in remainingChapters }
+			if (deleted.isNotEmpty()) {
+				deletingChapters.update { it - deleted.toSet() }
+			}
+		}
 	}
 
 	class ActivityVMLazy(

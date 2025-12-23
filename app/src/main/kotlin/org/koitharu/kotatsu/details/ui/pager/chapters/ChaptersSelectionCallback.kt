@@ -43,8 +43,8 @@ class ChaptersSelectionCallback(
 			val isLocal = x.isDownloaded || x.chapter.source == LocalMangaSource
 			if (isLocal) canSave = false else canDelete = false
 		}
-		menu.findItem(R.id.action_save).isVisible = canSave
-		menu.findItem(R.id.action_delete).isVisible = canDelete
+		menu.findItem(R.id.action_save).isVisible = false // canSave
+		menu.findItem(R.id.action_delete).isVisible = false // canDelete
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		mode?.title = items.size.toString()
@@ -55,7 +55,7 @@ class ChaptersSelectionCallback(
 				break
 			}
 		}
-		menu.findItem(R.id.action_select_range).isVisible = hasGap
+		menu.findItem(R.id.action_select_range).isVisible = false // hasGap
 		return true
 	}
 
