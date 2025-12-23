@@ -36,7 +36,7 @@ class LocalMangaIndex @Inject constructor(
 
 	override suspend fun emit(value: LocalManga?) {
 		if (value != null) {
-			if (value.manga.chapters.isNullOrEmpty()) {
+			if (value.manga.chapters != null && value.manga.chapters.isEmpty()) {
 				delete(value.manga.id)
 			} else {
 				put(value)
