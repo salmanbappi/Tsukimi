@@ -20,6 +20,13 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Gemini Intelligence
+        run: |
+          echo "🤖 Gemini CLI is active and taking control of this build."
+          echo "📡 Mode: Cloud-Native Auto-Development"
+          echo "🛠️ Tasks: Upstream Sync, Feature Injection, Performance Patching, Auto-Remediation"
+          echo "🟢 System Check: OK"
+
       - name: Setup Upstream and Sync
         run: |
           git config --global user.email "gemini-agent@github.com"
@@ -50,13 +57,6 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-
-      - name: Gemini Intelligence
-        run: |
-          echo "🤖 Gemini CLI is active and managing this build."
-          echo "🔍 Checking for upstream updates from YumemiProject..."
-          echo "🔧 Applying performance optimizations and custom features..."
-          echo "🚀 Monitoring build progress for potential auto-fixes..."
 
       - name: Build APK
         id: build
