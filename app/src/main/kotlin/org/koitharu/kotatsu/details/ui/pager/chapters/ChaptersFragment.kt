@@ -125,10 +125,16 @@ class ChaptersFragment :
 		if (listener != null && listener.onChapterSelected(item.chapter)) {
 			dismissParentDialog()
 		} else {
+			val history = viewModel.mangaHistory.value
+			val (page, scroll) = if (history != null && history.chapterId == item.chapter.id) {
+				history.page to history.scroll
+			} else {
+				(if (item.readPage >= 0) item.readPage else 0) to 0
+			}
 			router.openReader(
 				ReaderIntent.Builder(view.context)
 					.manga(viewModel.getMangaOrNull() ?: return)
-					.state(ReaderState(item.chapter.id, 0, 0))
+					.state(ReaderState(item.chapter.id, page, scroll))
 					.build(),
 			)
 		}
