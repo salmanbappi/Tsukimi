@@ -79,7 +79,7 @@ class ChaptersSelectionCallback(
 					ids.isEmpty() || manga == null -> Unit
 					ids.size == manga.chapters?.size -> viewModel.deleteLocal()
 					else -> {
-						LocalChaptersRemoveService.start(recyclerView.context, manga, ids.toSet())
+						viewModel.deleteChapters(recyclerView.context, ids.toSet())
 						try {
 							Snackbar.make(
 								recyclerView,

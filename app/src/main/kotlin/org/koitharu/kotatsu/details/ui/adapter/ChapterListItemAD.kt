@@ -42,6 +42,28 @@ fun chapterListItemAD(
 		}
 
 		binding.textViewDescription.textAndVisible = description.toString()
+
+		val isDownloading = item.downloadProgress >= 0f
+		binding.progressDownload.isVisible = isDownloading
+		if (isDownloading) {
+			binding.progressDownload.progress = (item.downloadProgress * 100).toInt()
+			binding.buttonDownload.setImageDrawable(null)
+		} else {
+			binding.buttonDownload.setImageResource(
+				when {
+					item.isDeletionConfirmation -> R.drawable.ic_delete
+					item.isDownloaded -> R.drawable.ic_save_ok
+					else -> R.drawable.ic_download
+				}
+			)
+		}
+
+		if (item.isDeletionConfirmation) {
+			binding.buttonDownload.animate().rotation(360f).setDuration(200).start()
+		} else {
+			binding.buttonDownload.rotation = 0f
+		}
+
 		when {
 			item.isCurrent -> {
 				binding.textViewTitle.drawableStart = ContextCompat.getDrawable(context, R.drawable.ic_current_chapter)
@@ -72,6 +94,6 @@ fun chapterListItemAD(
 			}
 		}
 		binding.imageViewBookmarked.isVisible = item.isBookmarked
-		binding.imageViewDownloaded.isVisible = item.isDownloaded
+		binding.imageViewDownloaded.isVisible = item.isDownloaded && !item.isDeletionConfirmation
 	}
 }

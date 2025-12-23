@@ -43,14 +43,31 @@
 			tools:textColor="?android:textColorTertiary" />
 	</LinearLayout>
 
-	<ImageButton
-		android:id="@+id/button_download"
+	<FrameLayout
 		android:layout_width="48dp"
-		android:layout_height="match_parent"
-		android:background="?attr/selectableItemBackgroundBorderless"
-		android:contentDescription="@string/download"
-		android:src="@drawable/ic_download"
-		app:tint="?android:textColorPrimary" />
+		android:layout_height="match_parent">
+
+		<ImageButton
+			android:id="@+id/button_download"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:background="?attr/selectableItemBackgroundBorderless"
+			android:contentDescription="@string/download"
+			android:src="@drawable/ic_download"
+			app:tint="?android:textColorPrimary" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progress_download"
+			android:layout_width="24dp"
+			android:layout_height="24dp"
+			android:layout_gravity="center"
+			android:visibility="gone"
+			app:indicatorSize="24dp"
+			app:trackThickness="2dp"
+			tools:progress="50"
+			tools:visibility="visible" />
+
+	</FrameLayout>
 
 	<ImageView
 		android:id="@+id/imageView_bookmarked"

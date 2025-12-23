@@ -19,6 +19,8 @@ fun MangaChapter.toListItem(
 	descriptionOverride: String? = null,
 	timeAgo: org.koitharu.kotatsu.core.ui.model.DateTimeAgo? = null,
 	readPage: Int = -1,
+	isDeletionConfirmation: Boolean = false,
+	downloadProgress: Float = -1f,
 ): ChapterListItem {
 	var flags: Byte = 0
 	if (isCurrent) flags = flags or FLAG_CURRENT
@@ -27,11 +29,13 @@ fun MangaChapter.toListItem(
 	if (isBookmarked) flags = flags or FLAG_BOOKMARKED
 	if (isDownloaded) flags = flags or FLAG_DOWNLOADED
 	if (isGrid) flags = flags or FLAG_GRID
+	if (isDeletionConfirmation) flags = flags or ChapterListItem.FLAG_DELETION_CONFIRMATION
 	return ChapterListItem(
 		chapter = this,
 		flags = flags,
 		timeAgo = timeAgo,
 		readPage = readPage,
+		downloadProgress = downloadProgress,
 	).apply {
 		if (descriptionOverride != null) {
 			description = descriptionOverride

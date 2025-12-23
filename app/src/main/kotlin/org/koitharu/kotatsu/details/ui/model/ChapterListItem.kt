@@ -13,6 +13,7 @@ data class ChapterListItem(
 	val flags: Byte,
 	val timeAgo: org.koitharu.kotatsu.core.ui.model.DateTimeAgo? = null,
 	val readPage: Int = -1,
+	val downloadProgress: Float = -1f,
 ) : ListModel {
 
 	private var cachedTitle: String? = null
@@ -54,6 +55,9 @@ data class ChapterListItem(
 
 	val isGrid: Boolean
 		get() = hasFlag(FLAG_GRID)
+
+	val isDeletionConfirmation: Boolean
+		get() = hasFlag(FLAG_DELETION_CONFIRMATION)
 
 	operator fun contains(query: String): Boolean = with(chapter) {
 		title?.contains(query, ignoreCase = true) == true
@@ -113,5 +117,6 @@ data class ChapterListItem(
 		const val FLAG_BOOKMARKED: Byte = 16
 		const val FLAG_DOWNLOADED: Byte = 32
 		const val FLAG_GRID: Byte = 64
+		const val FLAG_DELETION_CONFIRMATION: Byte = -128
 	}
 }

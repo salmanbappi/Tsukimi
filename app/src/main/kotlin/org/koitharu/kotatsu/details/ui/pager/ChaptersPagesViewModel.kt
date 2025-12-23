@@ -44,6 +44,7 @@ import org.koitharu.kotatsu.history.data.HistoryRepository
 import org.koitharu.kotatsu.list.domain.ListFilterOption
 import org.koitharu.kotatsu.local.domain.DeleteLocalMangaUseCase
 import org.koitharu.kotatsu.local.domain.model.LocalManga
+import org.koitharu.kotatsu.local.ui.LocalChaptersRemoveService
 import org.koitharu.kotatsu.parsers.model.Manga
 import org.koitharu.kotatsu.parsers.model.MangaState
 import org.koitharu.kotatsu.reader.ui.ReaderActivity
@@ -91,6 +92,37 @@ abstract class ChaptersPagesViewModel(
 	)
 
 	val isDownloadedOnly = MutableStateFlow(false)
+	private val deletionConfirmation = MutableStateFlow(emptySet<Long>())
+
+	private val downloadingChapters = combine(
+		downloadScheduler.observeWorks(),
+		manga,
+	) { works, manga ->
+		if (manga == null) return@combine emptyMap<Long, Float>()
+		val mangaWorks = works.filter {
+			it.state == androidx.work.WorkInfo.State.RUNNING || it.state == androidx.work.WorkInfo.State.ENQUEUED
+		}.filter {
+			val data = it.progress.takeUnless { p -> p.isEmpty } ?: it.outputData
+			org.koitharu.kotatsu.download.domain.DownloadState.getMangaId(data) == manga.id
+		}
+		if (mangaWorks.isEmpty()) return@combine emptyMap<Long, Float>()
+
+		val progressMap = mutableMapOf<Long, Float>()
+		for (work in mangaWorks) {
+			val data = work.progress.takeUnless { p -> p.isEmpty } ?: work.outputData
+			val task = downloadScheduler.getTask(work.id) ?: continue
+			val chapterIds = task.chaptersIds ?: manga.chapters?.map { it.id }?.toLongArray() ?: continue
+			
+			val totalProgress = org.koitharu.kotatsu.download.domain.DownloadState.getProgress(data).toFloat()
+			val maxProgress = org.koitharu.kotatsu.download.domain.DownloadState.getMax(data).toFloat()
+			val currentPercent = if (maxProgress > 0) totalProgress / maxProgress else 0f
+			
+			for (id in chapterIds) {
+				progressMap[id] = currentPercent
+			}
+		}
+		progressMap
+	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, emptyMap())
 
 	val newChaptersCount = mangaDetails.flatMapLatest { d ->
 		if (d?.isLocal == false) {
@@ -148,6 +180,8 @@ abstract class ChaptersPagesViewModel(
 		bookmarks,
 		isChaptersInGridView,
 		isDownloadedOnly,
+		deletionConfirmation,
+		downloadingChapters,
 	) { args: Array<Any?> ->
 		val details = args[0] as? MangaDetails
 		val currentChapterId = args[1] as Long
@@ -158,6 +192,8 @@ abstract class ChaptersPagesViewModel(
 		val bookmarked = args[6] as List<Bookmark>
 		val grid = args[7] as Boolean
 		val downloadedOnly = args[8] as Boolean
+		val deletionConfirm = args[9] as Set<Long>
+		val downloading = args[10] as Map<Long, Float>
 
 		details?.mapChapters(
 			currentChapterId = currentChapterId,
@@ -168,6 +204,8 @@ abstract class ChaptersPagesViewModel(
 			bookmarks = bookmarked,
 			isGrid = grid,
 			isDownloadedOnly = downloadedOnly,
+			deletionConfirmation = deletionConfirm,
+			downloadingChapters = downloading,
 		).orEmpty()
 	}
 
@@ -241,6 +279,12 @@ abstract class ChaptersPagesViewModel(
 		}
 	}
 
+	fun toggleDeletionConfirmation(chapterId: Long) {
+		deletionConfirmation.update {
+			if (it.contains(chapterId)) it - chapterId else setOf(chapterId)
+		}
+	}
+
 	fun download(chaptersIds: Set<Long>?, allowMeteredNetwork: Boolean) {
 		launchJob(Dispatchers.Default) {
 			val manga = requireManga()
@@ -255,6 +299,16 @@ abstract class ChaptersPagesViewModel(
 			)
 			downloadScheduler.schedule(setOf(manga to task))
 			onDownloadStarted.call(Unit)
+		}
+	}
+
+	fun deleteChapter(context: android.content.Context, chapterId: Long) {
+		deleteChapters(context, setOf(chapterId))
+	}
+
+	fun deleteChapters(context: android.content.Context, chaptersIds: Set<Long>) {
+		launchJob(Dispatchers.Default) {
+			LocalChaptersRemoveService.start(context, requireManga(), chaptersIds)
 		}
 	}
 
