@@ -140,7 +140,6 @@ class HistoryRepository @Inject constructor(
 			scrobblers.forEach { it.tryScrobble(manga, chapterId) }
 			
 			// Mark chapters as read
-			val branch = manga.chapters?.findById(chapterId)?.branch
 			val chapters = manga.getChapters(branch)
 			val currentIndex = chapters.indexOfFirst { it.id == chapterId }
 			if (currentIndex >= 0) {
