@@ -121,18 +121,28 @@ abstract class ChaptersPagesViewModel(
 		}
 	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, emptyList())
 
+	val mangaHistory = manga.flatMapLatest {
+		if (it != null) {
+			historyRepository.observeOne(it.id).withErrorHandling()
+		} else {
+			flowOf(null)
+		}
+	}.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Lazily, null)
+
 	val chapters = combine(
 		combine(
 			mangaDetails,
 			readingState.map { it?.chapterId ?: 0L }.distinctUntilChanged(),
+			mangaHistory.map { it?.maxPercent ?: 0f }.distinctUntilChanged(),
 			selectedBranch,
 			newChaptersCount,
 			bookmarks,
 			isChaptersInGridView,
 			isDownloadedOnly,
-		) { manga, currentChapterId, branch, news, bookmarks, grid, downloadedOnly ->
+		) { manga, currentChapterId, maxPercent, branch, news, bookmarks, grid, downloadedOnly ->
 			manga?.mapChapters(
 				currentChapterId = currentChapterId,
+				maxPercent = maxPercent,
 				newCount = news,
 				branch = branch,
 				bookmarks = bookmarks,

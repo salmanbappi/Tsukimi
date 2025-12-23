@@ -27,6 +27,7 @@ data class HistoryEntity(
 	@ColumnInfo(name = "page") val page: Int,
 	@ColumnInfo(name = "scroll") val scroll: Float,
 	@ColumnInfo(name = "percent") val percent: Float,
+	@ColumnInfo(name = "max_percent", defaultValue = "0") val maxPercent: Float,
 	@ColumnInfo(name = "deleted_at") val deletedAt: Long,
 	@ColumnInfo(name = "chapters") val chaptersCount: Int,
 )

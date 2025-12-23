@@ -125,7 +125,7 @@ abstract class HistoryDao : MangaQueryBuilder.ConditionCallback {
 	abstract suspend fun insert(entity: HistoryEntity): Long
 
 	@Query(
-		"UPDATE history SET page = :page, chapter_id = :chapterId, scroll = :scroll, percent = :percent, updated_at = :updatedAt, chapters = :chapters, deleted_at = 0 WHERE manga_id = :mangaId",
+		"UPDATE history SET page = :page, chapter_id = :chapterId, scroll = :scroll, percent = :percent, max_percent = MAX(max_percent, :percent), updated_at = :updatedAt, chapters = :chapters, deleted_at = 0 WHERE manga_id = :mangaId",
 	)
 	abstract suspend fun update(
 		mangaId: Long,

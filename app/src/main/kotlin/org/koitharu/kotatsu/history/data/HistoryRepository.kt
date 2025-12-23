@@ -127,6 +127,7 @@ class HistoryRepository @Inject constructor(
 					page = page,
 					scroll = scroll.toFloat(), // we migrate to int, but decide to not update database
 					percent = percent,
+					maxPercent = percent,
 					chaptersCount = manga.chapters?.count { it.branch == branch } ?: 0,
 					deletedAt = 0L,
 				),
