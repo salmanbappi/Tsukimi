@@ -90,7 +90,7 @@ class AppUpdateRepository @Inject constructor(
 
 	@Suppress("KotlinConstantConditions")
 	suspend fun isUpdateSupported(): Boolean {
-		return BuildConfig.BUILD_TYPE != BUILD_TYPE_RELEASE || appValidator.isOriginalApp.getOrNull() == true
+		return true
 	}
 
 	private inline fun JSONArray.find(predicate: (JSONObject) -> Boolean): JSONObject? {
