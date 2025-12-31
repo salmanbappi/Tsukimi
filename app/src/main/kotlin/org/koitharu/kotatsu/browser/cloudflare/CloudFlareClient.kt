@@ -32,6 +32,29 @@ class CloudFlareClient(
 	override fun onPageFinished(webView: WebView, url: String) {
 		super.onPageFinished(webView, url)
 		callback.onPageLoaded()
+		webView.evaluateJavascript(
+			"""
+			(function() {
+				function click() {
+					const checkbox = document.querySelector('#challenge-stage input[type="checkbox"]') ||
+									 document.querySelector('input[name="cf-turnstile-response"]');
+					if (checkbox) {
+						checkbox.click();
+					} else {
+						// Look in shadow roots
+						document.querySelectorAll('*').forEach(el => {
+							if (el.shadowRoot) {
+								const cb = el.shadowRoot.querySelector('input[type="checkbox"]');
+								if (cb) cb.click();
+							}
+						});
+					}
+				}
+				setInterval(click, 1000);
+			})();
+			""".trimIndent(),
+			null
+		)
 	}
 
 	fun reset() {
