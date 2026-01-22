@@ -28,6 +28,12 @@
 		app:showAsAction="ifRoom|withText" />
 
 	<item
+		android:id="@+id/action_mark_read"
+		android:icon="@drawable/ic_eye_check"
+		android:title="@string/mark_read"
+		app:showAsAction="ifRoom|withText" />
+
+	<item
 		android:id="@+id/action_select_range"
 		android:icon="@drawable/ic_select_range"
 		android:title="@string/select_range"

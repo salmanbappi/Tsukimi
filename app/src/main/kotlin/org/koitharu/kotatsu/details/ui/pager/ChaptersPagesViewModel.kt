@@ -307,6 +307,13 @@ abstract class ChaptersPagesViewModel(
 		}
 	}
 
+	fun markChaptersAsRead(chaptersIds: List<Long>) {
+		launchJob(Dispatchers.Default) {
+			val details = mangaDetails.value ?: return@launchJob
+			historyRepository.markChaptersAsRead(details.id, chaptersIds)
+		}
+	}
+
 	fun toggleDeletionConfirmation(chapterId: Long) {
 		deletionConfirmation.update {
 			if (it.contains(chapterId)) it - chapterId else setOf(chapterId)

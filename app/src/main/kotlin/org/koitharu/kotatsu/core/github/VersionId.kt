@@ -58,10 +58,21 @@ fun VersionId(versionName: String): VersionId {
 	val sanitized = versionName.dropWhile { !it.isDigit() }
 	val parts = sanitized.substringBeforeLast('-').split('.')
 	val variant = sanitized.substringAfterLast('-', "")
+	
+	val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+	val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+	val build = parts.getOrNull(2)?.toIntOrNull() ?: 0
+
+	// Special handling for old tags like v71-gemini which should be considered older than 2.1.0
+	// If there's only one part and it's large, but the current version has 3 parts, 
+	// it's likely an old run-number based tag.
+	val finalMajor = if (parts.size == 1 && major > 50) 0 else major
+	val finalBuild = if (parts.size == 1 && major > 50) major else build
+
 	return VersionId(
-		major = parts.getOrNull(0)?.toIntOrNull() ?: 0,
-		minor = parts.getOrNull(1)?.toIntOrNull() ?: 0,
-		build = parts.getOrNull(2)?.toIntOrNull() ?: 0,
+		major = finalMajor,
+		minor = minor,
+		build = finalBuild,
 		variantType = variant.filter(Char::isLetter),
 		variantNumber = variant.filter(Char::isDigit).toIntOrNull() ?: 0,
 	)

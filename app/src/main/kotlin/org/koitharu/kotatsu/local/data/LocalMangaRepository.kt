@@ -155,7 +155,16 @@ class LocalMangaRepository @Inject constructor(
 		}.manga
 		LocalMangaUtil(subject).deleteChapters(ids)
 		val updated = getDetails(subject)
-		localStorageChanges.emit(LocalManga(updated))
+		if (updated.chapters.isNullOrEmpty()) {
+			// All chapters removed, delete root directory and index
+			val file = subject.url.toUri().toFile()
+			if (file.deleteAwait()) {
+				localMangaIndex.delete(subject.id)
+				localStorageChanges.emit(null)
+			}
+		} else {
+			localStorageChanges.emit(LocalManga(updated))
+		}
 	}
 
 	suspend fun getRemoteManga(localManga: Manga): Manga? {

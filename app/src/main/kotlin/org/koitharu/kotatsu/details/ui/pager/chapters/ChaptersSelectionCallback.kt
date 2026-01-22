@@ -13,6 +13,7 @@ import org.koitharu.kotatsu.core.model.LocalMangaSource
 import org.koitharu.kotatsu.core.nav.AppRouter
 import org.koitharu.kotatsu.core.ui.list.BaseListSelectionCallback
 import org.koitharu.kotatsu.core.ui.list.ListSelectionController
+import org.koitharu.kotatsu.core.util.ext.asArrayList
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
 import org.koitharu.kotatsu.core.util.ext.toCollection
 import org.koitharu.kotatsu.core.util.ext.toSet
@@ -51,6 +52,7 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
+		menu.findItem(R.id.action_mark_read).isVisible = items.isNotEmpty()
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {
@@ -132,11 +134,11 @@ class ChaptersSelectionCallback(
 				true
 			}
 
-			R.id.action_mark_current -> {
+			R.id.action_mark_up_to -> {
 				val ids = controller.peekCheckedIds()
 				if (ids.size == 1) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-					viewModel.markChapterAsCurrent(ids.first())
+					viewModel.markAsReadUpTo(ids.first())
 				} else {
 					return false
 				}
@@ -144,11 +146,11 @@ class ChaptersSelectionCallback(
 				true
 			}
 
-			R.id.action_mark_up_to -> {
+			R.id.action_mark_read -> {
 				val ids = controller.peekCheckedIds()
-				if (ids.size == 1) {
+				if (ids.isNotEmpty()) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-					viewModel.markAsReadUpTo(ids.first())
+					viewModel.markChaptersAsRead(ids.asArrayList())
 				} else {
 					return false
 				}

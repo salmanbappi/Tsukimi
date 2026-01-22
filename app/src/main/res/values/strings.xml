@@ -352,6 +352,7 @@
     <string name="prefetch_content">Content preloading</string>
     <string name="mark_as_current">Mark as current</string>
     <string name="mark_up_to_here">Mark as read up to here</string>
+    <string name="mark_read">Mark as read</string>
     <string name="language">Language</string>
     <string name="share_logs">Share logs</string>
     <string name="enable_logging">Enable logging</string>
