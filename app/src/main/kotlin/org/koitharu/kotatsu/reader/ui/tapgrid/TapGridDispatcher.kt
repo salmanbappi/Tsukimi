@@ -34,7 +34,7 @@ class TapGridDispatcher(
 		return listener.onGridTouch(area)
 	}
 
-	override fun onDoubleTapConfirmed(event: MotionEvent): Boolean {
+	override fun onDoubleTap(event: MotionEvent): Boolean {
 		if (!isDispatching) {
 			return true
 		}

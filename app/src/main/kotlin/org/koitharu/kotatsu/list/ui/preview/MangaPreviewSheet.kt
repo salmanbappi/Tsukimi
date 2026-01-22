@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.commit
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.model.parcelable.ParcelableManga
@@ -25,16 +26,20 @@ class MangaPreviewSheet : BaseAdaptiveSheet<SheetMangaPreviewBinding>() {
 		binding.headerBar.setTitle(manga.title)
 		if (savedInstanceState == null) {
 			childFragmentManager.commit {
-				replace(R.id.preview_container, PreviewFragment().withArgs {
+				replace(R.id.preview_container, PreviewFragment().withArgs(1) {
 					putParcelable(AppRouter.KEY_MANGA, ParcelableManga(manga))
 				})
 			}
 		}
 	}
 
+	override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat {
+		return insets
+	}
+
 	companion object {
 		fun newInstance(manga: Manga): MangaPreviewSheet {
-			return MangaPreviewSheet().withArgs {
+			return MangaPreviewSheet().withArgs(1) {
 				putParcelable(AppRouter.KEY_MANGA, ParcelableManga(manga))
 			}
 		}

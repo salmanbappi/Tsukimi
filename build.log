@@ -1,0 +1,8 @@
+Downloading https://services.gradle.org/distributions/gradle-9.0.0-bin.zip
+................................................................................................................................
+Unzipping /data/data/com.termux/files/home/.gradle/wrapper/dists/gradle-9.0.0-bin/d6wjpkvcgsg3oed0qlfss3wgl/gradle-9.0.0-bin.zip to /data/data/com.termux/files/home/.gradle/wrapper/dists/gradle-9.0.0-bin/d6wjpkvcgsg3oed0qlfss3wgl
+Set executable permissions for: /data/data/com.termux/files/home/.gradle/wrapper/dists/gradle-9.0.0-bin/d6wjpkvcgsg3oed0qlfss3wgl/gradle-9.0.0/bin/gradle
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.0.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no cached configuration is available for tasks: assembleRelease
+Watching the file system is not supported.
