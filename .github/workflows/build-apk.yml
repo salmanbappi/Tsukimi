@@ -71,7 +71,9 @@ jobs:
 
       - name: Build APK
         id: build
-        run: ./gradlew assembleRelease --no-daemon
+        run: |
+          ./gradlew assembleRelease --no-daemon
+          echo "APP_VERSION=$(grep 'versionName' app/build.gradle | head -n 1 | awk -F\"'\" '{print $2}')" >> $GITHUB_ENV
 
       - name: Gemini Auto-Remediation (Failure Cleanup)
         if: failure()
@@ -117,14 +119,14 @@ jobs:
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1.0-gemini.${{ github.run_number }}
-          name: Gemini Optimized v2.1.0 (Build ${{ github.run_number }})
+          tag_name: v${{ env.APP_VERSION }}-gemini.${{ github.run_number }}
+          name: Gemini Optimized v${{ env.APP_VERSION }} (Build ${{ github.run_number }})
           body: |
-            ### 🤖 Automated Gemini Build v2.1.0
+            ### 🤖 Automated Gemini Build v${{ env.APP_VERSION }}
             - **Sync:** Updated from upstream Yumemi
             - **Auto-Update:** Fixed version parsing logic for Gemini builds
             - **Animations:** Added smooth layout animations to lists
-            - **Functions:** Added 'Mark as read up to here' feature
+            - **Functions:** Added 'Mark as read' and 'Mark as read up to here' features
             - **Security:** Signed with Permanent Key
             - **Status:** Build Successful & Clean
           files: ${{ steps.sign_app.outputs.signedReleaseFile }}
