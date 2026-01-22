@@ -1,6 +1,8 @@
 
 ### 🤖 Gemini AI Enhancements
 
+- **Security:** Re-engineered Cloudflare solver with User-Agent sync and human-like interaction scripts.
+
 - **Feature:** Unified 'Mark Selected as Read' and 'Mark as Read Up to Here' (now reverse-mode safe).
 
 - **UX:** Implemented 'Long Press to Preview' using an adaptive BottomSheet.

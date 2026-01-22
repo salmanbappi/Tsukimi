@@ -52,6 +52,13 @@ class CloudFlareActivity : BaseBrowserActivity(), CloudFlareCallback {
 			finishAfterTransition()
 			return
 		}
+		
+		// Synchronize User-Agent
+		val sourceUserAgent = repository?.getRequestHeaders()?.get(CommonHeaders.USER_AGENT)
+		if (!sourceUserAgent.isNullOrEmpty()) {
+			viewBinding.webView.settings.userAgentString = sourceUserAgent
+		}
+
 		cfClient = CloudFlareClient(cookieJar, this, adBlock, url)
 		viewBinding.webView.webViewClient = cfClient
 		lifecycleScope.launch {

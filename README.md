@@ -29,9 +29,10 @@ This fork includes several enhancements distinguishing it from the original Yuki
 *   **Manga Preview Sheet:** Long-pressing any manga in lists now opens a quick **BottomSheet preview**.
 *   **Concurrent Download Controls:** Added granular controls in Download Settings to adjust **Parallel Source Downloads** (up to 10) and **Parallel Page Downloads** (up to 15) for maximum performance.
 *   **Haptic Feedback:** Added subtle tactile feedback to meaningful actions like clicks, long-presses, and selection mode entry for a more responsive feel.
+*   **Cloudflare Bypass 2.0:** Re-engineered the Cloudflare solver with User-Agent synchronization and randomized interaction logic to improve success rates against modern Turnstile challenges.
 *   **Smooth Layout Animations:** Lists throughout the app now feature a graceful **"fall down" animation** when loading.
 *   **Optimized Auto-Update:** Improved version parsing to handle semantic tags correctly.
-*   **Version 3.0.0:** Major version bump to 3.0.0 with unified progress tracking and stability fixes.
+*   **Version 3.0.1:** Critical bug fixes for Cloudflare bypass and stability improvements.
 
 ### 🎨 Branding
 *   **Custom App Icon:** Updated the application launcher icon.

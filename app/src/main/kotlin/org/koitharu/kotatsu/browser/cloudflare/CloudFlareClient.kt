@@ -35,22 +35,62 @@ class CloudFlareClient(
 		webView.evaluateJavascript(
 			"""
 			(function() {
-				function click() {
-					const checkbox = document.querySelector('#challenge-stage input[type="checkbox"]') ||
-									 document.querySelector('input[name="cf-turnstile-response"]');
-					if (checkbox) {
-						checkbox.click();
-					} else {
-						// Look in shadow roots
-						document.querySelectorAll('*').forEach(el => {
-							if (el.shadowRoot) {
-								const cb = el.shadowRoot.querySelector('input[type="checkbox"]');
-								if (cb) cb.click();
-							}
-						});
-					}
+				const MIN_DELAY = 1500;
+				const MAX_DELAY = 3500;
+				
+				function getRandomDelay() {
+					return Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
 				}
-				setInterval(click, 1000);
+
+				function findCheckbox(root) {
+					return root.querySelector('#challenge-stage input[type="checkbox"]') ||
+						   root.querySelector('input[name="cf-turnstile-response"]') ||
+						   root.querySelector('.ctp-checkbox-container input');
+				}
+
+				function attemptClick() {
+					const checkbox = findCheckbox(document);
+					if (checkbox) {
+						setTimeout(() => checkbox.click(), getRandomDelay());
+						return true;
+					}
+					
+					// Look in shadow roots
+					const all = document.querySelectorAll('*');
+					for (let i = 0; i < all.length; i++) {
+						const el = all[i];
+						if (el.shadowRoot) {
+							const cb = findCheckbox(el.shadowRoot);
+							if (cb) {
+								setTimeout(() => cb.click(), getRandomDelay());
+								return true;
+							}
+						}
+					}
+					return false;
+				}
+
+				// MutationObserver to watch for dynamic injection of the challenge
+				const observer = new MutationObserver((mutations) => {
+					if (attemptClick()) {
+						observer.disconnect();
+					}
+				});
+				
+				observer.observe(document.body, { childList: true, subtree: true });
+				
+				// Initial attempt
+				if (attemptClick()) {
+					observer.disconnect();
+				}
+				
+				// Failsafe interval
+				const interval = setInterval(() => {
+					if (attemptClick()) {
+						clearInterval(interval);
+						observer.disconnect();
+					}
+				}, 4000);
 			})();
 			""".trimIndent(),
 			null
