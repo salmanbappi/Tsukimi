@@ -298,11 +298,7 @@ abstract class ChaptersPagesViewModel(
 			val index = allChapters.indexOfFirst { it.id == chapterId }
 			if (index == -1) return@launchJob
 
-			val chaptersToMark = if (settings.isChaptersReverse) {
-				allChapters.subList(index, allChapters.size)
-			} else {
-				allChapters.subList(0, index + 1)
-			}
+			val chaptersToMark = allChapters.subList(0, index + 1)
 			historyRepository.markChaptersAsRead(details.id, chaptersToMark.map { it.id })
 		}
 	}
