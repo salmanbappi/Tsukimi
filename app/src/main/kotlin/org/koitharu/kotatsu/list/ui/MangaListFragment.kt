@@ -154,6 +154,7 @@ abstract class MangaListFragment :
 	}
 
 	override fun onItemClick(item: MangaListModel, view: View) {
+		view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
 		if (selectionController?.onItemClick(item.id) != true) {
 			val manga = item.toMangaWithOverride()
 			if ((activity as? MangaListActivity)?.showPreview(manga) != true) {
@@ -163,6 +164,11 @@ abstract class MangaListFragment :
 	}
 
 	override fun onItemLongClick(item: MangaListModel, view: View): Boolean {
+		view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+		if (selectionController?.count == 0) {
+			router.showMangaPreview(item.toMangaWithOverride())
+			return true
+		}
 		return selectionController?.onItemLongClick(view, item.id) == true
 	}
 

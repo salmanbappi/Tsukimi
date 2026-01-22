@@ -1,5 +1,6 @@
 package org.koitharu.kotatsu.details.ui.pager.chapters
 
+import android.view.HapticFeedbackConstants
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -29,12 +30,14 @@ class ChaptersSelectionCallback(
 		menuInflater: MenuInflater,
 		menu: Menu
 	): Boolean {
+		recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 		menuInflater.inflate(R.menu.mode_chapters, menu)
 		return true
 	}
 
 	override fun onPrepareActionMode(controller: ListSelectionController, mode: ActionMode?, menu: Menu): Boolean {
 		val selectedIds = controller.peekCheckedIds()
+		recyclerView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
 		val allItems = viewModel.chapters.value
 		val items = allItems.withIndex().filter { it.value.chapter.id in selectedIds }
 		var canSave = true
@@ -47,6 +50,7 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_delete).isVisible = false // canDelete
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
+		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {
@@ -131,7 +135,20 @@ class ChaptersSelectionCallback(
 			R.id.action_mark_current -> {
 				val ids = controller.peekCheckedIds()
 				if (ids.size == 1) {
+					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 					viewModel.markChapterAsCurrent(ids.first())
+				} else {
+					return false
+				}
+				mode?.finish()
+				true
+			}
+
+			R.id.action_mark_up_to -> {
+				val ids = controller.peekCheckedIds()
+				if (ids.size == 1) {
+					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+					viewModel.markAsReadUpTo(ids.first())
 				} else {
 					return false
 				}

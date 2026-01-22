@@ -26,6 +26,24 @@
 		android:title="@string/download_over_cellular"
 		app:useSimpleSummaryProvider="true" />
 
+	<SeekBarPreference
+		android:defaultValue="5"
+		android:key="concurrent_source_downloads"
+		android:max="10"
+		app:min="1"
+		android:summary="@string/concurrent_source_downloads_summary"
+		android:title="@string/concurrent_source_downloads"
+		app:showSeekBarValue="true" />
+
+	<SeekBarPreference
+		android:defaultValue="5"
+		android:key="concurrent_page_downloads"
+		android:max="15"
+		app:min="1"
+		android:summary="@string/concurrent_page_downloads_summary"
+		android:title="@string/concurrent_page_downloads"
+		app:showSeekBarValue="true" />
+
 	<Preference
 		android:icon="@drawable/ic_info_outline"
 		android:key="tracker_notifications_info"

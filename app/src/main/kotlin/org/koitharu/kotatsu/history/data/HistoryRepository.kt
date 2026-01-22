@@ -154,6 +154,19 @@ class HistoryRepository @Inject constructor(
 		}
 	}
 
+	suspend fun markChaptersAsRead(mangaId: Long, chaptersIds: List<Long>) {
+		db.withTransaction {
+			val entities = chaptersIds.map {
+				org.koitharu.kotatsu.core.db.entity.ReadChapterEntity(
+					mangaId = mangaId,
+					chapterId = it,
+					page = 0
+				)
+			}
+			db.getReadChaptersDao().insert(entities)
+		}
+	}
+
 	suspend fun getOne(manga: Manga): MangaHistory? {
 		return db.getHistoryDao().find(manga.id)?.recoverIfNeeded(manga)?.toMangaHistory()
 	}

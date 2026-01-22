@@ -55,8 +55,9 @@ fun VersionId(versionName: String): VersionId {
 			variantNumber = 0,
 		)
 	}
-	val parts = versionName.substringBeforeLast('-').split('.')
-	val variant = versionName.substringAfterLast('-', "")
+	val sanitized = versionName.dropWhile { !it.isDigit() }
+	val parts = sanitized.substringBeforeLast('-').split('.')
+	val variant = sanitized.substringAfterLast('-', "")
 	return VersionId(
 		major = parts.getOrNull(0)?.toIntOrNull() ?: 0,
 		minor = parts.getOrNull(1)?.toIntOrNull() ?: 0,

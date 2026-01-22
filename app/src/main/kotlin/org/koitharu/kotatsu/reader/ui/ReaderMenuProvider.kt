@@ -16,6 +16,11 @@ class ReaderMenuProvider(
 
 	override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
 		return when (menuItem.itemId) {
+			R.id.action_refresh -> {
+				viewModel.reload()
+				true
+			}
+
 			R.id.action_info -> {
 				// TODO
 				true

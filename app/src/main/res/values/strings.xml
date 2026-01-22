@@ -351,6 +351,7 @@
     <string name="source_disabled">Source disabled</string>
     <string name="prefetch_content">Content preloading</string>
     <string name="mark_as_current">Mark as current</string>
+    <string name="mark_up_to_here">Mark as read up to here</string>
     <string name="language">Language</string>
     <string name="share_logs">Share logs</string>
     <string name="enable_logging">Enable logging</string>
@@ -593,7 +594,11 @@
     <string name="check_for_new_chapters_disabled">Checking for new chapters is disabled</string>
     <string name="show_labels_in_navbar">Show labels in navigation bar</string>
     <string name="pages_saving">Saving pages</string>
-    <string name="ask_for_dest_dir_every_time">Ask for the destination dir every time</string>
+    <string name="ask_for_dest_dir_every_time">Ask for destination directory every time</string>
+    <string name="concurrent_source_downloads">Concurrent source downloads</string>
+    <string name="concurrent_page_downloads">Concurrent page downloads</string>
+    <string name="concurrent_source_downloads_summary">How many different chapters will be downloaded at the same time</string>
+    <string name="concurrent_page_downloads_summary">How many pages within a single chapter will be downloaded at the same time</string>
     <string name="default_page_save_dir">Default page save directory</string>
     <string name="remove_from_history">Remove from history</string>
     <string name="location">Location</string>

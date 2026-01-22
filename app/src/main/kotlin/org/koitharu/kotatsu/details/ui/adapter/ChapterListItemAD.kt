@@ -1,5 +1,6 @@
 package org.koitharu.kotatsu.details.ui.adapter
 
+import android.view.HapticFeedbackConstants
 import android.graphics.Typeface
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -24,7 +25,10 @@ fun chapterListItemAD(
 ) {
 
 	AdapterDelegateClickListenerAdapter(this, clickListener).attach(itemView)
-	binding.buttonDownload.setOnClickListener { clickListener.onItemClick(item, it) }
+	binding.buttonDownload.setOnClickListener { 
+		it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+		clickListener.onItemClick(item, it) 
+	}
 
 	bind {
 		binding.textViewTitle.text = item.getTitle(context.resources)

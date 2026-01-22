@@ -588,6 +588,14 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	val isAutoLocalChaptersCleanupEnabled: Boolean
 		get() = prefs.getBoolean(KEY_CHAPTERS_CLEAR_AUTO, false)
 
+	var concurrentSourceDownloads: Int
+		get() = prefs.getInt(KEY_CONCURRENT_SOURCE_DOWNLOADS, 5)
+		set(value) = prefs.edit { putInt(KEY_CONCURRENT_SOURCE_DOWNLOADS, value) }
+
+	var concurrentPageDownloads: Int
+		get() = prefs.getInt(KEY_CONCURRENT_PAGE_DOWNLOADS, 5)
+		set(value) = prefs.edit { putInt(KEY_CONCURRENT_PAGE_DOWNLOADS, value) }
+
 	fun isPagesCropEnabled(mode: ReaderMode): Boolean {
 		val rawValue = prefs.getStringSet(KEY_READER_CROP, emptySet())
 		if (rawValue.isNullOrEmpty()) {
@@ -824,6 +832,8 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_DISCORD_RPC = "discord_rpc"
 		const val KEY_DISCORD_RPC_SKIP_NSFW = "discord_rpc_skip_nsfw"
 		const val KEY_DISCORD_TOKEN = "discord_token"
+		const val KEY_CONCURRENT_SOURCE_DOWNLOADS = "concurrent_source_downloads"
+		const val KEY_CONCURRENT_PAGE_DOWNLOADS = "concurrent_page_downloads"
 
 		// keys for non-persistent preferences
 		const val KEY_APP_VERSION = "app_version"

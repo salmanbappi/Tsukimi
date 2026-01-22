@@ -290,6 +290,23 @@ abstract class ChaptersPagesViewModel(
 		}
 	}
 
+	fun markAsReadUpTo(chapterId: Long) {
+		launchJob(Dispatchers.Default) {
+			val details = mangaDetails.value ?: return@launchJob
+			val branch = selectedBranch.value
+			val allChapters = details.chapters[branch] ?: return@launchJob
+			val index = allChapters.indexOfFirst { it.id == chapterId }
+			if (index == -1) return@launchJob
+
+			val chaptersToMark = if (settings.isChaptersReverse) {
+				allChapters.subList(index, allChapters.size)
+			} else {
+				allChapters.subList(0, index + 1)
+			}
+			historyRepository.markChaptersAsRead(details.id, chaptersToMark.map { it.id })
+		}
+	}
+
 	fun toggleDeletionConfirmation(chapterId: Long) {
 		deletionConfirmation.update {
 			if (it.contains(chapterId)) it - chapterId else setOf(chapterId)

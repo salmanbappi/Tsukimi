@@ -227,7 +227,7 @@ class DownloadWorker @AssistedInject constructor(
 					} ?: continue
 					val pageCounter = AtomicInteger(0)
 					channelFlow {
-						val semaphore = Semaphore(MAX_PAGES_PARALLELISM)
+						val semaphore = Semaphore(settings.concurrentPageDownloads)
 						for ((pageIndex, page) in pages.withIndex()) {
 							checkIsPaused()
 							launch {
@@ -586,7 +586,6 @@ class DownloadWorker @AssistedInject constructor(
 	private companion object {
 
 		const val MAX_FAILSAFE_ATTEMPTS = 2
-		const val MAX_PAGES_PARALLELISM = 4
 		const val DOWNLOAD_ERROR_DELAY = 2_000L
 		const val MAX_RETRY_DELAY = 7_200_000L // 2 hours
 		const val TAG = "download"

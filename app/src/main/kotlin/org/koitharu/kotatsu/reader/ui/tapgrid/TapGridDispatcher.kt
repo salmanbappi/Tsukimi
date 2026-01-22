@@ -34,6 +34,14 @@ class TapGridDispatcher(
 		return listener.onGridTouch(area)
 	}
 
+	override fun onDoubleTapConfirmed(event: MotionEvent): Boolean {
+		if (!isDispatching) {
+			return true
+		}
+		val area = getArea(event.rawX, event.rawY) ?: return false
+		return listener.onGridDoubleTap(area)
+	}
+
 	override fun onDoubleTapEvent(e: MotionEvent): Boolean {
 		isDispatching = false // ignore long press after double tap
 		return super.onDoubleTapEvent(e)
@@ -85,6 +93,8 @@ class TapGridDispatcher(
 	interface OnGridTouchListener {
 
 		fun onGridTouch(area: TapGridArea): Boolean
+
+		fun onGridDoubleTap(area: TapGridArea): Boolean
 
 		fun onGridLongTouch(area: TapGridArea)
 

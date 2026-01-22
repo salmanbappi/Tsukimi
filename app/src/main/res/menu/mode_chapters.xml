@@ -22,6 +22,12 @@
 		app:showAsAction="ifRoom|withText" />
 
 	<item
+		android:id="@+id/action_mark_up_to"
+		android:icon="@drawable/ic_updated"
+		android:title="@string/mark_up_to_here"
+		app:showAsAction="ifRoom|withText" />
+
+	<item
 		android:id="@+id/action_select_range"
 		android:icon="@drawable/ic_select_range"
 		android:title="@string/select_range"

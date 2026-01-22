@@ -1,5 +1,6 @@
 package org.koitharu.kotatsu.details.ui.pager.chapters
 
+import android.view.HapticFeedbackConstants
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -110,6 +111,7 @@ class ChaptersFragment :
 	}
 
 	override fun onItemClick(item: ChapterListItem, view: View) {
+		view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
 		if (view.id == R.id.button_download) {
 			when {
 				item.isDeletionConfirmation -> viewModel.deleteChapter(requireContext(), item.chapter.id)
@@ -142,6 +144,7 @@ class ChaptersFragment :
 	}
 
 	override fun onItemLongClick(item: ChapterListItem, view: View): Boolean {
+		view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 		val controller = selectionController ?: return false
 		if (controller.count > 0) {
 			if (!controller.peekCheckedIds().contains(item.chapter.id)) {

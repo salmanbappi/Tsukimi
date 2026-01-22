@@ -16,6 +16,7 @@
 			android:layout_height="match_parent"
 			android:clipChildren="false"
 			android:clipToPadding="false"
+			android:layoutAnimation="@anim/layout_animation_fall_down"
 			android:orientation="vertical"
 			android:padding="@dimen/list_spacing_normal"
 			tools:layoutManager="org.koitharu.kotatsu.core.ui.list.FitHeightLinearLayoutManager"

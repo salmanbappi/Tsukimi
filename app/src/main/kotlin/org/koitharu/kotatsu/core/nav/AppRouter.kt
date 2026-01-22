@@ -91,6 +91,9 @@ import org.koitharu.kotatsu.reader.ui.config.ReaderConfigSheet
 import org.koitharu.kotatsu.scrobbling.common.domain.model.ScrobblerService
 import org.koitharu.kotatsu.scrobbling.common.ui.config.ScrobblerConfigActivity
 import org.koitharu.kotatsu.scrobbling.common.ui.selector.ScrobblingSelectorSheet
+import org.koitharu.kotatsu.list.ui.preview.MangaPreviewSheet
+import org.koitharu.kotatsu.list.ui.preview.PreviewFragment
+import org.koitharu.kotatsu.list.ui.preview.PreviewViewModel
 import org.koitharu.kotatsu.search.domain.SearchKind
 import org.koitharu.kotatsu.search.ui.MangaListActivity
 import org.koitharu.kotatsu.search.ui.multi.SearchActivity
@@ -311,6 +314,10 @@ class AppRouter private constructor(
     }
 
     fun openStatistic() = startActivity(StatsActivity::class.java)
+
+    fun showMangaPreview(manga: Manga) {
+        MangaPreviewSheet.newInstance(manga).showDistinct()
+    }
 
     @CheckResult
     fun openExternalBrowser(url: String, chooserTitle: CharSequence? = null): Boolean {
