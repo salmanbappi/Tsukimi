@@ -73,7 +73,8 @@ jobs:
         id: build
         run: |
           ./gradlew assembleRelease --no-daemon
-          echo "APP_VERSION=$(grep 'versionName' app/build.gradle | head -n 1 | awk -F\"'\" '{print $2}')" >> $GITHUB_ENV
+          VERSION=$(grep "versionName =" app/build.gradle | head -n 1 | cut -d"'" -f2)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Gemini Auto-Remediation (Failure Cleanup)
         if: failure()
