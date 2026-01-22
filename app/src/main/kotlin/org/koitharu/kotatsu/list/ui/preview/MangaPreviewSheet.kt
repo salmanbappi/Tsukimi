@@ -23,7 +23,7 @@ class MangaPreviewSheet : BaseAdaptiveSheet<SheetMangaPreviewBinding>() {
 	override fun onViewBindingCreated(binding: SheetMangaPreviewBinding, savedInstanceState: Bundle?) {
 		super.onViewBindingCreated(binding, savedInstanceState)
 		val manga = requireArguments().getParcelable<ParcelableManga>(AppRouter.KEY_MANGA)?.manga ?: return
-		binding.headerBar.setTitle(manga.title)
+		binding.headerBar.title = manga.title
 		if (savedInstanceState == null) {
 			childFragmentManager.commit {
 				replace(R.id.preview_container, PreviewFragment().withArgs(1) {
