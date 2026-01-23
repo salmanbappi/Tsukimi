@@ -128,6 +128,24 @@ android {
 }
 dependencies {
 	def parsersVersion = libs.versions.parsers.get()
+	
+	// Gemini: Auto-update parsers to latest master commit
+	try {
+		// Check for updates with a 3-second timeout to avoid hanging offline builds
+		def proc = ["sh", "-c", "curl -s --max-time 3 https://api.github.com/repos/yakateam/kotatsu-parsers/commits/master -H \"Accept: application/vnd.github.sha\" | cut -c -10"].execute()
+		proc.waitFor()
+		def latestHash = proc.in.text.trim()
+		// Validate hash format (alphanumeric, 10 chars)
+		if (latestHash ==~ /[a-f0-9]{10}/) {
+			if (latestHash != parsersVersion) {
+				println "✨ Auto-updated parsers to latest: $latestHash"
+				parsersVersion = latestHash
+			}
+		}
+	} catch (ignored) {
+		println "⚠️ Could not auto-update parsers (offline?), using: $parsersVersion"
+	}
+
 	if (System.properties.containsKey('parsersVersionOverride')) {
 		// usage:
 		// -DparsersVersionOverride=$(curl -s https://api.github.com/repos/yakateam/kotatsu-parsers/commits/master -H "Accept: application/vnd.github.sha" | cut -c -10)
