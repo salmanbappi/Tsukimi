@@ -59,6 +59,15 @@ jobs:
           chmod +x .github/scripts/inject.sh
           ./.github/scripts/inject.sh
 
+      - name: Bump Version (Gemini Auto-Increment)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          python3 .github/scripts/bump_version.py app/build.gradle
+          git config --global user.email "gemini-agent@github.com"
+          git config --global user.name "Gemini Agent"
+          git add app/build.gradle
+          git commit -m "chore: bump version [skip ci]" || echo "Version already bumped or no changes"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
