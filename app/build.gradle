@@ -57,11 +57,13 @@ android {
 			shrinkResources true
 			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 //			signingConfig signingConfigs.Tsukimi
+            signingConfig signingConfigs.debug
 		}
 		nightly {
 			initWith release
 			applicationIdSuffix = '.nightly'
 //			signingConfig signingConfigs.Tsukimi
+            signingConfig signingConfigs.debug
 		}
 	}
 	buildFeatures {
