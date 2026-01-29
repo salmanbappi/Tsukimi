@@ -1,4 +1,4 @@
-name: Gemini Auto-Update & Build
+name: Automated Build & Release
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-and-build:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,34 +24,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gemini Intelligence
-        run: |
-          echo "🤖 Gemini CLI is active and taking control of this build."
-          echo "📡 Mode: Cloud-Native Auto-Development"
-          echo "🔐 Signing: Permanent Personal Key (Update-Ready)"
-          echo "🧹 Cleanup Policy: Automated (No Junk left on failure)"
-          echo "🟢 System Check: OK"
-
-      - name: Handle Gemini Task (PR)
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "${{ github.event.pull_request.body }}" > task_description.txt
-          chmod +x .github/scripts/interpret_task.sh
-          ./.github/scripts/interpret_task.sh
-
-      - name: Apply Gemini Patches
-        run: |
-          chmod +x .github/scripts/inject.sh
-          ./.github/scripts/inject.sh
-
-      - name: Bump Version (Gemini Auto-Increment)
+      - name: Bump Version
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           python3 .github/scripts/bump_version.py app/build.gradle
-          git config --global user.email "gemini-agent@github.com"
-          git config --global user.name "Gemini Agent"
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
           git add app/build.gradle
-          git commit -m "chore: bump version [skip ci]" || echo "Version already bumped or no changes"
+          git commit -m "chore: automated version bump [skip ci]" || echo "No changes to commit"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -70,59 +50,32 @@ jobs:
           VERSION=$(grep "versionName =" app/build.gradle | head -n 1 | cut -d"'" -f2)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Gemini Auto-Remediation (Failure Cleanup)
-        if: failure()
+      - name: Finalize Version Bump
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         run: |
-          echo "❌ Build failed. Cleaning up 'junk' changes to keep repository stable..."
-          git reset --hard HEAD
-          echo "🧹 All local changes reverted. No junk left."
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-             echo "Reporting failure to PR..."
-             # Use gh cli to comment if needed
-          fi
-
-      - name: Sign APK (Permanent Key)
-        if: false # Disabled: using debug signing for now
-        id: sign_app
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "36.0.0"
-
-      - name: Finalize Changes
-        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/devel'))
-        run: |
-          git config --global user.email "gemini-agent@github.com"
-          git config --global user.name "Gemini Agent"
-          git add .
-          git commit -m "chore: auto-sync and apply optimizations [Gemini]" || echo "No changes"
           git push origin devel || echo "Push skipped"
+
+      - name: Rename APK
+        run: |
+          mv app/build/outputs/apk/release/app-release-unsigned.apk Tsukimi-v${{ env.APP_VERSION }}.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: Tsukimi-v${{ env.APP_VERSION }}.apk
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}-gemini.${{ github.run_number }}
-          name: Gemini Optimized v${{ env.APP_VERSION }} (Build ${{ github.run_number }})
+          tag_name: v${{ env.APP_VERSION }}.${{ github.run_number }}
+          name: Tsukimi v${{ env.APP_VERSION }}
           body: |
-            ### 🤖 Automated Gemini Build v${{ env.APP_VERSION }}
-            - **Auto-Update:** Fixed version parsing logic for Gemini builds
-            - **Animations:** Added smooth layout animations to lists
-            - **Functions:** Added 'Mark as read' and 'Mark as read up to here' features
-            - **Security:** Signed with Debug Key (Production Signing Disabled)
-            - **Status:** Build Successful & Clean
-          files: app/build/outputs/apk/release/*.apk
+            ### Automated Build v${{ env.APP_VERSION }}
+            - **Status:** Build Successful
+            - **Commit:** ${{ github.sha }}
+          files: Tsukimi-v${{ env.APP_VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
