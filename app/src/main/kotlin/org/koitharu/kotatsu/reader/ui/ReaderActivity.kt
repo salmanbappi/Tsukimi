@@ -300,11 +300,11 @@ class ReaderActivity :
         viewBinding.root.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
         return when (area) {
             TapGridArea.TOP_LEFT, TapGridArea.CENTER_LEFT, TapGridArea.BOTTOM_LEFT -> {
-                readerManager.currentReader?.switchPageBy(-10)
+                // readerManager.currentReader?.switchPageBy(-10) // Disabled per user request
                 true
             }
             TapGridArea.TOP_RIGHT, TapGridArea.CENTER_RIGHT, TapGridArea.BOTTOM_RIGHT -> {
-                readerManager.currentReader?.switchPageBy(10)
+                // readerManager.currentReader?.switchPageBy(10) // Disabled per user request
                 true
             }
             else -> false
