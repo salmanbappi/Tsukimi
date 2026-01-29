@@ -57,7 +57,8 @@ jobs:
 
       - name: Rename APK
         run: |
-          mv app/build/outputs/apk/release/app-release-unsigned.apk Tsukimi-v${{ env.APP_VERSION }}.apk
+          # With debug signing, the output is app-release.apk, not unsigned
+          mv app/build/outputs/apk/release/app-release.apk Tsukimi-v${{ env.APP_VERSION }}.apk
 
       - name: Upload APK
         if: success()
