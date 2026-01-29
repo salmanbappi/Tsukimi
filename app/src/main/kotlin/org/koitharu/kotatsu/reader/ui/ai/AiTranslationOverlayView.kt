@@ -8,6 +8,10 @@ import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.View
 
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+
 class AiTranslationOverlayView @JvmOverloads constructor(
 	context: Context,
 	attrs: AttributeSet? = null,
@@ -17,10 +21,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var blocks: List<TranslatedBlock> = emptyList()
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
-		alpha = 200
+		alpha = 230
 		style = Paint.Style.FILL
 	}
-	private val textPaint = Paint().apply {
+	private val textPaint = TextPaint().apply {
 		color = Color.BLACK
 		textSize = 32f
 		isAntiAlias = true
@@ -36,12 +40,16 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		for (block in blocks) {
 			canvas.drawRect(block.boundingBox, backgroundPaint)
 			
-			// Simple multi-line text drawing could be better, but this is a start
-			val lines = block.text.split("\n")
-			var y = block.boundingBox.top.toFloat() + textPaint.textSize
-			for (line in lines) {
-				canvas.drawText(line, block.boundingBox.left.toFloat(), y, textPaint)
-				y += textPaint.textSize
+			val width = block.boundingBox.width()
+			if (width > 0) {
+				val layout = StaticLayout.Builder.obtain(block.text, 0, block.text.length, textPaint, width)
+					.setAlignment(Layout.Alignment.ALIGN_CENTER)
+					.build()
+				
+				canvas.save()
+				canvas.translate(block.boundingBox.left.toFloat(), block.boundingBox.top.toFloat())
+				layout.draw(canvas)
+				canvas.restore()
 			}
 		}
 	}
