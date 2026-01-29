@@ -82,7 +82,7 @@ jobs:
           fi
 
       - name: Sign APK (Permanent Key)
-        if: success()
+        if: false # Disabled: using debug signing for now
         id: sign_app
         uses: r0adkll/sign-android-release@v1
         with:
@@ -108,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          path: app/build/outputs/apk/release/*.apk
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
@@ -121,8 +121,8 @@ jobs:
             - **Auto-Update:** Fixed version parsing logic for Gemini builds
             - **Animations:** Added smooth layout animations to lists
             - **Functions:** Added 'Mark as read' and 'Mark as read up to here' features
-            - **Security:** Signed with Permanent Key
+            - **Security:** Signed with Debug Key (Production Signing Disabled)
             - **Status:** Build Successful & Clean
-          files: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
