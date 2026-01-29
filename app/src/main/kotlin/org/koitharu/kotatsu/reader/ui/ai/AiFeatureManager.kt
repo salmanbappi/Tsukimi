@@ -10,6 +10,7 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -19,7 +20,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AiFeatureManager @Inject constructor(
-	private val context: Context,
+	@ApplicationContext private val context: Context,
 	private val settings: AppSettings
 ) {
 
