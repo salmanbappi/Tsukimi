@@ -23,6 +23,7 @@ class WebtoonHolder(
 	networkState = networkState,
 	exceptionResolver = exceptionResolver,
 	lifecycleOwner = owner,
+	isWebtoon = true,
 ) {
 
 	override val ssiv = binding.ssiv

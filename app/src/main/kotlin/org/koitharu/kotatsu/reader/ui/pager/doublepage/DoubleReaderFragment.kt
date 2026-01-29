@@ -135,6 +135,10 @@ open class DoubleReaderFragment : BaseReaderFragment<FragmentReaderDoubleBinding
 		)
 	}
 
+	override fun getCurrentHolders(): List<BasePageHolder<*>> = viewBinding?.run {
+		recyclerView.visiblePageHolders().toList()
+	}.orEmpty()
+
 	protected open fun notifyPageChanged(lowerPos: Int, upperPos: Int) {
 		viewModel.onCurrentPageChanged(lowerPos, upperPos)
 	}

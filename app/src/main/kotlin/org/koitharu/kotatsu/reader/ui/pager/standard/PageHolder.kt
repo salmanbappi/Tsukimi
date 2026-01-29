@@ -43,6 +43,7 @@ open class PageHolder(
 	networkState = networkState,
 	exceptionResolver = exceptionResolver,
 	lifecycleOwner = owner,
+	isWebtoon = false,
 ), ZoomControl.ZoomControlListener, OnApplyWindowInsetsListener {
 
 	override val ssiv = binding.ssiv
