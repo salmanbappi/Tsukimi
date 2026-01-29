@@ -32,21 +32,6 @@ jobs:
           echo "🧹 Cleanup Policy: Automated (No Junk left on failure)"
           echo "🟢 System Check: OK"
 
-      - name: Setup Upstream and Sync
-        if: github.event_name != 'pull_request'
-        run: |
-          git config --global user.email "gemini-agent@github.com"
-          git config --global user.name "Gemini Agent"
-          git remote add upstream https://github.com/YumemiProject/Yumemi.git
-          git fetch upstream devel
-          if git merge upstream/devel; then
-            echo "Successfully merged upstream changes."
-          else
-            echo "Merge conflict detected. Attempting to resolve..."
-            git merge --abort
-            git pull -Xtheirs upstream devel --allow-unrelated-histories
-          fi
-
       - name: Handle Gemini Task (PR)
         if: github.event_name == 'pull_request'
         run: |
@@ -133,7 +118,6 @@ jobs:
           name: Gemini Optimized v${{ env.APP_VERSION }} (Build ${{ github.run_number }})
           body: |
             ### 🤖 Automated Gemini Build v${{ env.APP_VERSION }}
-            - **Sync:** Updated from upstream Yumemi
             - **Auto-Update:** Fixed version parsing logic for Gemini builds
             - **Animations:** Added smooth layout animations to lists
             - **Functions:** Added 'Mark as read' and 'Mark as read up to here' features

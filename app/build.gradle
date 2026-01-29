@@ -40,7 +40,7 @@ android {
 		resValue 'string', 'tg_backup_bot_token', localProperties.getProperty('tg_backup_bot_token', '')
 	}
 	signingConfigs {
-//		Yukimi {
+//		Tsukimi {
 //			storeFile file("")
 //			storePassword ""
 //			keyAlias ""
@@ -56,12 +56,12 @@ android {
 			minifyEnabled true
 			shrinkResources true
 			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-//			signingConfig signingConfigs.Yukimi
+//			signingConfig signingConfigs.Tsukimi
 		}
 		nightly {
 			initWith release
 			applicationIdSuffix = '.nightly'
-//			signingConfig signingConfigs.Yukimi
+//			signingConfig signingConfigs.Tsukimi
 		}
 	}
 	buildFeatures {
@@ -201,6 +201,12 @@ dependencies {
 	implementation libs.acra.dialog
 
 	implementation libs.conscrypt.android
+
+	// AI Features
+	implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
+	implementation 'com.google.mlkit:translate:17.0.1'
+	implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+	implementation 'org.tensorflow:tensorflow-lite-gpu:2.16.1'
 
 	debugImplementation libs.leakcanary.android
 	debugImplementation libs.workinspector

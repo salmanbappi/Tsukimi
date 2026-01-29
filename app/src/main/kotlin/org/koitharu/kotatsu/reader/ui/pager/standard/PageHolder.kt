@@ -46,6 +46,7 @@ open class PageHolder(
 ), ZoomControl.ZoomControlListener, OnApplyWindowInsetsListener {
 
 	override val ssiv = binding.ssiv
+	override val translationOverlay = binding.translationOverlay
 
 	init {
 		ViewCompat.setOnApplyWindowInsetsListener(binding.root, this)

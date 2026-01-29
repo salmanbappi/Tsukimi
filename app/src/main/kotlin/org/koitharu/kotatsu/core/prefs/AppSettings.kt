@@ -134,6 +134,10 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 			}
 		}
 
+	var preferredLocales: Set<String>
+		get() = prefs.getStringSet(KEY_PREFERRED_LOCALES, emptySet()).orEmpty()
+		set(value) = prefs.edit { putStringSet(KEY_PREFERRED_LOCALES, value) }
+
 	var isReaderDoubleOnLandscape: Boolean
 		get() = prefs.getBoolean(KEY_READER_DOUBLE_PAGES, false)
 		set(value) = prefs.edit { putBoolean(KEY_READER_DOUBLE_PAGES, value) }
@@ -245,8 +249,21 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_INCOGNITO_MODE, false)
 		set(value) = prefs.edit { putBoolean(KEY_INCOGNITO_MODE, value) }
 
-	val isReaderZenModeEnabled: Boolean
+	var isReaderZenModeEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_ZEN_MODE, false)
+		set(value) = prefs.edit { putBoolean(KEY_READER_ZEN_MODE, value) }
+
+	var isReaderHapticsEnabled: Boolean
+		get() = prefs.getBoolean(KEY_READER_HAPTICS, true)
+		set(value) = prefs.edit { putBoolean(KEY_READER_HAPTICS, value) }
+
+	var isAiTranslationEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_TRANSLATION, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION, value) }
+
+	var isAiUpscalingEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_UPSCALING, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_UPSCALING, value) }
 
 	val isReaderMultiTaskEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_MULTITASK, false)
@@ -770,6 +787,9 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_READER_BACKGROUND = "reader_background"
 		const val KEY_READER_SCREEN_ON = "reader_screen_on"
 		const val KEY_READER_ZEN_MODE = "reader_zen_mode"
+		const val KEY_READER_HAPTICS = "reader_haptics"
+		const val KEY_AI_TRANSLATION = "ai_translation"
+		const val KEY_AI_UPSCALING = "ai_upscaling"
 		const val KEY_SHORTCUTS = "dynamic_shortcuts"
 		const val KEY_READER_TAP_ACTIONS = "reader_tap_actions"
 		const val KEY_READER_OPTIMIZE = "reader_optimize"
@@ -782,6 +802,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_WEBTOON_PULL_GESTURE = "webtoon_pull_gesture"
 		const val KEY_PREFETCH_CONTENT = "prefetch_content"
 		const val KEY_APP_LOCALE = "app_locale"
+		const val KEY_PREFERRED_LOCALES = "preferred_locales"
 		const val KEY_SOURCES_GRID = "sources_grid"
 		const val KEY_UPDATES_UNSTABLE = "updates_unstable"
 		const val KEY_TIPS_CLOSED = "tips_closed"

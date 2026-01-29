@@ -101,7 +101,7 @@
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
 
-				<data android:scheme="kotatsu" />
+				<data android:scheme="tsukimi" />
 				<data android:host="manga" />
 				<data android:host="kotatsu.app" />
 			</intent-filter>
@@ -156,7 +156,7 @@
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
 
-				<data android:scheme="kotatsu" />
+				<data android:scheme="tsukimi" />
 				<data android:host="about" />
 				<data android:host="sync-settings" />
 			</intent-filter>
@@ -237,7 +237,7 @@
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
 
-				<data android:scheme="kotatsu" />
+				<data android:scheme="tsukimi" />
 				<data android:host="shikimori-auth" />
 				<data android:host="anilist-auth" />
 				<data android:host="mal-auth" />

@@ -93,6 +93,7 @@ class ReaderConfigSheet :
         binding.switchDoubleReader.isEnabled = mode == ReaderMode.STANDARD || mode == ReaderMode.REVERSED
         binding.switchDoubleFoldable.isChecked = settings.isReaderDoubleOnFoldable
         binding.switchDoubleFoldable.isEnabled = binding.switchDoubleReader.isEnabled
+        binding.switchZenMode.isChecked = settings.isReaderZenModeEnabled
         binding.sliderDoubleSensitivity.setValueRounded(settings.readerDoublePagesSensitivity * 100f)
         binding.sliderDoubleSensitivity.setLabelFormatter(IntPercentLabelFormatter(binding.root.context))
         binding.adjustSensitivitySlider(withAnimation = false)
@@ -107,6 +108,7 @@ class ReaderConfigSheet :
         binding.buttonBookmark.setOnClickListener(this)
         binding.switchDoubleReader.setOnCheckedChangeListener(this)
         binding.switchDoubleFoldable.setOnCheckedChangeListener(this)
+        binding.switchZenMode.setOnCheckedChangeListener(this)
         binding.sliderDoubleSensitivity.addOnChangeListener(this)
 
         viewModel.isBookmarkAdded.observe(viewLifecycleOwner) {
@@ -190,6 +192,10 @@ class ReaderConfigSheet :
                 settings.isReaderDoubleOnFoldable = isChecked
                 // Re-evaluate double-page considering foldable state and current manual toggle
                 findParentCallback(Callback::class.java)?.onDoubleModeChanged(settings.isReaderDoubleOnLandscape)
+            }
+
+            R.id.switch_zen_mode -> {
+                settings.isReaderZenModeEnabled = isChecked
             }
         }
     }

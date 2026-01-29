@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.fragment.app.viewModels
 import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.TwoStatePreference
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,6 +37,14 @@ class SourcesSettingsFragment : BasePreferenceFragment(R.string.remote_sources),
             entryValues = TriStateOption.entries.names()
             setDefaultValueCompat(TriStateOption.ASK.name)
         }
+		findPreference<MultiSelectListPreference>(AppSettings.KEY_PREFERRED_LOCALES)?.run {
+			val locales = viewModel.allLocales
+			entryValues = locales.toTypedArray()
+			entries = locales.map {
+				java.util.Locale(it).getDisplayLanguage(java.util.Locale.getDefault())
+					.replaceFirstChar { char -> char.uppercase() }
+			}.toTypedArray()
+		}
 	}
 
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

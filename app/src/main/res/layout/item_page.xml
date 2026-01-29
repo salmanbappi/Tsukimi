@@ -15,6 +15,12 @@
 		app:doubleTapZoomStyle="center"
 		app:restoreStrategy="deferred" />
 
+	<org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
+		android:id="@+id/translationOverlay"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:visibility="gone" />
+
 	<TextView
 		android:id="@+id/textView_number"
 		android:layout_width="wrap_content"

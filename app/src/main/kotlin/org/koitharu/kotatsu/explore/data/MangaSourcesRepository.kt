@@ -365,10 +365,14 @@ class MangaSourcesRepository @Inject constructor(
 		sortOrder: SourcesSortOrder?,
 	): MutableList<MangaSourceInfo> {
 		val isAllEnabled = settings.isAllSourcesEnabled
+		val preferredLocales = settings.preferredLocales
 		val result = ArrayList<MangaSourceInfo>(size)
 		for (entity in this) {
 			val source = entity.source.toMangaSourceOrNull() ?: continue
 			if (skipNsfwSources && source.isNsfw()) {
+				continue
+			}
+			if (preferredLocales.isNotEmpty() && source.locale !in preferredLocales) {
 				continue
 			}
 			if (source in allMangaSources) {

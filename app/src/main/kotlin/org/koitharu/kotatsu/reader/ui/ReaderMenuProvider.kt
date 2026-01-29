@@ -8,6 +8,7 @@ import org.koitharu.kotatsu.R
 
 class ReaderMenuProvider(
 	private val viewModel: ReaderViewModel,
+	private val listener: ReaderControlDelegate.OnInteractionListener,
 ) : MenuProvider {
 
 	override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -18,6 +19,11 @@ class ReaderMenuProvider(
 		return when (menuItem.itemId) {
 			R.id.action_refresh -> {
 				viewModel.reload()
+				true
+			}
+
+			R.id.action_ai_translate -> {
+				listener.onAiTranslateClick()
 				true
 			}
 

@@ -34,6 +34,8 @@ class SourcesSettingsViewModel @Inject constructor(
 		.withErrorHandling()
 		.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.Eagerly, -1)
 
+	val allLocales = sourcesRepository.allMangaSources.mapNotNull { it.locale }.distinct().sorted()
+
 	val isLinksEnabled = MutableStateFlow(isLinksEnabled())
 
 	fun setLinksEnabled(isEnabled: Boolean) {

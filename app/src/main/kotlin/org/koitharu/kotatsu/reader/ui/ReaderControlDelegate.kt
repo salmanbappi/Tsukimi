@@ -148,6 +148,8 @@ class ReaderControlDelegate(
 
 		fun toggleScreenOrientation()
 
+		fun onAiTranslateClick()
+
 		fun isReaderResumed(): Boolean
 	}
 }

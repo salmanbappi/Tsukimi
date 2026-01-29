@@ -16,6 +16,12 @@
 		app:quickScaleEnabled="false"
 		app:zoomEnabled="false" />
 
+	<org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
+		android:id="@+id/translationOverlay"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:visibility="gone" />
+
 	<include layout="@layout/layout_page_info" />
 
 </org.koitharu.kotatsu.reader.ui.pager.webtoon.WebtoonFrameLayout>

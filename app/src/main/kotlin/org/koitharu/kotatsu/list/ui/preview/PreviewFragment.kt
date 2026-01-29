@@ -35,7 +35,7 @@ class PreviewFragment : BaseFragment<FragmentPreviewBinding>(), View.OnClickList
 
 	override fun onViewBindingCreated(binding: FragmentPreviewBinding, savedInstanceState: Bundle?) {
 		super.onViewBindingCreated(binding, savedInstanceState)
-		binding.buttonClose.isVisible = activity is MangaListActivity
+		binding.buttonClose.isVisible = activity is MangaListActivity || parentFragment is MangaPreviewSheet
 		binding.buttonClose.setOnClickListener(this)
 		binding.textViewDescription.movementMethod = LinkMovementMethodCompat.getInstance()
 		binding.chipsTags.onChipClickListener = this
@@ -132,6 +132,9 @@ class PreviewFragment : BaseFragment<FragmentPreviewBinding>(), View.OnClickList
 	}
 
 	private fun closeSelf() {
-		((activity as? MangaListActivity)?.hidePreview())
+		if ((activity as? MangaListActivity)?.hidePreview() == true) {
+			return
+		}
+		(parentFragment as? MangaPreviewSheet)?.dismiss()
 	}
 }

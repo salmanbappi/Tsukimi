@@ -26,6 +26,7 @@ class WebtoonHolder(
 ) {
 
 	override val ssiv = binding.ssiv
+	override val translationOverlay = binding.translationOverlay
 
 	private var scrollToRestore = 0
 

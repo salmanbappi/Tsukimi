@@ -15,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.graphics.Insets
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.drawToBitmap
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -65,6 +66,8 @@ import org.koitharu.kotatsu.details.ui.pager.pages.PagesSavedObserver
 import org.koitharu.kotatsu.parsers.model.MangaChapter
 import org.koitharu.kotatsu.reader.data.TapGridSettings
 import org.koitharu.kotatsu.reader.domain.TapGridArea
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
+import org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
 import org.koitharu.kotatsu.reader.ui.config.ReaderConfigSheet
 import org.koitharu.kotatsu.reader.ui.pager.ReaderPage
 import org.koitharu.kotatsu.reader.ui.pager.ReaderUiState
@@ -96,6 +99,9 @@ class ReaderActivity :
 
     @Inject
     lateinit var scrollTimerFactory: ScrollTimer.Factory
+
+    @Inject
+    lateinit var aiFeatureManager: AiFeatureManager
 
     @Inject
     lateinit var screenOrientationHelper: ScreenOrientationHelper
@@ -194,7 +200,7 @@ class ReaderActivity :
         viewModel.isZoomControlsEnabled.observe(this) {
             viewBinding.zoomControl.isVisible = it
         }
-        addMenuProvider(ReaderMenuProvider(viewModel))
+        addMenuProvider(ReaderMenuProvider(viewModel, this))
 
         observeWindowLayout()
 
@@ -406,7 +412,7 @@ class ReaderActivity :
             val isFullscreen = settings.isReaderFullscreenEnabled
             viewBinding.appbarTop.isVisible = isUiVisible
             viewBinding.toolbarDocked?.isVisible = isUiVisible
-            viewBinding.infoBar.isGone = isUiVisible || (!viewModel.isInfoBarEnabled.value)
+            viewBinding.infoBar.isGone = isUiVisible || (!viewModel.isInfoBarEnabled.value) || (settings.isReaderZenModeEnabled && !isUiVisible)
             viewBinding.infoBar.isTimeVisible = isFullscreen
             updateScrollTimerButton()
             systemUiController.setSystemUiVisible(isUiVisible || !isFullscreen)
@@ -444,6 +450,9 @@ class ReaderActivity :
     }
 
     override fun switchPageBy(delta: Int) {
+        if (settings.isReaderHapticsEnabled) {
+            viewBinding.root.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        }
         readerManager.currentReader?.switchPageBy(delta)
     }
 
@@ -472,6 +481,38 @@ class ReaderActivity :
 
     override fun onBookmarkClick() {
         viewModel.toggleBookmark()
+    }
+
+    override fun onAiTranslateClick() {
+        if (!settings.isAiTranslationEnabled) {
+            Snackbar.make(viewBinding.container, "Enable AI Translation in Reader Settings first", Snackbar.LENGTH_SHORT)
+                .setAnchorView(viewBinding.toolbarDocked)
+                .show()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.Default) {
+            val holders = readerManager.currentReader?.getCurrentHolders() ?: return@launch
+            for (holder in holders) {
+                val ssiv = holder.itemView.findViewById<View>(R.id.ssiv) ?: continue
+                val overlay = holder.itemView.findViewById<AiTranslationOverlayView>(R.id.translationOverlay) ?: continue
+                
+                withContext(Dispatchers.Main) {
+                    viewBinding.toastView.show(R.string.processing_)
+                }
+                
+                val bitmap = withContext(Dispatchers.Main) {
+                    ssiv.drawToBitmap()
+                }
+                
+                val blocks = aiFeatureManager.translatePage(bitmap)
+                
+                withContext(Dispatchers.Main) {
+                    overlay.isVisible = true
+                    overlay.setTranslatedBlocks(blocks)
+                    viewBinding.toastView.hide()
+                }
+            }
+        }
     }
 
     override fun onSavePageClick() {

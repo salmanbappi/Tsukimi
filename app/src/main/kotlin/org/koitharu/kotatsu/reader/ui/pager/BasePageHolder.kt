@@ -27,29 +27,14 @@ import org.koitharu.kotatsu.core.util.ext.observe
 import org.koitharu.kotatsu.databinding.LayoutPageInfoBinding
 import org.koitharu.kotatsu.parsers.util.ifZero
 import org.koitharu.kotatsu.reader.domain.PageLoader
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
+import org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
 import org.koitharu.kotatsu.reader.ui.pager.vm.PageState
-import org.koitharu.kotatsu.reader.ui.pager.vm.PageViewModel
-import org.koitharu.kotatsu.reader.ui.pager.webtoon.WebtoonHolder
-
-abstract class BasePageHolder<B : ViewBinding>(
-	protected val binding: B,
-	loader: PageLoader,
-	readerSettingsProducer: ReaderSettings.Producer,
-	networkState: NetworkState,
-	exceptionResolver: ExceptionResolver,
-	lifecycleOwner: LifecycleOwner,
-) : LifecycleAwareViewHolder(binding.root, lifecycleOwner), DefaultOnImageEventListener, ComponentCallbacks2 {
-
-	protected val viewModel = PageViewModel(
-		loader = loader,
-		settingsProducer = readerSettingsProducer,
-		networkState = networkState,
-		exceptionResolver = exceptionResolver,
-		isWebtoon = this is WebtoonHolder,
-	)
+...
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
+	protected open val translationOverlay: AiTranslationOverlayView? = null
 
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value

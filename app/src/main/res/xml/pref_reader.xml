@@ -138,11 +138,41 @@
 		android:title="@string/reader_multitask" />
 
 	<SwitchPreferenceCompat
+		android:defaultValue="false"
+		android:key="reader_zen_mode"
+		android:summary="@string/reader_zen_mode_summary"
+		android:title="@string/reader_zen_mode" />
+
+	<SwitchPreferenceCompat
+		android:defaultValue="true"
+		android:key="reader_haptics"
+		android:summary="@string/reader_haptics_summary"
+		android:title="@string/reader_haptics" />
+
+	<SwitchPreferenceCompat
 		android:defaultValue="true"
 		android:key="reader_bar"
 		android:summary="@string/reader_info_bar_summary"
 		android:title="@string/reader_info_bar"
 		app:allowDividerAbove="true" />
+
+	<PreferenceCategory
+		android:title="@string/ai_features"
+		app:allowDividerAbove="true">
+
+		<SwitchPreferenceCompat
+			android:defaultValue="false"
+			android:key="ai_translation"
+			android:summary="@string/ai_translation_summary"
+			android:title="@string/ai_translation" />
+
+		<SwitchPreferenceCompat
+			android:defaultValue="false"
+			android:key="ai_upscaling"
+			android:summary="@string/ai_upscaling_summary"
+			android:title="@string/ai_upscaling" />
+
+	</PreferenceCategory>
 
 	<SwitchPreferenceCompat
 		android:defaultValue="true"
