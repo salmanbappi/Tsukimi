@@ -18,35 +18,21 @@ android {
 	namespace = 'org.koitharu.kotatsu'
 
 	defaultConfig {
-		applicationId 'org.koitharu.kotatsu'
+		applicationId 'com.tsukimi.app'
 		minSdk = 23
 		targetSdk = 36
 		versionCode 1043
 		versionName = '3.0.7'
-		generatedDensities = []
-		testInstrumentationRunner 'org.koitharu.kotatsu.HiltTestRunner'
-		ksp {
-			arg('room.generateKotlin', 'true')
-		}
-		androidResources {
-			// https://issuetracker.google.com/issues/408030127
-			generateLocaleConfig false
-		}
-		def localProperties = new Properties()
-		def localPropertiesFile = rootProject.file('local.properties')
-		if (localPropertiesFile.exists()) {
-			localProperties.load(new FileInputStream(localPropertiesFile))
-		}
-		resValue 'string', 'tg_backup_bot_token', localProperties.getProperty('tg_backup_bot_token', '')
-	}
+...
 	signingConfigs {
-//		Tsukimi {
-//			storeFile file("")
-//			storePassword ""
-//			keyAlias ""
-//			keyPassword ""
-//			storeType "PKCS12"
-//		}
+		release {
+			storeFile file("keystore/tsukimi.jks")
+			storePassword "salman2005"
+			keyAlias "tsukimi"
+			keyPassword "salman2005"
+			v1SigningEnabled true
+			v2SigningEnabled true
+		}
 	}
 	buildTypes {
 		debug {
@@ -56,14 +42,12 @@ android {
 			minifyEnabled true
 			shrinkResources true
 			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-//			signingConfig signingConfigs.Tsukimi
-            signingConfig signingConfigs.debug
+			signingConfig signingConfigs.release
 		}
 		nightly {
 			initWith release
 			applicationIdSuffix = '.nightly'
-//			signingConfig signingConfigs.Tsukimi
-            signingConfig signingConfigs.debug
+			signingConfig signingConfigs.release
 		}
 	}
 	buildFeatures {
