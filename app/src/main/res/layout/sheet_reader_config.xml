@@ -245,7 +245,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/ai_upscale_model"
-                app:drawableStartCompat="@drawable/ic_layers" />
+                app:drawableStartCompat="@drawable/ic_auto_fix" />
 
             <org.koitharu.kotatsu.core.ui.widgets.ListItemTextView
                 android:id="@+id/button_scroll_timer"
