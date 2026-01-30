@@ -1,27 +1,26 @@
 package org.koitharu.kotatsu.core.work
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import androidx.hilt.work.HiltWorker
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.os.Build
-import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.work.ForegroundInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okio.buffer
 import okio.sink
-import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.network.MangaHttpClient
 import java.io.File
 
@@ -119,13 +118,6 @@ class AiModelDownloadWorker @AssistedInject constructor(
 
 		fun enqueue(context: Context) {
 			Log.d(TAG, "Enqueuing AiModelDownloadWorker")
-			val request = OneTimeWorkRequestBuilder<AiModelDownloadWorker>()
-				.addTag(TAG)
-				.build()
-			WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
-		}
-	}
-}
 			val request = OneTimeWorkRequestBuilder<AiModelDownloadWorker>()
 				.addTag(TAG)
 				.build()

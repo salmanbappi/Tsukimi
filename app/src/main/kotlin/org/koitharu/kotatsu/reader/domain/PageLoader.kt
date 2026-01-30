@@ -204,7 +204,7 @@ class PageLoader @Inject constructor(
 		
 		try {
 			// Perform upscale
-			val upscaledBitmap = upscaleEngine.upscale(bitmap, settings.aiUpscaleModel)
+			val upscaledBitmap = upscaleEngine.upscale(bitmap, settings.aiUpscaleModel) ?: return@withContext null
 			
 			// Save to cache
 			upscaleCache.set(pageUrl, upscaledBitmap).toUri()
