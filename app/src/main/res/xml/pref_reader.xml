@@ -166,6 +166,26 @@
 			android:summary="@string/ai_translation_summary"
 			android:title="@string/ai_translation" />
 
+		<ListPreference
+			android:dependency="ai_translation"
+			android:entries="@array/ai_translation_engines"
+			android:entryValues="@array/values_ai_translation_engines"
+			android:key="ai_translation_engine"
+			android:title="@string/ai_translation_engine"
+			app:useSimpleSummaryProvider="true" />
+
+		<EditTextPreference
+			android:dependency="ai_translation"
+			android:key="ai_translation_deepl_key"
+			android:summary="@string/deepl_api_key_summary"
+			android:title="@string/deepl_api_key" />
+
+		<EditTextPreference
+			android:dependency="ai_translation"
+			android:key="ai_translation_openai_key"
+			android:summary="@string/openai_api_key_summary"
+			android:title="@string/openai_api_key" />
+
 		<SwitchPreferenceCompat
 			android:defaultValue="false"
 			android:key="ai_upscaling"

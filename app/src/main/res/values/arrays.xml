@@ -145,4 +145,14 @@
 		<item>@string/ask_every_time</item>
 		<item>@string/disable</item>
 	</string-array>
+	<string-array name="ai_translation_engines" translatable="false">
+		<item>Google ML Kit (Default)</item>
+		<item>DeepL API (Premium)</item>
+		<item>OpenAI API (GPT-4o-mini)</item>
+	</string-array>
+	<string-array name="values_ai_translation_engines" translatable="false">
+		<item>ML_KIT</item>
+		<item>DEEPL</item>
+		<item>OPENAI</item>
+	</string-array>
 </resources>

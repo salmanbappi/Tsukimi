@@ -15,6 +15,21 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.koitharu.kotatsu.core.model.TranslationEngine
+import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,9 +38,11 @@ import kotlin.math.roundToInt
 @Singleton
 class AiFeatureManager @Inject constructor(
 	@ApplicationContext private val context: Context,
-	private val settings: AppSettings
+	private val settings: AppSettings,
+	@BaseHttpClient private val client: OkHttpClient
 ) {
 
+	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
 	suspend fun translatePage(bitmap: Bitmap, targetLanguage: String = TranslateLanguage.ENGLISH): List<TranslatedBlock> = withContext(Dispatchers.Default) {
@@ -34,40 +51,127 @@ class AiFeatureManager @Inject constructor(
 		val inputImage = InputImage.fromBitmap(bitmap, 0)
 		val visionText = textRecognizer.process(inputImage).await()
 		
-		val options = TranslatorOptions.Builder()
-			.setSourceLanguage(TranslateLanguage.JAPANESE)
-			.setTargetLanguage(targetLanguage)
-			.build()
+		val engine = settings.aiTranslationEngine
 		
-		val translator = Translation.getClient(options)
-		translator.downloadModelIfNeeded().await()
-		
+		// Setup ML Kit translator if selected
+		val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
+			val options = TranslatorOptions.Builder()
+				.setSourceLanguage(TranslateLanguage.JAPANESE)
+				.setTargetLanguage(targetLanguage)
+				.build()
+			val mlKit = Translation.getClient(options)
+			mlKit.downloadModelIfNeeded().await()
+			mlKit
+		} else null
+
 		val result = mutableListOf<TranslatedBlock>()
 		
-		val textBlocks = visionText.textBlocks
-		val mergedBlocks = mergeNearbyBlocks(textBlocks)
+		try {
+			val textBlocks = visionText.textBlocks
+			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-		for (block in mergedBlocks) {
-			val translatedText = translator.translate(block.text.toString()).await()
-			// Try to expand the bounding box to the speech bubble borders
-			val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
-			
-			result.add(
-				TranslatedBlock(
-					text = translatedText,
-					boundingBox = bubbleRect
+			for (block in mergedBlocks) {
+				val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+				if (cleanText.isBlank()) continue
+
+				val translatedText = try {
+					when (engine) {
+						TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await() ?: "Error"
+						TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+						TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+					}
+				} catch (e: Exception) {
+					"Error: ${e.message}"
+				}
+
+				// Try to expand the bounding box to the speech bubble borders
+				val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+				
+				result.add(
+					TranslatedBlock(
+						text = translatedText,
+						boundingBox = bubbleRect
+					)
 				)
-			)
+			}
+		} finally {
+			mlKitTranslator?.close()
 		}
 		
 		result
 	}
 
+	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
+		val apiKey = settings.deeplApiKey ?: return@withContext "Error: Missing DeepL API Key"
+		// DeepL Free API uses a different domain than Pro
+		val isFree = apiKey.endsWith(":fx")
+		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
+		
+		val body = buildJsonObject {
+			putJsonArray("text") { add(text) }
+			put("target_lang", targetLanguage.uppercase())
+		}
+		
+		val request = Request.Builder()
+			.url(url)
+			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.build()
+			
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext "DeepL Error: ${response.code}"
+				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+				jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
+			}
+		} catch (e: Exception) {
+			"DeepL Error: ${e.message}"
+		}
+	}
+
+	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
+		val apiKey = settings.openaiApiKey ?: return@withContext "Error: Missing OpenAI API Key"
+		
+		val body = buildJsonObject {
+			put("model", "gpt-4o-mini") // Fast and high quality for translation tasks
+			putJsonArray("messages") {
+				add(buildJsonObject {
+					put("role", "system")
+					put("content", "You are a professional manga translator. Translate the following Japanese text to natural English. Keep it concise.")
+				})
+				add(buildJsonObject {
+					put("role", "user")
+					put("content", text)
+				})
+			}
+		}
+		
+		val request = Request.Builder()
+			.url("https://api.openai.com/v1/chat/completions")
+			.addHeader("Authorization", "Bearer $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.build()
+			
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext "OpenAI Error: ${response.code}"
+				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+				jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
+			}
+		} catch (e: Exception) {
+			"OpenAI Error: ${e.message}"
+		}
+	}
+
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<MergedText> {
 		if (blocks.isEmpty()) return emptyList()
 
-		// Sort blocks top-down, then left-to-right to process in reading order
-		val sorted = blocks.sortedWith(compareBy({ it.boundingBox?.top ?: 0 }, { it.boundingBox?.left ?: 0 }))
+		// Sort blocks Right-to-Left (primary) then Top-to-Bottom (secondary)
+		// This better matches standard Japanese vertical text layout
+		val sorted = blocks.sortedWith(
+			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
+				.thenBy { it.boundingBox?.top ?: 0 }
+		)
 		val merged = mutableListOf<MergedText>()
 
 		for (block in sorted) {

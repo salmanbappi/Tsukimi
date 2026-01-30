@@ -825,6 +825,11 @@
     <string name="ai_features">Experimental AI features</string>
     <string name="ai_translation">Live AI translation</string>
     <string name="ai_translation_summary">Use on-device OCR and translation to translate manga pages (Beta)</string>
+    <string name="ai_translation_engine">Translation engine</string>
+    <string name="deepl_api_key">DeepL API key</string>
+    <string name="deepl_api_key_summary">Supports both Free and Pro keys. Free keys end with :fx</string>
+    <string name="openai_api_key">OpenAI API key</string>
+    <string name="openai_api_key_summary">Supports GPT-4o-mini. Enter your API key (sk-...)</string>
     <string name="ai_upscaling">AI upscaling</string>
     <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
     <string name="backup_restored_background">The backup will be restored in the background</string>
