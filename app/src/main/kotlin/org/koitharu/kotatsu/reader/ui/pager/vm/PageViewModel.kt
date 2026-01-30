@@ -38,13 +38,16 @@ class PageViewModel(
 
 	private val scope = loader.loaderScope + Dispatchers.Main.immediate
 	private var job: Job? = null
+	private var upscaleJob: Job? = null
 	private var cachedBounds: Rect? = null
+	private var boundPage: MangaPage? = null
 
 	val state = MutableStateFlow<PageState>(PageState.Empty)
 
 	fun isLoading() = job?.isActive == true
 
 	fun onBind(page: MangaPage) {
+		boundPage = page
 		val prevJob = job
 		job = scope.launch(Dispatchers.Default) {
 			prevJob?.cancelAndJoin()
@@ -76,15 +79,40 @@ class PageViewModel(
 	fun onRecycle() {
 		state.value = PageState.Empty
 		cachedBounds = null
+		boundPage = null
 		job?.cancel()
+		upscaleJob?.cancel()
 	}
 
 	override fun onImageLoaded() {
 		state.update { currentState ->
 			if (currentState is PageState.Loaded) {
-				PageState.Shown(currentState.source, currentState.isConverted)
+				val shownState = PageState.Shown(currentState.source, currentState.isConverted)
+				triggerUpscale(shownState)
+				shownState
 			} else {
 				currentState
+			}
+		}
+	}
+
+	private fun triggerUpscale(shownState: PageState.Shown) {
+		if (shownState.isUpscaled) return
+		val page = boundPage ?: return
+		val uri = (shownState.source as? ImageSource.Uri)?.uri ?: return
+		
+		upscaleJob?.cancel()
+		upscaleJob = scope.launch(Dispatchers.Default) {
+			val upscaledUri = loader.upscalePage(page, uri) ?: return@launch
+			state.update { currentState ->
+				if (currentState is PageState.Shown && currentState.source == shownState.source) {
+					currentState.copy(
+						source = upscaledUri.toImageSource(cachedBounds),
+						isUpscaled = true
+					)
+				} else {
+					currentState
+				}
 			}
 		}
 	}

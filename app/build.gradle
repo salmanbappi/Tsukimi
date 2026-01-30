@@ -213,6 +213,7 @@ dependencies {
     implementation 'com.google.mlkit:translate:17.0.1'
     implementation 'org.tensorflow:tensorflow-lite:2.16.1'
     implementation 'org.tensorflow:tensorflow-lite-gpu:2.16.1'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1'
 
     debugImplementation libs.leakcanary.android

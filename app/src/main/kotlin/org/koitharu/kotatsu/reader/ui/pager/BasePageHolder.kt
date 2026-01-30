@@ -59,6 +59,7 @@ abstract class BasePageHolder<B : ViewBinding>(
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
 	protected open val translationOverlay: AiTranslationOverlayView? = null
+	protected open val upscaleBadge: View? = null
 
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value
@@ -220,6 +221,10 @@ abstract class BasePageHolder<B : ViewBinding>(
 			}
 
 			is PageState.Shown -> {
+				if (state.isUpscaled) {
+					ssiv.setImage(state.source)
+				}
+				upscaleBadge?.isVisible = state.isUpscaled
 				restoreTranslationIfPossible()
 			}
 		}

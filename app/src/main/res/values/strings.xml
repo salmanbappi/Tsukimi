@@ -834,6 +834,10 @@
     <string name="openai_api_key_summary">Supports GPT-4o-mini. Enter your API key (sk-...)</string>
     <string name="ai_upscaling">AI upscaling</string>
     <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
+    <string name="ai_upscale_model">Upscaling model</string>
+    <string name="ai_upscale_model_fast">Fast (Waifu2x)</string>
+    <string name="ai_upscale_model_elite">Elite (Real-ESRGAN)</string>
+    <string name="ai_upscaled">AI Upscaled</string>
     <string name="backup_restored_background">The backup will be restored in the background</string>
     <string name="restoring_backup">Restoring backup</string>
     <string name="reader_controls_in_bottom_bar">Reader controls in bottom bar</string>

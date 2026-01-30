@@ -98,6 +98,7 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonTimer.initAction()
 		binding.buttonBookmark.initAction()
 		binding.buttonAiTranslate.initAction()
+		binding.buttonAiUpscale.initAction()
 		binding.slider.setLabelFormatter(PageLabelFormatter())
 		binding.slider.addOnChangeListener(this)
 		binding.slider.addOnSliderTouchListener(this)
@@ -131,6 +132,7 @@ class ReaderActionsView @JvmOverloads constructor(
 			R.id.button_options -> listener?.openMenu()
 			R.id.button_bookmark -> listener?.onBookmarkClick()
 			R.id.button_ai_translate -> listener?.onAiTranslateClick()
+			R.id.button_ai_upscale -> listener?.onAiUpscaleClick()
 		}
 	}
 
@@ -201,6 +203,7 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonTimer.isVisible = ReaderControl.TIMER in controls
 		binding.buttonBookmark.isVisible = ReaderControl.BOOKMARK in controls
 		binding.buttonAiTranslate.isVisible = ReaderControl.AI_TRANSLATE in controls
+		binding.buttonAiUpscale.isVisible = ReaderControl.AI_UPSCALE in controls
 		binding.slider.isVisible = ReaderControl.SLIDER in controls
 		adjustLayoutParams()
 	}

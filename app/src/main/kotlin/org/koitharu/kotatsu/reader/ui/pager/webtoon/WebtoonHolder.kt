@@ -28,6 +28,7 @@ class WebtoonHolder(
 
 	override val ssiv = binding.ssiv
 	override val translationOverlay = binding.translationOverlay
+	override val upscaleBadge = binding.badgeAiUpscale
 
 	private var scrollToRestore = 0
 

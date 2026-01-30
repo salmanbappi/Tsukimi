@@ -4,5 +4,6 @@ enum class CacheDir(val dir: String) {
 
 	THUMBS("image_cache"),
 	FAVICONS("favicons"),
-	PAGES("pages");
+	PAGES("pages"),
+	UPSCALED_PAGES("upscaled_pages");
 }

@@ -494,6 +494,22 @@ class ReaderActivity :
         performAiTranslation()
     }
 
+    override fun onAiUpscaleClick() {
+        settings.isAiUpscalingEnabled = !settings.isAiUpscalingEnabled
+        val message = if (settings.isAiUpscalingEnabled) "AI Upscaling enabled" else "AI Upscaling disabled"
+        Snackbar.make(viewBinding.container, message, Snackbar.LENGTH_SHORT)
+            .setAnchorView(viewBinding.toolbarDocked)
+            .show()
+        
+        // Refresh current holders to trigger upscale if enabled
+        lifecycleScope.launch(Dispatchers.Main) {
+            readerManager.currentReader?.getCurrentHolders()?.forEach { holder ->
+                val page = holder.boundData ?: return@forEach
+                holder.bind(page) // Re-bind will trigger triggering upscale in viewModel
+            }
+        }
+    }
+
     private fun autoTranslateCurrentPages() {
         autoTranslateJob?.cancel()
         autoTranslateJob = lifecycleScope.launch(Dispatchers.Main) {
