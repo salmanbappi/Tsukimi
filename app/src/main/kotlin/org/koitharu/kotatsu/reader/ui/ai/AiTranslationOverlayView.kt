@@ -28,7 +28,16 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private val baseTextPaint = TextPaint().apply {
 		color = Color.BLACK
 		isAntiAlias = true
-		typeface = Typeface.SANS_SERIF
+		typeface = Typeface.DEFAULT_BOLD
+	}
+	
+	private val strokePaint = TextPaint().apply {
+		color = Color.WHITE
+		style = Paint.Style.STROKE
+		strokeWidth = 8f
+		isAntiAlias = true
+		typeface = Typeface.DEFAULT_BOLD
+		strokeJoin = Paint.Join.ROUND
 	}
 
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
@@ -43,10 +52,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val text = block.text
 
 			// Draw background bubble (white, solid)
-			// Using slightly larger rect for background to ensure coverage
 			canvas.drawRect(rect, backgroundPaint)
 
 			if (rect.width() <= 0 || rect.height() <= 0 || text.isBlank()) continue
+
+			// Calculate padding (12% of dimension, min 8px)
+			val paddingX = (rect.width() * 0.12f).toInt().coerceAtLeast(8)
+			val paddingY = (rect.height() * 0.12f).toInt().coerceAtLeast(8)
+			val availableWidth = (rect.width() - 2 * paddingX).coerceAtLeast(1)
+			val availableHeight = (rect.height() - 2 * paddingY).coerceAtLeast(1)
 
 			// Auto-sizing Logic
 			var textSize = 60f // Start large
@@ -55,48 +69,63 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			var finalLayout: StaticLayout? = null
 			var finalYOffset = 0f
+			var finalTextSize = minTextSize
 
-			// Create a working paint for this block
+			// Create a working paint for layout calculation
 			val paint = TextPaint(baseTextPaint)
 
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
 
 				// Build layout with high quality breaking
-				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, rect.width())
+				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
-					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE) // Prevent word splitting
+					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
 
 				// Check if it fits vertically
-				if (layout.height <= rect.height()) {
+				if (layout.height <= availableHeight) {
 					finalLayout = layout
-					// Calculate vertical center offset
-					finalYOffset = (rect.height() - layout.height) / 2f
+					finalTextSize = textSize
+					// Calculate vertical center offset within the padded area
+					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
 
 				textSize -= step
 			}
 
-			// If even the smallest size didn't fit perfect (rare), use the last valid layout or min size
+			// Fallback if no size fits
 			if (finalLayout == null) {
 				paint.textSize = minTextSize
-				finalLayout = StaticLayout.Builder.obtain(text, 0, text.length, paint, rect.width())
+				finalLayout = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 					.build()
-				finalYOffset = max(0f, (rect.height() - finalLayout.height) / 2f)
+				finalTextSize = minTextSize
+				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
 			// Draw text
 			canvas.save()
-			canvas.translate(rect.left.toFloat(), rect.top.toFloat() + finalYOffset)
+			// Translate to padded position
+			canvas.translate((rect.left + paddingX).toFloat(), (rect.top + paddingY).toFloat() + finalYOffset)
+			
+			// Draw Stroke
+			val workPaint = finalLayout.paint
+			workPaint.set(strokePaint)
+			workPaint.textSize = finalTextSize
 			finalLayout.draw(canvas)
+			
+			// Draw Fill
+			workPaint.set(baseTextPaint)
+			workPaint.textSize = finalTextSize
+			finalLayout.draw(canvas)
+			
 			canvas.restore()
 		}
 	}
