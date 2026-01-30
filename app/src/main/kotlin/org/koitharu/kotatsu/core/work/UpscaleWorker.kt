@@ -13,22 +13,18 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koitharu.kotatsu.R
+import kotlinx.coroutines.runBlocking
 import org.koitharu.kotatsu.core.ai.SuperImageUpscaler
+import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
+import org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider
 import org.koitharu.kotatsu.core.image.BitmapDecoderCompat
-import org.koitharu.kotatsu.core.util.ext.MimeType
-import org.koitharu.kotatsu.core.util.ext.compressToPNG
-import org.koitharu.kotatsu.core.util.ext.isZipUri
-import java.io.File
-import java.io.FileOutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
-import java.util.zip.ZipOutputStream
 
 @HiltWorker
 class UpscaleWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
-    private val upscaler: SuperImageUpscaler
+    private val upscaler: SuperImageUpscaler,
+    private val statusProvider: UpscaleStatusProvider
 ) : CoroutineWorker(appContext, params) {
 
     private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -36,6 +32,8 @@ class UpscaleWorker @AssistedInject constructor(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val factor = inputData.getInt("factor", 4)
         val uriString = inputData.getString("uri") ?: return@withContext Result.failure()
+        val mangaId = inputData.getLong("manga_id", 0L)
+        val chapterId = inputData.getLong("chapter_id", 0L)
         val uri = Uri.parse(uriString)
         val notificationId = uriString.hashCode()
         
@@ -49,11 +47,15 @@ class UpscaleWorker @AssistedInject constructor(
         notificationManager.notify(notificationId, builder.build())
         
         try {
+            statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, 0, 0, 0, 0, factor, 0, UpscaleProgress.Status.INITIALIZING))
+            
             if (uri.isZipUri() || uriString.endsWith(".cbz")) {
-                upscaleZip(uri, factor, builder, notificationId)
+                upscaleZip(uri, factor, builder, notificationId, mangaId, chapterId)
             } else {
-                upscaleDirectory(uri, factor, builder, notificationId)
+                upscaleDirectory(uri, factor, builder, notificationId, mangaId, chapterId)
             }
+            
+            statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, 1, 1, 1, 1, factor, 0, UpscaleProgress.Status.COMPLETED))
             
             builder.setContentTitle("Upscaling Complete")
                 .setContentText("Factor: ${factor}x")
@@ -64,6 +66,7 @@ class UpscaleWorker @AssistedInject constructor(
             return@withContext Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
+            statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, 0, 0, 0, 0, factor, 0, UpscaleProgress.Status.FAILED))
              builder.setContentTitle("Upscaling Failed")
                 .setContentText(e.message)
                 .setProgress(0, 0, false)
@@ -73,7 +76,7 @@ class UpscaleWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun upscaleZip(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int) {
+    private suspend fun upscaleZip(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int, mangaId: Long, chapterId: Long) {
         val path = if (uri.scheme == "zip") uri.schemeSpecificPart.substringBefore("!") else uri.path!!
         val file = File(path)
         val tempDir = File(applicationContext.cacheDir, "upscale_${System.currentTimeMillis()}")
@@ -86,6 +89,7 @@ class UpscaleWorker @AssistedInject constructor(
         builder.setProgress(total, 0, false)
         notificationManager.notify(notificationId, builder.build())
         
+        val startTime = System.currentTimeMillis()
         entries.forEachIndexed { index, entry ->
              if (isStopped) return@forEachIndexed
              
@@ -97,7 +101,17 @@ class UpscaleWorker @AssistedInject constructor(
              inputStream.close()
              
              if (bitmap != null) {
-                 val upscaled = upscaler.upscale(bitmap, factor)
+                 val upscaled = upscaler.upscale(bitmap, factor) { parts, pTotal ->
+                     val elapsed = System.currentTimeMillis() - startTime
+                     val avgPerPage = if (index > 0) elapsed / index else (elapsed / (parts.toFloat() / pTotal)).toLong()
+                     val timeLeft = (total - index) * (avgPerPage / 1000)
+                     
+                     runBlocking {
+                         statusProvider.updateProgress(UpscaleProgress(
+                             mangaId, chapterId, total, index, parts, pTotal, factor, timeLeft, UpscaleProgress.Status.PROCESSING
+                         ))
+                     }
+                 }
                  bitmap.recycle()
                  
                  if (upscaled != null) {
@@ -111,6 +125,8 @@ class UpscaleWorker @AssistedInject constructor(
         zipFile.close()
         
         if (isStopped) return
+
+        statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, total, total, 1, 1, factor, 0, UpscaleProgress.Status.SAVING))
 
         // Re-zip
         val tempZip = File(applicationContext.cacheDir, "upscaled_${file.name}")
@@ -132,7 +148,7 @@ class UpscaleWorker @AssistedInject constructor(
         File(file.parentFile, "${file.name}.upscaled").createNewFile()
     }
     
-    private suspend fun upscaleDirectory(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int) {
+    private suspend fun upscaleDirectory(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int, mangaId: Long, chapterId: Long) {
         val dir = uri.toFile()
         val files = dir.listFiles { f -> isImage(f.name) } ?: return
         val total = files.size
@@ -140,6 +156,7 @@ class UpscaleWorker @AssistedInject constructor(
         builder.setProgress(total, 0, false)
         notificationManager.notify(notificationId, builder.build())
         
+        val startTime = System.currentTimeMillis()
         files.forEachIndexed { index, file ->
             if (isStopped) return@forEachIndexed
             
@@ -148,7 +165,17 @@ class UpscaleWorker @AssistedInject constructor(
             
             val bitmap = try { BitmapDecoderCompat.decode(file) } catch (e: Exception) { null }
             if (bitmap != null) {
-                val upscaled = upscaler.upscale(bitmap, factor)
+                val upscaled = upscaler.upscale(bitmap, factor) { parts, pTotal ->
+                    val elapsed = System.currentTimeMillis() - startTime
+                    val avgPerPage = if (index > 0) elapsed / index else (elapsed / (parts.toFloat() / pTotal)).toLong()
+                    val timeLeft = (total - index) * (avgPerPage / 1000)
+                    
+                    runBlocking {
+                        statusProvider.updateProgress(UpscaleProgress(
+                            mangaId, chapterId, total, index, parts, pTotal, factor, timeLeft, UpscaleProgress.Status.PROCESSING
+                        ))
+                    }
+                }
                 bitmap.recycle()
                 
                 if (upscaled != null) {

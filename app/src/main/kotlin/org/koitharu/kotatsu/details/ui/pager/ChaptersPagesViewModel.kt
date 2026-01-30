@@ -264,6 +264,13 @@ abstract class ChaptersPagesViewModel(
 					refreshUpscaledChapters(it)
 				}
 		}
+		launchJob(Dispatchers.Default) {
+			manga.collect { 
+				// Need to find LocalManga for current manga
+				val local = mangaDetails.value?.local
+				refreshUpscaledChapters(local)
+			}
+		}
 	}
 
 	private fun refreshUpscaledChapters(localManga: LocalManga?) {

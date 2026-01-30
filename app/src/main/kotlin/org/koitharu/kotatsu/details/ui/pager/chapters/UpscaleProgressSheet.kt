@@ -1,0 +1,58 @@
+package org.koitharu.kotatsu.details.ui.pager.chapters
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.fragment.app.viewModels
+import dagger.hilt.android.AndroidEntryPoint
+import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
+import org.koitharu.kotatsu.core.ui.sheet.BaseAdaptiveSheet
+import org.koitharu.kotatsu.core.util.ext.observe
+import org.koitharu.kotatsu.databinding.SheetUpscaleProgressBinding
+
+@AndroidEntryPoint
+class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
+
+    private val viewModel by viewModels<UpscaleProgressViewModel>()
+
+    override fun onCreateViewBinding(
+        inflater: LayoutInflater,
+        container: ViewGroup?
+    ) = SheetUpscaleProgressBinding.inflate(inflater, container, false)
+
+    override fun onViewBindingCreated(binding: SheetUpscaleProgressBinding, savedInstanceState: Bundle?) {
+        super.onViewBindingCreated(binding, savedInstanceState)
+        binding.buttonClose.setOnClickListener { dismiss() }
+
+        viewModel.progress.observe(viewLifecycleOwner) { progress ->
+            if (progress == null) return@observe
+            
+            binding.textViewStatus.text = when (progress.status) {
+                UpscaleProgress.Status.INITIALIZING -> "Initializing resources..."
+                UpscaleProgress.Status.PROCESSING -> "Processing Page ${progress.currentPageIndex + 1} of ${progress.totalPages}"
+                UpscaleProgress.Status.SAVING -> "Saving high-quality chapter..."
+                UpscaleProgress.Status.COMPLETED -> "Upscaling complete!"
+                UpscaleProgress.Status.FAILED -> "Upscaling failed."
+            }
+
+            binding.progressOverall.progress = progress.overallPercentage
+            binding.progressPage.progress = progress.pagePercentage
+            binding.textViewPage_progress.text = "Current Page: ${progress.pagePercentage}% (${progress.pagePartsUpscaled}/${progress.totalPageParts} parts)"
+            
+            val minutes = progress.timeLeftSeconds / 60
+            val seconds = progress.timeLeftSeconds % 60
+            binding.textViewTimer.text = if (progress.timeLeftSeconds > 0) {
+                "Estimated time left: ${String.format("%02d:%02d", minutes, seconds)}"
+            } else if (progress.status == UpscaleProgress.Status.COMPLETED) {
+                "Done"
+            } else {
+                "Calculating..."
+            }
+
+            if (progress.status == UpscaleProgress.Status.COMPLETED) {
+                binding.buttonClose.text = "Finish"
+            }
+        }
+    }
+}

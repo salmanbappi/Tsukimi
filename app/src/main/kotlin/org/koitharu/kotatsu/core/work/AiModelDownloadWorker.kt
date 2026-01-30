@@ -51,7 +51,7 @@ class AiModelDownloadWorker @AssistedInject constructor(
 
 		val models = mapOf(
 			"waifu2x_fast.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/waifu2x_fast.tflite",
-			"esrgan_elite.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/esrgan_elite.tflite"
+			"realesrgan_x4plus_anime_6b.tflite" to "https://huggingface.co/kim-vador/Real-ESRGAN-TFLite/resolve/main/realesrgan-x4plus-anime.tflite"
 		)
 
 		var downloaded = 0

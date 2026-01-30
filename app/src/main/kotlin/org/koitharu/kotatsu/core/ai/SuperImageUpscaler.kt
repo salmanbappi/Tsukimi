@@ -26,9 +26,13 @@ class SuperImageUpscaler @Inject constructor(
 
     private var interpreter: Interpreter? = null
     private val mutex = Mutex()
-    private val modelFile = File(context.filesDir, "esrgan_elite.tflite")
+    private val modelFile = File(context.filesDir, "models/realesrgan_x4plus_anime_6b.tflite")
 
-    suspend fun upscale(bitmap: Bitmap, factor: Int): Bitmap? = mutex.withLock {
+    suspend fun upscale(
+        bitmap: Bitmap, 
+        factor: Int, 
+        onProgress: (parts: Int, total: Int) -> Unit = { _, _ -> }
+    ): Bitmap? = mutex.withLock {
         withContext(Dispatchers.Default) {
             if (!modelFile.exists()) return@withContext null
 
@@ -43,12 +47,14 @@ class SuperImageUpscaler @Inject constructor(
 
             return@withContext when {
                 factor <= 4 -> {
-                    val result = runModel(bitmap) ?: return@withContext null
+                    val result = runModel(bitmap, onProgress) ?: return@withContext null
                     if (factor == 4) result else resize(result, factor.toDouble() / 4.0)
                 }
                 factor <= 16 -> {
-                    val pass1 = runModel(bitmap) ?: return@withContext null
-                    val pass2 = runModel(pass1)
+                    // Pass 1 (4x)
+                    val pass1 = runModel(bitmap) { p, t -> onProgress(p, t * 2) } ?: return@withContext null
+                    // Pass 2 (Another 4x -> 16x)
+                    val pass2 = runModel(pass1) { p, t -> onProgress(t + p, t * 2) }
                     pass1.recycle()
                     if (pass2 == null) return@withContext null
                     if (factor == 16) pass2 else resize(pass2, factor.toDouble() / 16.0)
@@ -66,11 +72,10 @@ class SuperImageUpscaler @Inject constructor(
         return result
     }
 
-    private fun runModel(input: Bitmap): Bitmap? {
+    private fun runModel(input: Bitmap, onProgress: (parts: Int, total: Int) -> Unit): Bitmap? {
         val tflite = interpreter ?: return null
         val upscale = 4
         val tileSize = 256 
-        val overlap = 16 
 
         val w = input.width
         val h = input.height
@@ -82,17 +87,12 @@ class SuperImageUpscaler @Inject constructor(
 
         val tilesX = (w + tileSize - 1) / tileSize
         val tilesY = (h + tileSize - 1) / tileSize
+        val totalTiles = tilesX * tilesY
+        var processedTiles = 0
         
         // Reuse buffer for tiles to reduce GC
-        val inputBuffer = ByteBuffer.allocateDirect(1 * tileSize * tileSize * 3 * 4) // Float32
+        val inputBuffer = ByteBuffer.allocateDirect(1 * tileSize * tileSize * 3 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
-        
-        // Output buffer depends on model. Assuming standard RealESRGAN output.
-        // But TFLite output might be Float32 or UInt8. 
-        // Usually RealESRGAN TFLite outputs Float32 or UInt8. 
-        // Let's assume Float32 for "elite" models or check previous implementation.
-        // Previous implementation didn't have detailed buffer logic in the snippet.
-        // I'll assume standard float input/output for stability.
         
         val outputBuffer = ByteBuffer.allocateDirect(1 * (tileSize * upscale) * (tileSize * upscale) * 3 * 4)
         outputBuffer.order(ByteOrder.nativeOrder())
@@ -116,7 +116,7 @@ class SuperImageUpscaler @Inject constructor(
                     tile
                 }
 
-                // Preprocess (Bitmap -> ByteBuffer)
+                // Preprocess
                 inputBuffer.rewind()
                 val intValues = IntArray(tileSize * tileSize)
                 paddedTile.getPixels(intValues, 0, tileSize, 0, 0, tileSize, tileSize)
@@ -132,7 +132,7 @@ class SuperImageUpscaler @Inject constructor(
                 inputBuffer.rewind()
                 tflite.run(inputBuffer, outputBuffer)
 
-                // Postprocess (ByteBuffer -> Bitmap)
+                // Postprocess
                 outputBuffer.rewind()
                 val outTileSize = tileSize * upscale
                 val outPixels = IntArray(outTileSize * outTileSize)
@@ -148,7 +148,6 @@ class SuperImageUpscaler @Inject constructor(
                 // Draw to result
                 val dstX = srcX * upscale
                 val dstY = srcY * upscale
-                // We must crop if the last tile was padded
                 val validW = srcW * upscale
                 val validH = srcH * upscale
                 
@@ -156,6 +155,9 @@ class SuperImageUpscaler @Inject constructor(
                 val dstRect = Rect(dstX, dstY, dstX + validW, dstY + validH)
                 canvas.drawBitmap(outTile, srcRect, dstRect, null)
                 outTile.recycle()
+                
+                processedTiles++
+                onProgress(processedTiles, totalTiles)
             }
         }
         

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="@dimen/margin_normal">
+
+    <TextView
+        android:id="@+id/textView_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/ai_upscaling"
+        android:textAppearance="?textAppearanceHeadlineSmall" />
+
+    <TextView
+        android:id="@+id/textView_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_small"
+        android:textAppearance="?textAppearanceBodyMedium"
+        tools:text="Processing Page 5/20..." />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progress_overall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_normal"
+        app:indicatorColor="?colorPrimary"
+        app:trackColor="?colorSurfaceVariant"
+        tools:progress="25" />
+
+    <TextView
+        android:id="@+id/textView_page_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_normal"
+        android:textAppearance="?textAppearanceLabelLarge"
+        tools:text="Current Page: 45% (8/16 parts)" />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progress_page"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_small"
+        app:indicatorColor="?colorSecondary"
+        app:trackColor="?colorSurfaceVariant"
+        tools:progress="45" />
+
+    <TextView
+        android:id="@+id/textView_timer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_normal"
+        android:gravity="center"
+        android:textAppearance="?textAppearanceTitleMedium"
+        android:textColor="?colorTertiary"
+        tools:text="Estimated time left: 02:45" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_close"
+        style="?materialButtonOutlinedStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_normal"
+        android:text="@string/close" />
+
+</LinearLayout>

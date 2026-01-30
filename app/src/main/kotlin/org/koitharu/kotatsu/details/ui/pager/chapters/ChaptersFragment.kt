@@ -55,6 +55,9 @@ class ChaptersFragment :
 
 	private val viewModel by ChaptersPagesViewModel.ActivityVMLazy(this)
 
+	@Inject
+	lateinit var aiResourceManager: org.koitharu.kotatsu.core.ai.AiResourceManager
+
 	private var chaptersAdapter: ChaptersAdapter? = null
 	private var selectionController: ListSelectionController? = null
 
@@ -122,7 +125,12 @@ class ChaptersFragment :
 			return
 		}
 		if (view.id == R.id.button_upscale) {
-			showUpscaleDialog(requireContext(), setOf(item.chapter.id))
+			aiResourceManager.checkResources()
+			if (aiResourceManager.isResourceReady.value) {
+				showUpscaleDialog(requireContext(), setOf(item.chapter.id))
+			} else {
+				showResourceDownloadDialog()
+			}
 			return
 		}
 		if (selectionController?.onItemClick(item.chapter.id) == true) {
@@ -236,6 +244,18 @@ class ChaptersFragment :
 		requireViewBinding().progressBar.isVisible = isLoading
 	}
 
+	private fun showResourceDownloadDialog() {
+		com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+			.setTitle("Required Resources")
+			.setMessage("AI Upscaling requires additional resources (~17.1 MB) to be downloaded. Download now?")
+			.setPositiveButton("Download") { _, _ ->
+				aiResourceManager.downloadResources()
+				android.widget.Toast.makeText(requireContext(), "Download started in background", android.widget.Toast.LENGTH_SHORT).show()
+			}
+			.setNegativeButton(android.R.string.cancel, null)
+			.show()
+	}
+
 	private fun showUpscaleDialog(context: android.content.Context, chapterIds: Set<Long>) {
 		val manga = viewModel.getMangaOrNull() ?: return
 		val allChapters = viewModel.chapters.value
@@ -273,7 +293,7 @@ class ChaptersFragment :
 					else -> return@setItems
 				}
 				viewModel.upscale(chapterIds, factor)
-				android.widget.Toast.makeText(context, "Upscaling started for $totalPages pages", android.widget.Toast.LENGTH_SHORT).show()
+				router.showUpscaleProgressSheet()
 			}
 			.show()
 	}
