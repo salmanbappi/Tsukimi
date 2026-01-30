@@ -35,6 +35,8 @@ import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -45,9 +47,6 @@ import dagger.hilt.components.SingletonComponent
 interface AiEntryPoint {
 	fun aiFeatureManager(): AiFeatureManager
 }
-
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 @Singleton
 class AiFeatureManager @Inject constructor(
