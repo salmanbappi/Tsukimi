@@ -16,7 +16,7 @@ def bump_version(file_path):
         major, minor, patch = map(int, match.group(1).split('.'))
         return f"versionName = '{major}.{minor}.{patch + 1}'"
 
-    content_new = re.sub(r"versionName\s*=\s*'(\d+\.\d+\.\d+)'", replace_name, content_new)
+    content_new = re.sub(r"versionName\s*=?\s*'(\d+\.\d+\.\d+)'", replace_name, content_new)
 
     if content != content_new:
         with open(file_path, 'w') as f:
