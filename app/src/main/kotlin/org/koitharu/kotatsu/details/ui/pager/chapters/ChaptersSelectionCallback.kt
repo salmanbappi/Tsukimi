@@ -17,6 +17,7 @@ import org.koitharu.kotatsu.core.util.ext.asArrayList
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
 import org.koitharu.kotatsu.core.util.ext.toCollection
 import org.koitharu.kotatsu.core.util.ext.toSet
+import org.koitharu.kotatsu.details.ui.model.ChapterListItem
 import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
 import org.koitharu.kotatsu.local.ui.LocalChaptersRemoveService
 
@@ -47,13 +48,13 @@ class ChaptersSelectionCallback(
 			val isLocal = x.isDownloaded || x.chapter.source == LocalMangaSource
 			if (isLocal) canSave = false else canDelete = false
 		}
+		menu.findItem(R.id.action_ai_upscale).isVisible = items.isNotEmpty() && items.all { it.value.isDownloaded }
 		menu.findItem(R.id.action_save).isVisible = false // canSave
 		menu.findItem(R.id.action_delete).isVisible = false // canDelete
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_read).isVisible = items.isNotEmpty()
-		menu.findItem(R.id.action_ai_upscale).isVisible = items.isNotEmpty() && items.all { it.value.isDownloaded }
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {
@@ -69,7 +70,7 @@ class ChaptersSelectionCallback(
 	override fun onActionItemClicked(controller: ListSelectionController, mode: ActionMode?, item: MenuItem): Boolean {
 		return when (item.itemId) {
 			R.id.action_ai_upscale -> {
-				val ids = controller.peekCheckedIds()
+				val ids = controller.peekCheckedIds().toSet()
 				showUpscaleDialog(recyclerView.context, ids)
 				mode?.finish()
 				true

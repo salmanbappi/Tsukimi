@@ -92,7 +92,7 @@ class UpscaleWorker @AssistedInject constructor(
              notificationManager.notify(notificationId, builder.build())
              
              val inputStream = zipFile.getInputStream(entry)
-             val bitmap = BitmapDecoderCompat.decode(inputStream)
+             val bitmap = BitmapDecoderCompat.decode(inputStream, null)
              inputStream.close()
              
              if (bitmap != null) {
@@ -145,13 +145,15 @@ class UpscaleWorker @AssistedInject constructor(
             builder.setProgress(total, index + 1, false)
             notificationManager.notify(notificationId, builder.build())
             
-            val bitmap = BitmapDecoderCompat.decode(file) ?: return@forEachIndexed
-            val upscaled = upscaler.upscale(bitmap, factor)
-            bitmap.recycle()
-            
-            if (upscaled != null) {
-                upscaled.compressToPNG(file)
-                upscaled.recycle()
+            val bitmap = try { BitmapDecoderCompat.decode(file) } catch (e: Exception) { null }
+            if (bitmap != null) {
+                val upscaled = upscaler.upscale(bitmap, factor)
+                bitmap.recycle()
+                
+                if (upscaled != null) {
+                    upscaled.compressToPNG(file)
+                    upscaled.recycle()
+                }
             }
         }
         

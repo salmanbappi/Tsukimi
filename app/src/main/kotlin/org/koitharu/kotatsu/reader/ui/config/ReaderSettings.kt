@@ -35,11 +35,9 @@ data class ReaderSettings(
 	val colorFilter: ReaderColorFilter?,
 	val isReaderOptimizationEnabled: Boolean,
 	val bitmapConfig: Bitmap.Config,
-	val isPagesNumbersEnabled: Boolean,
 	val isPagesCropEnabledStandard: Boolean,
 	val isPagesCropEnabledWebtoon: Boolean,
 	val isAiTranslationEnabled: Boolean,
-	val isAiUpscalingEnabled: Boolean,
 ) {
 
 	private constructor(settings: AppSettings, colorFilterOverride: ReaderColorFilter?) : this(
@@ -56,7 +54,6 @@ data class ReaderSettings(
 		isPagesCropEnabledStandard = settings.isPagesCropEnabled(ReaderMode.STANDARD),
 		isPagesCropEnabledWebtoon = settings.isPagesCropEnabled(ReaderMode.WEBTOON),
 		isAiTranslationEnabled = settings.isAiTranslationEnabled,
-		isAiUpscalingEnabled = settings.isAiUpscalingEnabled,
 	)
 
 	fun applyBackground(view: View) {
@@ -108,7 +105,6 @@ data class ReaderSettings(
 			AppSettings.KEY_CF_GRAYSCALE,
 			AppSettings.KEY_READER_CROP,
 			AppSettings.KEY_AI_TRANSLATION,
-			AppSettings.KEY_AI_UPSCALING,
 		)
 		private var job: Job? = null
 

@@ -71,11 +71,12 @@ import org.koitharu.kotatsu.scrobbling.discord.ui.DiscordRpc
 import org.koitharu.kotatsu.stats.domain.StatsCollector
 import java.time.Instant
 import javax.inject.Inject
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import org.koitharu.kotatsu.core.work.UpscaleWorker
 
 private const val BOUNDS_PAGE_OFFSET = 2
-private const val PREFETCH_LIMIT = 10
-
-import androidx.work.WorkManager
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(

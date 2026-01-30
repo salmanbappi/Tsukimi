@@ -410,11 +410,6 @@ class AiFeatureManager @Inject constructor(
 		val text: StringBuilder,
 		val boundingBox: Rect
 	)
-
-	fun upscaleImage(bitmap: Bitmap): Bitmap {
-		if (!settings.isAiUpscalingEnabled) return bitmap
-		return bitmap
-	}
 }
 
 data class TranslatedBlock(

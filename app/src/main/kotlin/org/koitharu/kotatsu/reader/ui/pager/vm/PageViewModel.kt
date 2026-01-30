@@ -87,32 +87,9 @@ class PageViewModel(
 	override fun onImageLoaded() {
 		state.update { currentState ->
 			if (currentState is PageState.Loaded) {
-				val shownState = PageState.Shown(currentState.source, currentState.isConverted)
-				triggerUpscale(shownState)
-				shownState
+				PageState.Shown(currentState.source, currentState.isConverted)
 			} else {
 				currentState
-			}
-		}
-	}
-
-	private fun triggerUpscale(shownState: PageState.Shown) {
-		if (shownState.isUpscaled) return
-		val page = boundPage ?: return
-		val uri = (shownState.source as? ImageSource.Uri)?.uri ?: return
-		
-		upscaleJob?.cancel()
-		upscaleJob = scope.launch(Dispatchers.Default) {
-			val upscaledUri = loader.upscalePage(page, uri) ?: return@launch
-			state.update { currentState ->
-				if (currentState is PageState.Shown && currentState.source == shownState.source) {
-					currentState.copy(
-						source = upscaledUri.toImageSource(cachedBounds),
-						isUpscaled = true
-					)
-				} else {
-					currentState
-				}
 			}
 		}
 	}
