@@ -222,7 +222,14 @@ abstract class BasePageHolder<B : ViewBinding>(
 
 			is PageState.Shown -> {
 				if (state.isUpscaled) {
+					val currentScale = ssiv.scale
+					val currentCenter = ssiv.getCenter()
 					ssiv.setImage(state.source)
+					if (currentCenter != null) {
+						// UpscaleFactor is 2x, so we need to adjust center coordinates
+						// and scale to maintain the same view
+						ssiv.setScaleAndCenter(currentScale / 2f, android.graphics.PointF(currentCenter.x * 2f, currentCenter.y * 2f))
+					}
 				}
 				upscaleBadge?.isVisible = state.isUpscaled
 				restoreTranslationIfPossible()

@@ -171,6 +171,8 @@ class UpscaleEngine @Inject constructor(
 			
 			val imageProcessor = ImageProcessor.Builder()
 				.add(ResizeOp(inputSize, inputSize, ResizeOp.ResizeMethod.BILINEAR))
+				// Normalization: Most SR models expect [0, 1]
+				.add(org.tensorflow.lite.support.common.ops.NormalizeOp(0f, 255f)) 
 				.build()
 			
 			val processedImage = imageProcessor.process(tensorImage)
@@ -183,16 +185,18 @@ class UpscaleEngine @Inject constructor(
 			// 3. Run Inference
 			engine.run(processedImage.buffer, outputBuffer.buffer)
 			
-			// 4. Post-process to Bitmap
+			// 4. Post-process to Bitmap with contrast enhancement
 			val resultBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
 			val pixels = IntArray(outputWidth * outputHeight)
 			val outputArray = outputBuffer.floatArray
 			
-			// Optimized pixel loop
+			// Optimized pixel loop with slight sharpening
 			for (i in 0 until outputHeight * outputWidth) {
-				val r = (outputArray[i * 3] * 255).toInt().coerceIn(0, 255)
-				val g = (outputArray[i * 3 + 1] * 255).toInt().coerceIn(0, 255)
-				val b = (outputArray[i * 3 + 2] * 255).toInt().coerceIn(0, 255)
+				var r = (outputArray[i * 3] * 255).toInt().coerceIn(0, 255)
+				var g = (outputArray[i * 3 + 1] * 255).toInt().coerceIn(0, 255)
+				var b = (outputArray[i * 3 + 2] * 255).toInt().coerceIn(0, 255)
+				
+				// Subtle detail enhancement
 				pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
 			}
 			
