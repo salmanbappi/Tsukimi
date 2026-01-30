@@ -77,6 +77,7 @@ import androidx.work.workDataOf
 import org.koitharu.kotatsu.core.work.UpscaleWorker
 
 private const val BOUNDS_PAGE_OFFSET = 2
+private const val PREFETCH_LIMIT = 10
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(

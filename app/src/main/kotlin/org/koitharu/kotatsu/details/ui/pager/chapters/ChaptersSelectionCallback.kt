@@ -70,7 +70,8 @@ class ChaptersSelectionCallback(
 	override fun onActionItemClicked(controller: ListSelectionController, mode: ActionMode?, item: MenuItem): Boolean {
 		return when (item.itemId) {
 			R.id.action_ai_upscale -> {
-				val ids = controller.peekCheckedIds().toSet()
+				val ids = mutableSetOf<Long>()
+				controller.peekCheckedIds().forEach { ids.add(it) }
 				showUpscaleDialog(recyclerView.context, ids)
 				mode?.finish()
 				true

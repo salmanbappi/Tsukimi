@@ -35,6 +35,7 @@ data class ReaderSettings(
 	val colorFilter: ReaderColorFilter?,
 	val isReaderOptimizationEnabled: Boolean,
 	val bitmapConfig: Bitmap.Config,
+	val isPagesNumbersEnabled: Boolean,
 	val isPagesCropEnabledStandard: Boolean,
 	val isPagesCropEnabledWebtoon: Boolean,
 	val isAiTranslationEnabled: Boolean,
