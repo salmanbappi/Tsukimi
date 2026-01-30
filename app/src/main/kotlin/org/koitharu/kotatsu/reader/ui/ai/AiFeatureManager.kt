@@ -59,6 +59,8 @@ class AiFeatureManager @Inject constructor(
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
+	
+	fun getFromCache(pageKey: String): List<TranslatedBlock>? = translationCache.get(pageKey)
 
 	suspend fun translatePage(
 		pageKey: String,

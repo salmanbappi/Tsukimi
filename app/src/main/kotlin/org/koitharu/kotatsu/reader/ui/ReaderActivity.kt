@@ -497,7 +497,15 @@ class ReaderActivity :
     private fun autoTranslateCurrentPages() {
         autoTranslateJob?.cancel()
         autoTranslateJob = lifecycleScope.launch(Dispatchers.Main) {
-            delay(600)
+            val holders = readerManager.currentReader?.getCurrentHolders() ?: emptyList()
+            val allCached = holders.isNotEmpty() && holders.all { holder ->
+                val page = holder.boundData ?: return@all true
+                aiFeatureManager.isCached("${page.chapterId}_${page.index}")
+            }
+            
+            if (!allCached) {
+                delay(600)
+            }
             performAiTranslation()
         }
     }

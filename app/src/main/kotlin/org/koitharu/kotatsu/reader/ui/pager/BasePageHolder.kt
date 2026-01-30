@@ -109,8 +109,16 @@ abstract class BasePageHolder<B : ViewBinding>(
 
 	fun bind(data: ReaderPage) {
 		boundData = data
-		translationOverlay?.isVisible = false
-		translationOverlay?.setTranslatedBlocks(emptyList())
+		val pageKey = "${data.chapterId}_${data.index}"
+		val cached = aiFeatureManager.getFromCache(pageKey)
+		if (settings.isAiTranslationEnabled && cached != null) {
+			translationOverlay?.setupWithSSIV(ssiv)
+			translationOverlay?.isVisible = true
+			translationOverlay?.setTranslatedBlocks(cached)
+		} else {
+			translationOverlay?.isVisible = false
+			translationOverlay?.setTranslatedBlocks(emptyList())
+		}
 		viewModel.onBind(data.toMangaPage())
 		onBind(data)
 	}
@@ -208,15 +216,11 @@ abstract class BasePageHolder<B : ViewBinding>(
 			is PageState.Shown -> {
 				val page = boundData ?: return
 				val pageKey = "${page.chapterId}_${page.index}"
-				if (settings.isAiTranslationEnabled && aiFeatureManager.isCached(pageKey)) {
-					lifecycleScope.launch(Dispatchers.Default) {
-						val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), 1f, 0f, 0f)
-						withContext(Dispatchers.Main) {
-							translationOverlay?.setupWithSSIV(ssiv)
-							translationOverlay?.isVisible = true
-							translationOverlay?.setTranslatedBlocks(blocks)
-						}
-					}
+				val cached = aiFeatureManager.getFromCache(pageKey)
+				if (settings.isAiTranslationEnabled && cached != null) {
+					translationOverlay?.setupWithSSIV(ssiv)
+					translationOverlay?.isVisible = true
+					translationOverlay?.setTranslatedBlocks(cached)
 				}
 			}
 		}

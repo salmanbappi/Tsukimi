@@ -191,7 +191,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
-		// Continuous tracking during zoom/pan
-		postInvalidateOnAnimation()
+		// Continuous tracking only during active interaction
+		if (ssiv.isZooming || ssiv.isPanning) {
+			postInvalidateOnAnimation()
+		}
 	}
 }
