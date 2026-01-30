@@ -131,9 +131,9 @@ class AiFeatureManager @Inject constructor(
 						(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 					)
 					
-					// Safety guard: skip giant broken OCR blocks (>90% of captured area)
-					if (rectInOriginalBitmap.width() > bitmap.width * 0.9f || 
-						rectInOriginalBitmap.height() > bitmap.height * 0.9f) return@async null
+					// Safety guard: skip giant broken OCR blocks (>99% of captured area)
+					if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
+						rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
 					TranslatedBlock(
 						text = translatedText,
@@ -149,7 +149,7 @@ class AiFeatureManager @Inject constructor(
 			}
 		} finally {
 			mlKitTranslator?.close()
-			if (ocrBitmap != bitmap) ocrBitmap.recycle()
+			if (ocrBitmap != bitmap && ocrBitmap.width > 1) ocrBitmap.recycle()
 		}
 		
 		result
@@ -272,54 +272,62 @@ class AiFeatureManager @Inject constructor(
 	}
 	
 	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): Rect {
-		val width = bitmap.width
-		val height = bitmap.height
-		val centerX = textRect.centerX()
-		val centerY = textRect.centerY()
+		try {
+			val width = bitmap.width
+			val height = bitmap.height
+			val centerX = textRect.centerX()
+			val centerY = textRect.centerY()
 
-		if (centerX !in 0 until width || centerY !in 0 until height) return textRect
+			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-		val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.35f).toInt()).coerceAtLeast(100)
-		val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.35f).toInt()).coerceAtLeast(100)
+			val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.35f).toInt()).coerceAtLeast(100)
+			val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.35f).toInt()).coerceAtLeast(100)
 
-		var left = textRect.left
-		var dist = 0
-		while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
-			left--
-			dist++
+			var left = textRect.left
+			var dist = 0
+			while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
+				left--
+				dist++
+			}
+
+			var right = textRect.right
+			dist = 0
+			while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
+				right++
+				dist++
+			}
+
+			var top = textRect.top
+			dist = 0
+			while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
+				top--
+				dist++
+			}
+
+			var bottom = textRect.bottom
+			dist = 0
+			while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
+				bottom++
+				dist++
+			}
+
+			return Rect(left, top, right, bottom)
+		} catch (e: Exception) {
+			return textRect
 		}
-
-		var right = textRect.right
-		dist = 0
-		while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
-			right++
-			dist++
-		}
-
-		var top = textRect.top
-		dist = 0
-		while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
-			top--
-			dist++
-		}
-
-		var bottom = textRect.bottom
-		dist = 0
-		while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
-			bottom++
-			dist++
-		}
-
-		return Rect(left, top, right, bottom)
 	}
 
 	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {
-		val pixel = bitmap.getPixel(x, y)
-		val red = Color.red(pixel)
-		val green = Color.green(pixel)
-		val blue = Color.blue(pixel)
-		val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-		return luminance >= 165
+		try {
+			val pixel = bitmap.getPixel(x, y)
+			val red = Color.red(pixel)
+			val green = Color.green(pixel)
+			val blue = Color.blue(pixel)
+			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+			return luminance >= 155 // Slightly more permissive
+		} catch (e: Exception) {
+			return false
+		}
 	}
 
 	private data class IntermediateBlock(

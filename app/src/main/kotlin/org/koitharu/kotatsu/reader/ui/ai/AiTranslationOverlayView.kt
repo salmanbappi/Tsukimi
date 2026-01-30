@@ -44,7 +44,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private val strokePaint = TextPaint().apply {
 		color = Color.WHITE
 		style = Paint.Style.STROKE
-		strokeWidth = 8f
+		strokeWidth = 3f * REFERENCE_SCALE
 		isAntiAlias = true
 		typeface = Typeface.DEFAULT_BOLD
 		strokeJoin = Paint.Join.ROUND

@@ -517,13 +517,14 @@ class ReaderActivity :
                 // Capture mapping state accurately on Main thread
                 val isReady = withContext(Dispatchers.Main) { ssiv.isReady }
                 val scale = withContext(Dispatchers.Main) { ssiv.scale }
-                val center = withContext(Dispatchers.Main) { ssiv.getCenter() ?: PointF(0f, 0f) }
-                val vTranslateX = withContext(Dispatchers.Main) { ssiv.width / 2f - center.x * scale }
-                val vTranslateY = withContext(Dispatchers.Main) { ssiv.height / 2f - center.y * scale }
+                val vOrigin = withContext(Dispatchers.Main) { ssiv.viewToSourceCoord(0f, 0f) }
+                val vTranslateX = if (vOrigin != null) -vOrigin.x * scale else 0f
+                val vTranslateY = if (vOrigin != null) -vOrigin.y * scale else 0f
 
                 if (aiFeatureManager.isCached(pageKey)) {
                     val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, vTranslateX, vTranslateY)
                     withContext(Dispatchers.Main) {
+                        overlay.setupWithSSIV(ssiv)
                         overlay.isVisible = true
                         overlay.setTranslatedBlocks(blocks)
                     }
@@ -554,6 +555,7 @@ class ReaderActivity :
                 val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
                 
                 withContext(Dispatchers.Main) {
+                    overlay.setupWithSSIV(ssiv)
                     overlay.isVisible = true
                     overlay.setTranslatedBlocks(blocks)
                     viewBinding.toastView.hide()
