@@ -57,7 +57,7 @@ class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
 
             if (progress.status == UpscaleProgress.Status.COMPLETED) {
                 binding.buttonClose.text = "Finish"
-                binding.textViewTimer.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_done, 0, 0, 0)
+                binding.textViewTimer.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_check, 0, 0, 0)
             }
         }
     }

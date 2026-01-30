@@ -3,6 +3,7 @@
 
 	<!-- Common dimensions -->
 	<dimen name="margin_normal">16dp</dimen>
+	<dimen name="margin_large">24dp</dimen>
 	<dimen name="margin_small">8dp</dimen>
 	<!-- List spacing -->
 	<dimen name="list_spacing_small">6dp</dimen>
