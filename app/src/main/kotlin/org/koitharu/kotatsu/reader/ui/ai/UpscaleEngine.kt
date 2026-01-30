@@ -46,7 +46,8 @@ class UpscaleEngine @Inject constructor(
 		release() // Release old interpreter if model changed
 		
 		try {
-			if (!FileUtil.listAssets(context, "models").contains(modelPath.substringAfterLast("/"))) {
+			val assets = context.assets.list("models") ?: emptyArray()
+			if (!assets.contains(modelPath.substringAfterLast("/"))) {
 				return@withContext null
 			}
 			val modelBuffer: MappedByteBuffer = FileUtil.loadMappedFile(context, modelPath)
