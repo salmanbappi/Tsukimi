@@ -45,6 +45,9 @@ class AiFeatureManager @Inject constructor(
 	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
+import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
+// ...
 	suspend fun translatePage(bitmap: Bitmap, targetLanguage: String = TranslateLanguage.ENGLISH): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
 
@@ -70,30 +73,33 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			for (block in mergedBlocks) {
-				val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
-				if (cleanText.isBlank()) continue
+			// Process all blocks in parallel for "Premium" speed and responsiveness
+			val translationJobs = mergedBlocks.map { block ->
+				async {
+					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+					if (cleanText.isBlank()) return@async null
 
-				val translatedText = try {
-					when (engine) {
-						TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await() ?: "Error"
-						TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-						TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+					val translatedText = try {
+						when (engine) {
+							TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await() ?: "Error"
+							TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+							TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+						}
+					} catch (e: Exception) {
+						"Error"
 					}
-				} catch (e: Exception) {
-					"Error: ${e.message}"
-				}
 
-				// Try to expand the bounding box to the speech bubble borders
-				val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
-				
-				result.add(
+					// Try to expand the bounding box to the speech bubble borders
+					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					
 					TranslatedBlock(
 						text = translatedText,
 						boundingBox = bubbleRect
 					)
-				)
+				}
 			}
+			
+			result.addAll(translationJobs.awaitAll().filterNotNull())
 		} finally {
 			mlKitTranslator?.close()
 		}
@@ -102,7 +108,7 @@ class AiFeatureManager @Inject constructor(
 	}
 
 	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
-		val apiKey = settings.deeplApiKey ?: return@withContext "Error: Missing DeepL API Key"
+		val apiKey = settings.deeplApiKey ?: return@withContext "Error: Missing API Key"
 		// DeepL Free API uses a different domain than Pro
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
@@ -120,24 +126,25 @@ class AiFeatureManager @Inject constructor(
 			
 		try {
 			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "DeepL Error: ${response.code}"
+				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
 				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
 				jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
 			}
 		} catch (e: Exception) {
-			"DeepL Error: ${e.message}"
+			"Error"
 		}
 	}
 
 	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
-		val apiKey = settings.openaiApiKey ?: return@withContext "Error: Missing OpenAI API Key"
+		val apiKey = settings.openaiApiKey ?: return@withContext "Error: Missing API Key"
+		val langName = getLanguageName(targetLanguage)
 		
 		val body = buildJsonObject {
-			put("model", "gpt-4o-mini") // Fast and high quality for translation tasks
+			put("model", "gpt-4o-mini")
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural English. Keep it concise.")
+					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise, preserve the tone, and ensure it fits well in a speech bubble. Only return the translated text.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -154,12 +161,27 @@ class AiFeatureManager @Inject constructor(
 			
 		try {
 			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "OpenAI Error: ${response.code}"
+				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
 				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
 				jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
 			}
 		} catch (e: Exception) {
-			"OpenAI Error: ${e.message}"
+			"Error"
+		}
+	}
+
+	private fun getLanguageName(code: String): String {
+		return when (code.lowercase()) {
+			"en" -> "English"
+			"ru" -> "Russian"
+			"es" -> "Spanish"
+			"fr" -> "French"
+			"de" -> "German"
+			"it" -> "Italian"
+			"ja" -> "Japanese"
+			"ko" -> "Korean"
+			"zh" -> "Chinese"
+			else -> code
 		}
 	}
 

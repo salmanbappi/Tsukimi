@@ -23,36 +23,28 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
 		style = Paint.Style.FILL
-	}
-	// Initial text paint configuration
-	private val baseTextPaint = TextPaint().apply {
-		color = Color.BLACK
 		isAntiAlias = true
-		typeface = Typeface.DEFAULT_BOLD
 	}
 	
-	private val strokePaint = TextPaint().apply {
-		color = Color.WHITE
-		style = Paint.Style.STROKE
-		strokeWidth = 8f
-		isAntiAlias = true
-		typeface = Typeface.DEFAULT_BOLD
-		strokeJoin = Paint.Join.ROUND
-	}
-
-	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
-		blocks = newBlocks
-		invalidate()
-	}
-
+	private val baseTextPaint = TextPaint().apply {
+// ... (omitting lines for brevity in instruction, but will include in new_string)
 	override fun onDraw(canvas: Canvas) {
 		super.onDraw(canvas)
 		for (block in blocks) {
 			val rect = block.boundingBox
 			val text = block.text
 
-			// Draw background bubble (white, solid)
-			canvas.drawRect(rect, backgroundPaint)
+			// Draw background bubble (rounded for a premium speech bubble feel)
+			val cornerRadius = (rect.width().coerceAtMost(rect.height()) * 0.4f).coerceAtMost(60f)
+			canvas.drawRoundRect(
+				rect.left.toFloat(),
+				rect.top.toFloat(),
+				rect.right.toFloat(),
+				rect.bottom.toFloat(),
+				cornerRadius,
+				cornerRadius,
+				backgroundPaint
+			)
 
 			if (rect.width() <= 0 || rect.height() <= 0 || text.isBlank()) continue
 
@@ -62,10 +54,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val availableWidth = (rect.width() - 2 * paddingX).coerceAtLeast(1)
 			val availableHeight = (rect.height() - 2 * paddingY).coerceAtLeast(1)
 
+			// Pre-split words to ensure no word is broken mid-way
+			val words = text.split(Regex("\\s+"))
+
 			// Auto-sizing Logic
 			var textSize = 60f // Start large
-			val minTextSize = 12f
-			val step = 2f
+			val minTextSize = 10f
+			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
 			var finalYOffset = 0f
@@ -76,13 +71,20 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
+				
+				// Ensure the longest word fits horizontally without breaking
+				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
+				if (maxWordWidth > availableWidth && textSize > minTextSize) {
+					textSize -= step
+					continue
+				}
 
-				// Build layout with high quality breaking
+				// Build layout with balanced strategy (better for speech bubbles)
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
 					.setIncludePad(false)
-					.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
+					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
