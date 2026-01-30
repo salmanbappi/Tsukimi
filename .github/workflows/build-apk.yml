@@ -71,10 +71,11 @@ jobs:
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}.${{ github.run_number }}
-          name: Tsukimi v${{ env.APP_VERSION }}
+          tag_name: v${{ github.run_number }}
+          name: Release ${{ github.run_number }} (v${{ env.APP_VERSION }})
           body: |
-            ### Automated Build v${{ env.APP_VERSION }}
+            ### Automated Build #${{ github.run_number }}
+            - **App Version:** v${{ env.APP_VERSION }}
             - **Status:** Build Successful
             - **Commit:** ${{ github.sha }}
           files: Tsukimi-v${{ env.APP_VERSION }}.apk
