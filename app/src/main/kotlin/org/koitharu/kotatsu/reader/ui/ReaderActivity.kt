@@ -497,7 +497,7 @@ class ReaderActivity :
     private fun autoTranslateCurrentPages() {
         autoTranslateJob?.cancel()
         autoTranslateJob = lifecycleScope.launch(Dispatchers.Main) {
-            delay(600) // Lower delay for "instant" prefetching feel
+            delay(600)
             performAiTranslation()
         }
     }
@@ -514,11 +514,15 @@ class ReaderActivity :
                 val page = holder.boundData ?: continue
                 val pageKey = "${page.chapterId}_${page.index}"
 
-                // Standard scale for percentage mapping
-                val scale = 1f
+                // Capture mapping state accurately on Main thread
+                val isReady = withContext(Dispatchers.Main) { ssiv.isReady }
+                val scale = withContext(Dispatchers.Main) { ssiv.scale }
+                val center = withContext(Dispatchers.Main) { ssiv.getCenter() ?: PointF(0f, 0f) }
+                val vTranslateX = withContext(Dispatchers.Main) { ssiv.width / 2f - center.x * scale }
+                val vTranslateY = withContext(Dispatchers.Main) { ssiv.height / 2f - center.y * scale }
 
                 if (aiFeatureManager.isCached(pageKey)) {
-                    val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, 0f, 0f)
+                    val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, vTranslateX, vTranslateY)
                     withContext(Dispatchers.Main) {
                         overlay.isVisible = true
                         overlay.setTranslatedBlocks(blocks)
@@ -526,8 +530,6 @@ class ReaderActivity :
                     continue
                 }
 
-                // Ensure image is actually loaded before capturing for OCR
-                val isReady = withContext(Dispatchers.Main) { ssiv.isReady }
                 if (!isReady) continue
 
                 withContext(Dispatchers.Main) {
@@ -538,8 +540,7 @@ class ReaderActivity :
                     ssiv.drawToBitmap()
                 }
                 
-                // Percentages are calculated internally by the manager based on this bitmap
-                val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, 0f, 0f)
+                val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
                 
                 withContext(Dispatchers.Main) {
                     overlay.isVisible = true

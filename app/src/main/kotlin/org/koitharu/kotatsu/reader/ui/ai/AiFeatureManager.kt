@@ -62,7 +62,14 @@ class AiFeatureManager @Inject constructor(
 
 		translationCache.get(pageKey)?.let { return@withContext it }
 
-		val inputImage = InputImage.fromBitmap(bitmap, 0)
+		// Optimization: Downscale bitmap for faster OCR processing
+		val maxDim = 1440
+		val ocrScale = Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+		val ocrBitmap = if (ocrScale < 1f) {
+			Bitmap.createScaledBitmap(bitmap, (bitmap.width * ocrScale).toInt(), (bitmap.height * ocrScale).toInt(), true)
+		} else bitmap
+
+		val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 		val visionText = textRecognizer.process(inputImage).await()
 		
 		val engine = settings.aiTranslationEngine
@@ -83,12 +90,9 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			val bitmapWidth = bitmap.width.toFloat()
-			val bitmapHeight = bitmap.height.toFloat()
-
-			val translationJobs = mergedBlocks.map { block ->
+			val translationJobs = mergedBlocks.map {
 				async {
-					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -103,23 +107,35 @@ class AiFeatureManager @Inject constructor(
 
 					if (translatedText.isNullOrBlank()) return@async null
 
-					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
 					
-					val pctRect = RectF(
-						bubbleRect.left / bitmapWidth,
-						bubbleRect.top / bitmapHeight,
-						bubbleRect.right / bitmapWidth,
-						bubbleRect.bottom / bitmapHeight
+					// Map back to original captured bitmap coordinates
+					val rectInOriginalBitmap = RectF(
+						bubbleRect.left / ocrScale,
+						bubbleRect.top / ocrScale,
+						bubbleRect.right / ocrScale,
+						bubbleRect.bottom / ocrScale
+					)
+
+					// ABSOLUTE IMAGE ANCHORING:
+					// Convert bitmap coordinates to actual source image coordinates
+					val sourceRect = RectF(
+						(rectInOriginalBitmap.left - vTranslateX) / viewScale,
+						(rectInOriginalBitmap.top - vTranslateY) / viewScale,
+						(rectInOriginalBitmap.right - vTranslateX) / viewScale,
+						(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 					)
 					
-					if (pctRect.width() > 0.8f || pctRect.height() > 0.8f) return@async null
+					// Safety guard: skip giant broken OCR blocks (>90% of page)
+					if (sourceRect.width() > 0.9f || sourceRect.height() > 0.9f) return@async null
 
 					TranslatedBlock(
 						text = translatedText,
-						boundingBox = pctRect
+						boundingBox = sourceRect
 					)
 				}
 			}
+			
 			result.addAll(translationJobs.awaitAll().filterNotNull())
 			
 			if (result.isNotEmpty()) {
@@ -127,6 +143,7 @@ class AiFeatureManager @Inject constructor(
 			}
 		} finally {
 			mlKitTranslator?.close()
+			if (ocrBitmap != bitmap) ocrBitmap.recycle()
 		}
 		
 		result
@@ -168,7 +185,7 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise, preserve the tone, and ensure it fits well in a speech bubble. Only return the translated text.")
+					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise and preserve the tone. Only return the translated text.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -256,8 +273,8 @@ class AiFeatureManager @Inject constructor(
 
 		if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-		val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.3f).toInt()).coerceAtLeast(100)
-		val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.3f).toInt()).coerceAtLeast(100)
+		val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.35f).toInt()).coerceAtLeast(100)
+		val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.35f).toInt()).coerceAtLeast(100)
 
 		var left = textRect.left
 		var dist = 0
@@ -296,7 +313,7 @@ class AiFeatureManager @Inject constructor(
 		val green = Color.green(pixel)
 		val blue = Color.blue(pixel)
 		val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-		return luminance >= 170
+		return luminance >= 165
 	}
 
 	private data class IntermediateBlock(
