@@ -13,11 +13,18 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koitharu.kotatsu.R
-import kotlinx.coroutines.runBlocking
 import org.koitharu.kotatsu.core.ai.SuperImageUpscaler
 import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
 import org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider
 import org.koitharu.kotatsu.core.image.BitmapDecoderCompat
+import org.koitharu.kotatsu.core.util.ext.compressToPNG
+import org.koitharu.kotatsu.core.util.ext.isZipUri
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.runBlocking
 
 @HiltWorker
 class UpscaleWorker @AssistedInject constructor(
@@ -101,7 +108,7 @@ class UpscaleWorker @AssistedInject constructor(
              inputStream.close()
              
              if (bitmap != null) {
-                 val upscaled = upscaler.upscale(bitmap, factor) { parts, pTotal ->
+                 val upscaled = upscaler.upscale(bitmap, factor) { parts: Int, pTotal: Int ->
                      val elapsed = System.currentTimeMillis() - startTime
                      val avgPerPage = if (index > 0) elapsed / index else (elapsed / (parts.toFloat() / pTotal)).toLong()
                      val timeLeft = (total - index) * (avgPerPage / 1000)
@@ -165,7 +172,7 @@ class UpscaleWorker @AssistedInject constructor(
             
             val bitmap = try { BitmapDecoderCompat.decode(file) } catch (e: Exception) { null }
             if (bitmap != null) {
-                val upscaled = upscaler.upscale(bitmap, factor) { parts, pTotal ->
+                val upscaled = upscaler.upscale(bitmap, factor) { parts: Int, pTotal: Int ->
                     val elapsed = System.currentTimeMillis() - startTime
                     val avgPerPage = if (index > 0) elapsed / index else (elapsed / (parts.toFloat() / pTotal)).toLong()
                     val timeLeft = (total - index) * (avgPerPage / 1000)

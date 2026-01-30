@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.core.view.WindowInsetsCompat
 import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
 import org.koitharu.kotatsu.core.ui.sheet.BaseAdaptiveSheet
 import org.koitharu.kotatsu.core.util.ext.observe
@@ -20,6 +21,10 @@ class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
         inflater: LayoutInflater,
         container: ViewGroup?
     ) = SheetUpscaleProgressBinding.inflate(inflater, container, false)
+
+    override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat {
+        return insets
+    }
 
     override fun onViewBindingCreated(binding: SheetUpscaleProgressBinding, savedInstanceState: Bundle?) {
         super.onViewBindingCreated(binding, savedInstanceState)
@@ -38,7 +43,7 @@ class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
 
             binding.progressOverall.progress = progress.overallPercentage
             binding.progressPage.progress = progress.pagePercentage
-            binding.textViewPage_progress.text = "Current Page: ${progress.pagePercentage}% (${progress.pagePartsUpscaled}/${progress.totalPageParts} parts)"
+            binding.textViewPageProgress.text = "Current Page: ${progress.pagePercentage}% (${progress.pagePartsUpscaled}/${progress.totalPageParts} parts)"
             
             val minutes = progress.timeLeftSeconds / 60
             val seconds = progress.timeLeftSeconds % 60
