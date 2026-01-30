@@ -536,8 +536,19 @@ class ReaderActivity :
                     viewBinding.toastView.show(R.string.processing_)
                 }
                 
-                val bitmap = withContext(Dispatchers.Main) {
-                    ssiv.drawToBitmap()
+                val bitmap = try {
+                    withContext(Dispatchers.Main) {
+                        ssiv.drawToBitmap()
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+                
+                if (bitmap == null) {
+                    withContext(Dispatchers.Main) {
+                        viewBinding.toastView.hide()
+                    }
+                    continue
                 }
                 
                 val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)

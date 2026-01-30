@@ -24,8 +24,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var blocks: List<TranslatedBlock> = emptyList()
 	private var ssiv: SubsamplingScaleImageView? = null
 	
+	companion object {
+		private const val REFERENCE_SCALE = 1.5f
+	}
+	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
+		alpha = 240 // 94% opaque for a premium feel
 		style = Paint.Style.FILL
 		isAntiAlias = true
 	}
@@ -68,16 +73,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	private fun prepareLayouts() {
 		preparedBlocks.clear()
-		// We prepare layouts at a reference scale (1.5x) for high quality
-		val referenceScale = 1.5f
 		
 		for (block in blocks) {
 			val text = block.text
 			if (text.isBlank()) continue
 			
-			// Reference width for typesetting
-			val refWidth = block.boundingBox.width() * 1000f * referenceScale
-			val refHeight = block.boundingBox.height() * 1000f * referenceScale
+			// Reference width for typesetting in source pixels
+			val refWidth = block.boundingBox.width() * REFERENCE_SCALE
+			val refHeight = block.boundingBox.height() * REFERENCE_SCALE
 			
 			if (refWidth <= 0 || refHeight <= 0) continue
 
@@ -87,8 +90,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			var textSize = 40f * referenceScale
-			val minTextSize = 8f * referenceScale
+			var textSize = 40f * REFERENCE_SCALE
+			val minTextSize = 8f * REFERENCE_SCALE
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
@@ -136,9 +139,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				sourceRect = block.boundingBox,
 				layout = finalLayout,
 				textSize = finalTextSize,
-				paddingX = paddingX / referenceScale,
-				paddingY = paddingY / referenceScale,
-				yOffset = finalYOffset / referenceScale
+				paddingX = paddingX / REFERENCE_SCALE,
+				paddingY = paddingY / REFERENCE_SCALE,
+				yOffset = finalYOffset / REFERENCE_SCALE
 			))
 		}
 	}
@@ -174,7 +177,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			// Move to the bubble's top-left (plus padding)
 			canvas.translate(viewLeft + prep.paddingX * currentScale, viewTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
 			// Scale the canvas to match the current zoom perfectly
-			canvas.scale(currentScale / 1.5f, currentScale / 1.5f)
+			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
 			
 			val workPaint = prep.layout.paint
 			workPaint.set(strokePaint)

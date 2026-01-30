@@ -64,9 +64,14 @@ class AiFeatureManager @Inject constructor(
 
 		// Optimization: Downscale bitmap for faster OCR processing
 		val maxDim = 1440
-		val ocrScale = Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+		val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
+			Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+		} else 1f
+		
 		val ocrBitmap = if (ocrScale < 1f) {
-			Bitmap.createScaledBitmap(bitmap, (bitmap.width * ocrScale).toInt(), (bitmap.height * ocrScale).toInt(), true)
+			val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
+			val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
+			Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
 		} else bitmap
 
 		val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
@@ -126,8 +131,9 @@ class AiFeatureManager @Inject constructor(
 						(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 					)
 					
-					// Safety guard: skip giant broken OCR blocks (>90% of page)
-					if (sourceRect.width() > 0.9f || sourceRect.height() > 0.9f) return@async null
+					// Safety guard: skip giant broken OCR blocks (>90% of captured area)
+					if (rectInOriginalBitmap.width() > bitmap.width * 0.9f || 
+						rectInOriginalBitmap.height() > bitmap.height * 0.9f) return@async null
 
 					TranslatedBlock(
 						text = translatedText,
