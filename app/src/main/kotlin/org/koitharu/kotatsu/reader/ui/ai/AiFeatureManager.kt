@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.ai
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.LruCache
@@ -83,12 +84,9 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			val bitmapWidth = bitmap.width.toFloat()
-			val bitmapHeight = bitmap.height.toFloat()
-
-			val translationJobs = mergedBlocks.map {
+			val translationJobs = mergedBlocks.map { block ->
 				async {
-					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -101,22 +99,25 @@ class AiFeatureManager @Inject constructor(
 						"Error"
 					}
 
-					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
 					
-					// PERCENTAGE Coordinates: independent of zoom/pan state
-					val pctRect = RectF(
-						bubbleRect.left / bitmapWidth,
-						bubbleRect.top / bitmapHeight,
-						bubbleRect.right / bitmapWidth,
-						bubbleRect.bottom / bitmapHeight
+					// CONSUMER GRADE MAPPING:
+					// Convert view-relative OCR coordinates to actual IMAGE coordinates.
+					// This ensures the bubble is tied to the pixels of the manga page.
+					val sourceRect = RectF(
+						(bubbleRect.left - vTranslateX) / viewScale,
+						(bubbleRect.top - vTranslateY) / viewScale,
+						(bubbleRect.right - vTranslateX) / viewScale,
+						(bubbleRect.bottom - vTranslateY) / viewScale
 					)
 					
 					TranslatedBlock(
 						text = translatedText,
-						boundingBox = pctRect
+						boundingBox = sourceRect
 					)
 				}
 			}
+			
 			result.addAll(translationJobs.awaitAll().filterNotNull())
 			
 			if (result.isNotEmpty()) {
@@ -142,18 +143,18 @@ class AiFeatureManager @Inject constructor(
 		val request = Request.Builder()
 			.url(url)
 			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
-			.post(body.toString().toRequestBody( "application/json".toMediaType()))
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
-				}
-			} catch (e: Exception) {
-				"Error"
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
+				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+				jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
 			}
+		} catch (e: Exception) {
+			"Error"
+		}
 	}
 
 	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
@@ -177,18 +178,18 @@ class AiFeatureManager @Inject constructor(
 		val request = Request.Builder()
 			.url("https://api.openai.com/v1/chat/completions")
 			.addHeader("Authorization", "Bearer $apiKey")
-			.post(body.toString().toRequestBody( "application/json".toMediaType()))
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
-				}
-			} catch (e: Exception) {
-				"Error"
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
+				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+				jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
 			}
+		} catch (e: Exception) {
+			"Error"
+		}
 	}
 
 	private fun getLanguageName(code: String): String {
