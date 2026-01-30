@@ -25,7 +25,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Version
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           python3 .github/scripts/bump_version.py app/build.gradle
           git config --global user.email "actions@github.com"
@@ -51,21 +50,21 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Finalize Version Bump
-        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: success()
         run: |
           git push origin devel || echo "Push skipped"
 
       - name: Rename APK
         run: |
           # With debug signing, the output is app-release.apk, not unsigned
-          mv app/build/outputs/apk/release/app-release.apk Tsukimi-v${{ env.APP_VERSION }}.apk
+          mv app/build/outputs/apk/release/app-release.apk Tsukimi-v${{ github.run_number }}.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: Tsukimi-v${{ env.APP_VERSION }}.apk
+          path: Tsukimi-v${{ github.run_number }}.apk
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
@@ -78,6 +77,6 @@ jobs:
             - **App Version:** v${{ env.APP_VERSION }}
             - **Status:** Build Successful
             - **Commit:** ${{ github.sha }}
-          files: Tsukimi-v${{ env.APP_VERSION }}.apk
+          files: Tsukimi-v${{ github.run_number }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
