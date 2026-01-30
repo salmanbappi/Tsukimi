@@ -21,6 +21,11 @@ import kotlin.math.ceil
 
 import org.koitharu.kotatsu.core.model.UpscaleModel
 
+import android.util.Log
+import java.io.File
+import java.io.FileInputStream
+import java.nio.channels.FileChannel
+
 @Singleton
 class UpscaleEngine @Inject constructor(
 	@ApplicationContext private val context: Context
@@ -30,46 +35,70 @@ class UpscaleEngine @Inject constructor(
 	private var gpuDelegate: GpuDelegate? = null
 	private var currentModelPath: String? = null
 	
+	companion object {
+		private const val TAG = "UpscaleEngine"
+	}
+	
 	// Model-specific constants (to be refined based on actual model)
-	private val inputSize = 128 
-	private val upscaleFactor = 4
+	private val inputSize = 256 
+	private val upscaleFactor = 2 // Most mobile models are 2x for stability
 	private val overlap = 16
 	
 	private suspend fun ensureInterpreter(model: UpscaleModel): Interpreter? = withContext(Dispatchers.IO) {
-		val modelPath = when (model) {
-			UpscaleModel.FAST -> "models/waifu2x_fast.tflite"
-			UpscaleModel.ELITE -> "models/esrgan_elite.tflite"
+		val modelName = when (model) {
+			UpscaleModel.FAST -> "waifu2x_fast.tflite"
+			UpscaleModel.ELITE -> "esrgan_elite.tflite"
 		}
+
+		val internalModelFile = File(context.filesDir, "models/$modelName")
+		val useInternal = internalModelFile.exists()
+		val modelPath = if (useInternal) internalModelFile.absolutePath else "models/$modelName"
 
 		if (interpreter != null && currentModelPath == modelPath) return@withContext interpreter
 		
-		release() // Release old interpreter if model changed
+		release()
 		
 		try {
-			val assets = context.assets.list("models") ?: emptyArray()
-			if (!assets.contains(modelPath.substringAfterLast("/"))) {
-				return@withContext null
+			val modelBuffer = if (useInternal) {
+				FileInputStream(internalModelFile).use { fis ->
+					fis.channel.map(FileChannel.MapMode.READ_ONLY, 0, internalModelFile.length())
+				}
+			} else {
+				val assets = context.assets.list("models") ?: emptyArray()
+				if (!assets.contains(modelName)) {
+					Log.w(TAG, "Model $modelName not found in assets or internal storage")
+					return@withContext null
+				}
+				FileUtil.loadMappedFile(context, modelPath)
 			}
-			val modelBuffer: MappedByteBuffer = FileUtil.loadMappedFile(context, modelPath)
+
 			val options = Interpreter.Options().apply {
 				try {
 					gpuDelegate = GpuDelegate()
 					addDelegate(gpuDelegate)
+					Log.d(TAG, "GPU Acceleration enabled for AI Upscale")
 				} catch (e: Exception) {
-					// Fallback to CPU if GPU is unavailable
+					Log.w(TAG, "GPU Acceleration unavailable, falling back to CPU")
+					setNumThreads(4)
 				}
-				setNumThreads(4)
 			}
 			interpreter = Interpreter(modelBuffer, options)
 			currentModelPath = modelPath
+			Log.i(TAG, "Successfully loaded model: $modelName")
 			interpreter
 		} catch (e: Exception) {
+			Log.e(TAG, "Failed to load model $modelName", e)
 			null
 		}
 	}
 
 	suspend fun upscale(bitmap: Bitmap, model: UpscaleModel): Bitmap = withContext(Dispatchers.Default) {
-		val engine = ensureInterpreter(model) ?: return@withContext bitmap
+		val engine = ensureInterpreter(model)
+		
+		if (engine == null) {
+			Log.i(TAG, "AI Model missing, performing high-quality Bicubic fallback")
+			return@withContext fallbackUpscale(bitmap)
+		}
 		
 		val width = bitmap.width
 		val height = bitmap.height
@@ -77,6 +106,12 @@ class UpscaleEngine @Inject constructor(
 		val outputWidth = width * upscaleFactor
 		val outputHeight = height * upscaleFactor
 		
+		// Safety check: Don't upscale if result exceeds max bitmap size (usually 4096 or 8192)
+		if (outputWidth > 8192 || outputHeight > 8192) {
+			Log.w(TAG, "Image too large for upscale, returning original")
+			return@withContext bitmap
+		}
+
 		val resultBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
 		val canvas = Canvas(resultBitmap)
 		
@@ -85,83 +120,98 @@ class UpscaleEngine @Inject constructor(
 		val numTilesX = ceil(width.toDouble() / effectiveInputSize).toInt()
 		val numTilesY = ceil(height.toDouble() / effectiveInputSize).toInt()
 		
+		Log.d(TAG, "Upscaling $width x $height -> $outputWidth x $outputHeight in $numTilesX x $numTilesY tiles")
+
 		for (y in 0 until numTilesY) {
 			for (x in 0 until numTilesX) {
 				val srcLeft = x * effectiveInputSize - overlap
 				val srcTop = y * effectiveInputSize - overlap
-				val srcRight = srcLeft + inputSize
-				val srcBottom = srcTop + inputSize
 				
-				// Clamp to bitmap bounds
-				val actualSrcLeft = srcLeft.coerceAtLeast(0)
-				val actualSrcTop = srcTop.coerceAtLeast(0)
-				val actualSrcRight = srcRight.coerceAtMost(width)
-				val actualSrcBottom = srcBottom.coerceAtMost(height)
+				// Calculate source rect with overlap for context
+				val actualSrcLeft = srcLeft.coerceIn(0, width - 1)
+				val actualSrcTop = srcTop.coerceIn(0, height - 1)
+				val actualSrcRight = (srcLeft + inputSize).coerceIn(1, width)
+				val actualSrcBottom = (srcTop + inputSize).coerceIn(1, height)
 				
-				val tileRect = Rect(actualSrcLeft, actualSrcTop, actualSrcRight, actualSrcBottom)
-				val tileBitmap = Bitmap.createBitmap(bitmap, tileRect.left, tileRect.top, tileRect.width(), tileRect.height())
+				val tileW = actualSrcRight - actualSrcLeft
+				val tileH = actualSrcBottom - actualSrcTop
 				
-				// Pre-process tile to fit model input exactly
-				val processedTile = processTile(tileBitmap, engine) ?: tileBitmap
+				if (tileW <= 0 || tileH <= 0) continue
+
+				val tileBitmap = Bitmap.createBitmap(bitmap, actualSrcLeft, actualSrcTop, tileW, tileH)
+				val processedTile = processTile(tileBitmap, engine)
 				
-				// Calculate destination on high-res canvas
-				// We need to account for the overlap we added for context
-				val destLeft = (x * effectiveInputSize) * upscaleFactor
-				val destTop = (y * effectiveInputSize) * upscaleFactor
-				
-				// Crop the overlap from the upscaled tile
-				val cropLeft = (actualSrcLeft - srcLeft) * upscaleFactor
-				val cropTop = (actualSrcTop - srcTop) * upscaleFactor
-				val cropWidth = (tileRect.width() - (if (srcRight > width) srcRight - width else 0) - (if (srcLeft < 0) -srcLeft else 0)) * upscaleFactor
-				val cropHeight = (tileRect.height() - (if (srcBottom > height) srcBottom - height else 0) - (if (srcTop < 0) -srcTop else 0)) * upscaleFactor
-				
-				// Simplified stitching for prototype:
-				canvas.drawBitmap(processedTile, destLeft.toFloat(), destTop.toFloat(), null)
+				if (processedTile != null) {
+					// Calculate destination including upscaling factor
+					val destLeft = (actualSrcLeft * upscaleFactor).toFloat()
+					val destTop = (actualSrcTop * upscaleFactor).toFloat()
+					canvas.drawBitmap(processedTile, destLeft, destTop, null)
+					processedTile.recycle()
+				}
 				
 				tileBitmap.recycle()
-				if (processedTile != tileBitmap) processedTile.recycle()
 			}
 		}
 		
 		resultBitmap
 	}
 
+	private fun fallbackUpscale(bitmap: Bitmap): Bitmap {
+		// High-quality Bicubic fallback using Canvas
+		val matrix = android.graphics.Matrix()
+		matrix.postScale(upscaleFactor.toFloat(), upscaleFactor.toFloat())
+		return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+	}
+
 	private fun processTile(tile: Bitmap, engine: Interpreter): Bitmap? {
-		// 1. Prepare Input
-		val tensorImage = TensorImage(engine.getInputTensor(0).dataType())
-		tensorImage.load(tile)
-		
-		// Model expects inputSize x inputSize
-		val imageProcessor = ImageProcessor.Builder()
-			.add(ResizeOp(inputSize, inputSize, ResizeOp.ResizeMethod.BILINEAR))
-			// Normalization: often SR models expect [0, 1]
-			// .add(NormalizeOp(0f, 255f)) 
-			.build()
-		
-		val processedImage = imageProcessor.process(tensorImage)
-		
-		// 2. Prepare Output
-		val outputWidth = inputSize * upscaleFactor
-		val outputHeight = inputSize * upscaleFactor
-		val outputBuffer = TensorBuffer.createFixedSize(intArrayOf(1, outputHeight, outputWidth, 3), engine.getOutputTensor(0).dataType())
-		
-		// 3. Run Inference
-		engine.run(processedImage.buffer, outputBuffer.buffer)
-		
-		// 4. Post-process to Bitmap
-		val resultBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
-		val pixels = IntArray(outputWidth * outputHeight)
-		val outputArray = outputBuffer.floatArray
-		
-		for (i in 0 until outputHeight * outputWidth) {
-			val r = (outputArray[i * 3] * 255).toInt().coerceIn(0, 255)
-			val g = (outputArray[i * 3 + 1] * 255).toInt().coerceIn(0, 255)
-			val b = (outputArray[i * 3 + 2] * 255).toInt().coerceIn(0, 255)
-			pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+		try {
+			// 1. Prepare Input
+			val tensorImage = TensorImage(engine.getInputTensor(0).dataType())
+			tensorImage.load(tile)
+			
+			val imageProcessor = ImageProcessor.Builder()
+				.add(ResizeOp(inputSize, inputSize, ResizeOp.ResizeMethod.BILINEAR))
+				.build()
+			
+			val processedImage = imageProcessor.process(tensorImage)
+			
+			// 2. Prepare Output
+			val outputWidth = inputSize * upscaleFactor
+			val outputHeight = inputSize * upscaleFactor
+			val outputBuffer = TensorBuffer.createFixedSize(intArrayOf(1, outputHeight, outputWidth, 3), engine.getOutputTensor(0).dataType())
+			
+			// 3. Run Inference
+			engine.run(processedImage.buffer, outputBuffer.buffer)
+			
+			// 4. Post-process to Bitmap
+			val resultBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
+			val pixels = IntArray(outputWidth * outputHeight)
+			val outputArray = outputBuffer.floatArray
+			
+			// Optimized pixel loop
+			for (i in 0 until outputHeight * outputWidth) {
+				val r = (outputArray[i * 3] * 255).toInt().coerceIn(0, 255)
+				val g = (outputArray[i * 3 + 1] * 255).toInt().coerceIn(0, 255)
+				val b = (outputArray[i * 3 + 2] * 255).toInt().coerceIn(0, 255)
+				pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+			}
+			
+			resultBitmap.setPixels(pixels, 0, outputWidth, 0, 0, outputWidth, outputHeight)
+			
+			// Scale result back to match the actual upscaled tile size (in case of edge tiles)
+			val targetW = tile.width * upscaleFactor
+			val targetH = tile.height * upscaleFactor
+			return if (outputWidth != targetW || outputHeight != targetH) {
+				Bitmap.createScaledBitmap(resultBitmap, targetW, targetH, true).also {
+					resultBitmap.recycle()
+				}
+			} else {
+				resultBitmap
+			}
+		} catch (e: Exception) {
+			Log.e(TAG, "Tile processing failed", e)
+			return null
 		}
-		
-		resultBitmap.setPixels(pixels, 0, outputWidth, 0, 0, outputWidth, outputHeight)
-		return resultBitmap
 	}
 
 	fun release() {

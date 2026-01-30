@@ -83,6 +83,8 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import androidx.appcompat.R as appcompatR
 
+import org.koitharu.kotatsu.core.work.AiModelDownloadWorker
+
 @AndroidEntryPoint
 class ReaderActivity :
     BaseFullscreenActivity<ActivityReaderBinding>(),
@@ -496,7 +498,12 @@ class ReaderActivity :
 
     override fun onAiUpscaleClick() {
         settings.isAiUpscalingEnabled = !settings.isAiUpscalingEnabled
-        val message = if (settings.isAiUpscalingEnabled) "AI Upscaling enabled" else "AI Upscaling disabled"
+        val message = if (settings.isAiUpscalingEnabled) {
+            AiModelDownloadWorker.enqueue(this)
+            "AI Upscaling enabled (Downloading models...)"
+        } else {
+            "AI Upscaling disabled"
+        }
         Snackbar.make(viewBinding.container, message, Snackbar.LENGTH_SHORT)
             .setAnchorView(viewBinding.toolbarDocked)
             .show()
