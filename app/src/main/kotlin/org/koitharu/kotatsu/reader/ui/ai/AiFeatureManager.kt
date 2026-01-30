@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
-import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
@@ -13,6 +12,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -23,7 +24,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -33,7 +33,6 @@ import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.roundToInt
 
 @Singleton
 class AiFeatureManager @Inject constructor(
@@ -45,9 +44,6 @@ class AiFeatureManager @Inject constructor(
 	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
-import kotlinx.coroutines.*
-import kotlinx.coroutines.tasks.await
-// ...
 	suspend fun translatePage(bitmap: Bitmap, targetLanguage: String = TranslateLanguage.ENGLISH): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
 
@@ -74,9 +70,9 @@ import kotlinx.coroutines.tasks.await
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
 			// Process all blocks in parallel for "Premium" speed and responsiveness
-			val translationJobs = mergedBlocks.map { block ->
+			val translationJobs = mergedBlocks.map {
 				async {
-					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -90,7 +86,7 @@ import kotlinx.coroutines.tasks.await
 					}
 
 					// Try to expand the bounding box to the speech bubble borders
-					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
 					
 					TranslatedBlock(
 						text = translatedText,
@@ -207,7 +203,6 @@ import kotlinx.coroutines.tasks.await
 				val m = merged[i]
 				if (areBlocksClose(m.boundingBox, rect)) {
 					// Merge into existing block
-					// Add a newline for separation if needed, or space
 					m.text.append("\n").append(text)
 					m.boundingBox.union(rect)
 					isMerged = true
@@ -223,12 +218,9 @@ import kotlinx.coroutines.tasks.await
 	}
 
 	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
-		// Calculate a threshold based on the block sizes (e.g., 50% of the average line height)
-		// This allows merging lines within a bubble but keeping separate bubbles distinct
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val threshold = (avgHeight * 0.5f).toInt().coerceAtLeast(10)
 
-		// Expand r1 by threshold and check for intersection
 		val expanded = Rect(r1)
 		expanded.inset(-threshold, -threshold)
 		
@@ -241,14 +233,11 @@ import kotlinx.coroutines.tasks.await
 		val centerX = textRect.centerX()
 		val centerY = textRect.centerY()
 
-		// Safety check: ensure center is within bounds
 		if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-		// Scan limit to prevent runaway expansion (e.g., 2x the text dimension or max 300px)
 		val maxExpandX = (textRect.width() * 2).coerceAtLeast(200)
 		val maxExpandY = (textRect.height() * 2).coerceAtLeast(200)
 
-		// Scan Left
 		var left = textRect.left
 		var dist = 0
 		while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
@@ -256,7 +245,6 @@ import kotlinx.coroutines.tasks.await
 			dist++
 		}
 
-		// Scan Right
 		var right = textRect.right
 		dist = 0
 		while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
@@ -264,7 +252,6 @@ import kotlinx.coroutines.tasks.await
 			dist++
 		}
 
-		// Scan Top
 		var top = textRect.top
 		dist = 0
 		while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
@@ -272,7 +259,6 @@ import kotlinx.coroutines.tasks.await
 			dist++
 		}
 
-		// Scan Bottom
 		var bottom = textRect.bottom
 		dist = 0
 		while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
@@ -280,8 +266,6 @@ import kotlinx.coroutines.tasks.await
 			dist++
 		}
 
-		// Return the new expanded bubble rect
-		// We use the found boundaries. If we hit the limit, we just use that expanded size.
 		return Rect(left, top, right, bottom)
 	}
 
@@ -290,9 +274,7 @@ import kotlinx.coroutines.tasks.await
 		val red = Color.red(pixel)
 		val green = Color.green(pixel)
 		val blue = Color.blue(pixel)
-		// Standard luminance formula
 		val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-		// Threshold: < 180 is considered "dark" (border or art), >= 180 is "light" (bubble background)
 		return luminance >= 180
 	}
 
@@ -301,10 +283,8 @@ import kotlinx.coroutines.tasks.await
 		val boundingBox: Rect
 	)
 
-	// Super-resolution placeholder
 	fun upscaleImage(bitmap: Bitmap): Bitmap {
 		if (!settings.isAiUpscalingEnabled) return bitmap
-		// Implementation would go here using TFLite ESRGAN model
 		return bitmap
 	}
 }

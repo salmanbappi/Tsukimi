@@ -20,6 +20,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
 	private var blocks: List<TranslatedBlock> = emptyList()
+	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
 		style = Paint.Style.FILL
@@ -27,12 +28,32 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	}
 	
 	private val baseTextPaint = TextPaint().apply {
-// ... (omitting lines for brevity in instruction, but will include in new_string)
+		color = Color.BLACK
+		isAntiAlias = true
+		typeface = Typeface.DEFAULT_BOLD
+	}
+	
+	private val strokePaint = TextPaint().apply {
+		color = Color.WHITE
+		style = Paint.Style.STROKE
+		strokeWidth = 8f
+		isAntiAlias = true
+		typeface = Typeface.DEFAULT_BOLD
+		strokeJoin = Paint.Join.ROUND
+	}
+
+	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
+		blocks = newBlocks
+		invalidate()
+	}
+
 	override fun onDraw(canvas: Canvas) {
 		super.onDraw(canvas)
 		for (block in blocks) {
 			val rect = block.boundingBox
 			val text = block.text
+
+			if (rect.width() <= 0 || rect.height() <= 0 || text.isBlank()) continue
 
 			// Draw background bubble (rounded for a premium speech bubble feel)
 			val cornerRadius = (rect.width().coerceAtMost(rect.height()) * 0.4f).coerceAtMost(60f)
@@ -45,8 +66,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				cornerRadius,
 				backgroundPaint
 			)
-
-			if (rect.width() <= 0 || rect.height() <= 0 || text.isBlank()) continue
 
 			// Calculate padding (12% of dimension, min 8px)
 			val paddingX = (rect.width() * 0.12f).toInt().coerceAtLeast(8)
@@ -75,7 +94,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				// Ensure the longest word fits horizontally without breaking
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					thesize -= step
 					continue
 				}
 
