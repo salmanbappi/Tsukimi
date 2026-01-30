@@ -76,6 +76,7 @@ class DetailsViewModel @Inject constructor(
 	private val readingTimeUseCase: ReadingTimeUseCase,
 	statsRepository: StatsRepository,
 	workManager: WorkManager,
+	statusProvider: org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider,
 ) : ChaptersPagesViewModel(
 	settings = settings,
 	interactor = interactor,
@@ -85,6 +86,7 @@ class DetailsViewModel @Inject constructor(
 	deleteLocalMangaUseCase = deleteLocalMangaUseCase,
 	localStorageChanges = localStorageChanges,
 	workManager = workManager,
+	statusProvider = statusProvider,
 ) {
 
 	private val intent = MangaIntent(savedStateHandle)

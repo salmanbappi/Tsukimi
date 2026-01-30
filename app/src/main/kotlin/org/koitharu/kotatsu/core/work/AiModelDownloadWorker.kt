@@ -28,8 +28,12 @@ import java.io.File
 class AiModelDownloadWorker @AssistedInject constructor(
 	@Assisted context: Context,
 	@Assisted params: WorkerParameters,
-	@MangaHttpClient private val client: OkHttpClient,
 ) : CoroutineWorker(context, params) {
+
+	private val client = OkHttpClient.Builder()
+		.connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+		.readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+		.build()
 
 	private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -45,52 +49,61 @@ class AiModelDownloadWorker @AssistedInject constructor(
 
 		val modelDir = File(applicationContext.filesDir, "models")
 		if (!modelDir.exists()) {
-			val created = modelDir.mkdirs()
-			Log.d(TAG, "Created models directory: $created")
+			modelDir.mkdirs()
 		}
 
 		val models = mapOf(
-			"waifu2x_fast.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/waifu2x_fast.tflite",
-			"realesrgan_x4plus_anime_6b.tflite" to "https://huggingface.co/kim-vador/Real-ESRGAN-TFLite/resolve/main/realesrgan-x4plus-anime.tflite"
+			"realesrgan_x4plus_anime_6b.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/realesrgan_x4plus_anime_6b.tflite"
 		)
 
 		var downloaded = 0
-		for ((name, url) in models) {
+		downloadLoop@for ((name, url) in models) {
 			val file = File(modelDir, name)
-			if (file.exists() && file.length() > 500000) {
-				Log.i(TAG, "Model $name already exists, skipping")
+			if (file.exists() && file.length() > 10000000) {
+				Log.i(TAG, "Model $name already exists and looks valid, skipping")
 				downloaded++
-				continue
+				continue@downloadLoop
 			}
 
 			Log.i(TAG, "Downloading model $name from $url")
 			try {
-				val request = Request.Builder().url(url).build()
+				val request = Request.Builder()
+					.url(url)
+					.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+					.build()
 				client.newCall(request).execute().use { response ->
 					if (!response.isSuccessful) {
-						Log.e(TAG, "Failed to download $name: ${response.code}")
-						return@use
+						Log.e(TAG, "Failed to download $name: ${response.code} ${response.message}")
+						continue@downloadLoop
 					}
-					response.body?.source()?.let { source ->
+					val body = response.body ?: throw Exception("Empty body")
+					val totalSize = body.contentLength()
+					var bytesRead = 0L
+					
+					body.source().let { source ->
 						file.sink().buffer().use { sink ->
-							sink.writeAll(source)
+							val buffer = okio.Buffer()
+							var read: Long
+							while (source.read(buffer, 8192).also { read = it } != -1L) {
+								sink.write(buffer, read)
+								bytesRead += read
+								if (totalSize > 0) {
+									val progress = ((bytesRead.toFloat() / totalSize) * 100).toInt()
+									setForeground(createForegroundInfo(progress))
+								}
+							}
 						}
 						Log.i(TAG, "Successfully saved $name, size: ${file.length()}")
 					}
 				}
 				downloaded++
-				try {
-					setForeground(createForegroundInfo((downloaded * 100) / models.size))
-				} catch (e: Exception) {
-					// Ignore
-				}
 			} catch (e: Exception) {
 				Log.e(TAG, "Error downloading model $name", e)
 			}
 		}
 
 		Log.i(TAG, "AI Model Download Worker finished. Downloaded: $downloaded/${models.size}")
-		Result.success()
+		if (downloaded == models.size) Result.success() else Result.failure()
 	}
 
 	private fun createForegroundInfo(progress: Int): ForegroundInfo {
@@ -121,7 +134,7 @@ class AiModelDownloadWorker @AssistedInject constructor(
 			val request = OneTimeWorkRequestBuilder<AiModelDownloadWorker>()
 				.addTag(TAG)
 				.build()
-			WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+			WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
 		}
 	}
 }

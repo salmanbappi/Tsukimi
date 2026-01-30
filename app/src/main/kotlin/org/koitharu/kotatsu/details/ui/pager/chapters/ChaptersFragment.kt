@@ -45,6 +45,8 @@ import org.koitharu.kotatsu.list.ui.model.ListModel
 import org.koitharu.kotatsu.reader.ui.ReaderNavigationCallback
 import org.koitharu.kotatsu.reader.ui.ReaderState
 import kotlin.math.roundToInt
+import org.koitharu.kotatsu.core.ai.AiResourceManager
+import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -126,6 +128,12 @@ class ChaptersFragment :
 			return
 		}
 		if (view.id == R.id.button_upscale) {
+			val runningProgress = (viewModel as? ChaptersPagesViewModel)?.upscaleProgress?.value
+			if (runningProgress != null && runningProgress.status == org.koitharu.kotatsu.core.ai.model.UpscaleProgress.Status.PROCESSING) {
+				router.showUpscaleProgressSheet()
+				return
+			}
+			
 			aiResourceManager.checkResources()
 			if (aiResourceManager.isResourceReady.value) {
 				showUpscaleDialog(requireContext(), setOf(item.chapter.id))

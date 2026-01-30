@@ -100,6 +100,7 @@ class ReaderViewModel @Inject constructor(
     downloadScheduler: DownloadWorker.Scheduler,
     readerSettingsProducerFactory: ReaderSettings.Producer.Factory,
     workManager: WorkManager,
+    statusProvider: org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider,
 ) : ChaptersPagesViewModel(
     settings = settings,
     interactor = interactor,
@@ -109,6 +110,7 @@ class ReaderViewModel @Inject constructor(
     deleteLocalMangaUseCase = deleteLocalMangaUseCase,
     localStorageChanges = localStorageChanges,
     workManager = workManager,
+    statusProvider = statusProvider,
 ) {
     private val intent = MangaIntent(savedStateHandle)
 

@@ -34,11 +34,11 @@ class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
             if (progress == null) return@observe
             
             binding.textViewStatus.text = when (progress.status) {
-                UpscaleProgress.Status.INITIALIZING -> "Initializing resources..."
+                UpscaleProgress.Status.INITIALIZING -> "Initializing high-performance engine..."
                 UpscaleProgress.Status.PROCESSING -> "Processing Page ${progress.currentPageIndex + 1} of ${progress.totalPages}"
                 UpscaleProgress.Status.SAVING -> "Saving high-quality chapter..."
-                UpscaleProgress.Status.COMPLETED -> "Upscaling complete!"
-                UpscaleProgress.Status.FAILED -> "Upscaling failed."
+                UpscaleProgress.Status.COMPLETED -> "Upscaling successfully complete!"
+                UpscaleProgress.Status.FAILED -> "Upscaling failed. Please check logs."
             }
 
             binding.progressOverall.progress = progress.overallPercentage
@@ -48,15 +48,16 @@ class UpscaleProgressSheet : BaseAdaptiveSheet<SheetUpscaleProgressBinding>() {
             val minutes = progress.timeLeftSeconds / 60
             val seconds = progress.timeLeftSeconds % 60
             binding.textViewTimer.text = if (progress.timeLeftSeconds > 0) {
-                "Estimated time left: ${String.format("%02d:%02d", minutes, seconds)}"
+                "${String.format("%02d:%02d", minutes, seconds)} remaining"
             } else if (progress.status == UpscaleProgress.Status.COMPLETED) {
-                "Done"
+                "Processed ${progress.totalPages} pages"
             } else {
-                "Calculating..."
+                "Calculating speed..."
             }
 
             if (progress.status == UpscaleProgress.Status.COMPLETED) {
                 binding.buttonClose.text = "Finish"
+                binding.textViewTimer.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_done, 0, 0, 0)
             }
         }
     }

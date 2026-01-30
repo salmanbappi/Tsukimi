@@ -58,6 +58,8 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import org.koitharu.kotatsu.core.work.UpscaleWorker
 
+import org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider
+
 abstract class ChaptersPagesViewModel(
 	@JvmField protected val settings: AppSettings,
 	@JvmField protected val interactor: DetailsInteractor,
@@ -67,6 +69,7 @@ abstract class ChaptersPagesViewModel(
 	private val deleteLocalMangaUseCase: DeleteLocalMangaUseCase,
 	private val localStorageChanges: SharedFlow<LocalManga?>,
 	private val workManager: WorkManager,
+	private val statusProvider: UpscaleStatusProvider,
 ) : BaseViewModel() {
 
 	val mangaDetails = MutableStateFlow<MangaDetails?>(null)
@@ -75,6 +78,9 @@ abstract class ChaptersPagesViewModel(
 	val onActionDone = MutableEventFlow<ReversibleAction>()
 	val onDownloadStarted = MutableEventFlow<Unit>()
 	val onMangaRemoved = MutableEventFlow<Manga>()
+
+	val upscaleProgress = statusProvider.progress
+		.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.WhileSubscribed(5000), null)
 
 	private val chaptersQuery = MutableStateFlow("")
 	val selectedBranch = MutableStateFlow<String?>(null)
