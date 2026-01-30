@@ -46,6 +46,9 @@ interface AiEntryPoint {
 	fun aiFeatureManager(): AiFeatureManager
 }
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 @Singleton
 class AiFeatureManager @Inject constructor(
 	@ApplicationContext private val context: Context,
@@ -57,6 +60,8 @@ class AiFeatureManager @Inject constructor(
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
+	private val translationMutexes = mutableMapOf<String, Mutex>()
+	private val globalMutex = Mutex()
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
 	
@@ -74,97 +79,157 @@ class AiFeatureManager @Inject constructor(
 
 		translationCache.get(pageKey)?.let { return@withContext it }
 
-		// Optimization: Downscale bitmap for faster OCR processing
-		val maxDim = 1440
-		val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
-			Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
-		} else 1f
-		
-		val ocrBitmap = if (ocrScale < 1f) {
-			val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
-			val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
-			Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
-		} else bitmap
+		val mutex = globalMutex.withLock {
+			translationMutexes.getOrPut(pageKey) { Mutex() }
+		}
 
-		val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
-		val visionText = textRecognizer.process(inputImage).await()
-		
-		val engine = settings.aiTranslationEngine
-		
-		val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
-			val options = TranslatorOptions.Builder()
-				.setSourceLanguage(TranslateLanguage.JAPANESE)
-				.setTargetLanguage(targetLanguage)
-				.build()
-			val mlKit = Translation.getClient(options)
-			mlKit.downloadModelIfNeeded().await()
-			mlKit
-		} else null
+		mutex.withLock {
+			// Double-check cache after acquiring lock
+			translationCache.get(pageKey)?.let { return@withLock it }
 
-		val result = mutableListOf<TranslatedBlock>()
-		
-		try {
-			val textBlocks = visionText.textBlocks
-			val mergedBlocks = mergeNearbyBlocks(textBlocks)
+			// Optimization: Downscale bitmap for faster OCR processing
+			val maxDim = 1440
+			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
+				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+			} else 1f
+			
+			val ocrBitmap = if (ocrScale < 1f) {
+				val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
+				val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
+				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+			} else bitmap
 
-			val translationJobs = mergedBlocks.map {
-				async {
-					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
-					if (cleanText.isBlank()) return@async null
+			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
+			val visionText = textRecognizer.process(inputImage).await()
+			
+			val engine = settings.aiTranslationEngine
+			
+			val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
+				val options = TranslatorOptions.Builder()
+					.setSourceLanguage(TranslateLanguage.JAPANESE)
+					.setTargetLanguage(targetLanguage)
+					.build()
+				val mlKit = Translation.getClient(options)
+				mlKit.downloadModelIfNeeded().await()
+				mlKit
+			} else null
 
-					val translatedText = try {
-						when (engine) {
-							TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
-							TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-							TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+			val result = mutableListOf<TranslatedBlock>()
+			
+			try {
+				val textBlocks = visionText.textBlocks
+				val mergedBlocks = mergeNearbyBlocks(textBlocks)
+
+				val translatedTexts = if (engine == TranslationEngine.OPENAI && mergedBlocks.size > 1) {
+					translateBatchWithOpenAI(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
+				} else null
+
+				val translationJobs = mergedBlocks.mapIndexed { index, it ->
+					async {
+						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
+						if (cleanText.isBlank()) return@async null
+
+						val translatedText = translatedTexts?.getOrNull(index) ?: try {
+							when (engine) {
+								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
+								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+								TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+							}
+						} catch (e: Exception) {
+							null
 						}
-					} catch (e: Exception) {
-						null
+
+						if (translatedText.isNullOrBlank()) return@async null
+
+						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
+						
+						// Map back to original captured bitmap coordinates
+						val rectInOriginalBitmap = RectF(
+							bubbleRect.left / ocrScale,
+							bubbleRect.top / ocrScale,
+							bubbleRect.right / ocrScale,
+							bubbleRect.bottom / ocrScale
+						)
+
+						// ABSOLUTE IMAGE ANCHORING:
+						// Convert bitmap coordinates to actual source image coordinates
+						val sourceRect = RectF(
+							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
+							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
+							(rectInOriginalBitmap.right - vTranslateX) / viewScale,
+							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
+						)
+						
+						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
+						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
+							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
+
+						TranslatedBlock(
+							text = translatedText,
+							boundingBox = sourceRect
+						)
 					}
-
-					if (translatedText.isNullOrBlank()) return@async null
-
-					val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
-					
-					// Map back to original captured bitmap coordinates
-					val rectInOriginalBitmap = RectF(
-						bubbleRect.left / ocrScale,
-						bubbleRect.top / ocrScale,
-						bubbleRect.right / ocrScale,
-						bubbleRect.bottom / ocrScale
-					)
-
-					// ABSOLUTE IMAGE ANCHORING:
-					// Convert bitmap coordinates to actual source image coordinates
-					val sourceRect = RectF(
-						(rectInOriginalBitmap.left - vTranslateX) / viewScale,
-						(rectInOriginalBitmap.top - vTranslateY) / viewScale,
-						(rectInOriginalBitmap.right - vTranslateX) / viewScale,
-						(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
-					)
-					
-					// Safety guard: skip giant broken OCR blocks (>99% of captured area)
-					if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
-						rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
-
-					TranslatedBlock(
-						text = translatedText,
-						boundingBox = sourceRect
-					)
+				}
+				
+				result.addAll(translationJobs.awaitAll().filterNotNull())
+				
+				if (result.isNotEmpty()) {
+					translationCache.put(pageKey, result)
+				}
+			} finally {
+				mlKitTranslator?.close()
+				if (ocrBitmap != bitmap && ocrBitmap.width > 1) ocrBitmap.recycle()
+				globalMutex.withLock {
+					translationMutexes.remove(pageKey)
 				}
 			}
 			
-			result.addAll(translationJobs.awaitAll().filterNotNull())
-			
-			if (result.isNotEmpty()) {
-				translationCache.put(pageKey, result)
+			result
+		}
+	}
+
+	private suspend fun translateBatchWithOpenAI(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
+		val apiKey = settings.openaiApiKey ?: return@withContext null
+		val langName = getLanguageName(targetLanguage)
+		
+		val input = buildJsonObject {
+			putJsonArray("texts") {
+				texts.forEach { add(it) }
 			}
-		} finally {
-			mlKitTranslator?.close()
-			if (ocrBitmap != bitmap && ocrBitmap.width > 1) ocrBitmap.recycle()
+		}
+
+		val body = buildJsonObject {
+			put("model", "gpt-4o-mini")
+			put("response_format", buildJsonObject { put("type", "json_object") })
+			putJsonArray("messages") {
+				add(buildJsonObject {
+					put("role", "system")
+					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
+				})
+				add(buildJsonObject {
+					put("role", "user")
+					put("content", input.toString())
+				})
+			}
 		}
 		
-		result
+		val request = Request.Builder()
+			.url("https://api.openai.com/v1/chat/completions")
+			.addHeader("Authorization", "Bearer $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.build()
+			
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext null
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					val content = jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content ?: return@withContext null
+					val batchResult = json.parseToJsonElement(content).jsonObject["translations"]?.jsonArray
+					batchResult?.map { it.jsonPrimitive.content }
+				}
+			} catch (e: Exception) {
+				null
+			}
 	}
 
 	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
