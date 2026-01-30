@@ -173,12 +173,9 @@ class WebtoonReaderFragment : BaseReaderFragment<FragmentReaderWebtoonBinding>()
 	}
 
 	override fun getCurrentHolders(): List<BasePageHolder<*>> = viewBinding?.run {
-		val currentItem = recyclerView.findCurrentPagePosition()
-		if (currentItem != RecyclerView.NO_POSITION) {
-			listOfNotNull(recyclerView.findViewHolderForAdapterPosition(currentItem) as? BasePageHolder<*>)
-		} else {
-			emptyList()
-		}
+		recyclerView.children.mapNotNull {
+			recyclerView.getChildViewHolder(it) as? BasePageHolder<*>
+		}.toList()
 	}.orEmpty()
 
 	override fun onZoomIn() {

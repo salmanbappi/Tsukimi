@@ -3,7 +3,6 @@ package org.koitharu.kotatsu.reader.ui.ai
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.LruCache
@@ -84,40 +83,46 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			val translationJobs = mergedBlocks.map { block ->
+			val bitmapWidth = bitmap.width.toFloat()
+			val bitmapHeight = bitmap.height.toFloat()
+
+			val translationJobs = mergedBlocks.map {
 				async {
-					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
 						when (engine) {
-							TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await() ?: "Error"
+							TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
 							TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
 							TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
 						}
 					} catch (e: Exception) {
-						"Error"
+						null
 					}
 
-					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					if (translatedText.isNullOrBlank()) return@async null
+
+					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
 					
-					// CONSUMER GRADE MAPPING:
-					// Convert view-relative OCR coordinates to actual IMAGE coordinates.
-					// This ensures the bubble is tied to the pixels of the manga page.
-					val sourceRect = RectF(
-						(bubbleRect.left - vTranslateX) / viewScale,
-						(bubbleRect.top - vTranslateY) / viewScale,
-						(bubbleRect.right - vTranslateX) / viewScale,
-						(bubbleRect.bottom - vTranslateY) / viewScale
+					//PERCENTAGE Coordinates: independent of zoom/pan state
+					val pctRect = RectF(
+						bubbleRect.left / bitmapWidth,
+						bubbleRect.top / bitmapHeight,
+						bubbleRect.right / bitmapWidth,
+						bubbleRect.bottom / bitmapHeight
 					)
 					
+					// Final safety check: if the bubble is giant (e.g. > 80% width or height), 
+					// it's likely an OCR error on artwork. Skip it to prevent blocking the frame.
+					if (pctRect.width() > 0.8f || pctRect.height() > 0.8f) return@async null
+
 					TranslatedBlock(
 						text = translatedText,
-						boundingBox = sourceRect
+						boundingBox = pctRect
 					)
 				}
 			}
-			
 			result.addAll(translationJobs.awaitAll().filterNotNull())
 			
 			if (result.isNotEmpty()) {
@@ -130,8 +135,8 @@ class AiFeatureManager @Inject constructor(
 		result
 	}
 
-	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
-		val apiKey = settings.deeplApiKey ?: return@withContext "Error: Missing API Key"
+	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+		val apiKey = settings.deeplApiKey ?: return@withContext null
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
 		
@@ -146,19 +151,19 @@ class AiFeatureManager @Inject constructor(
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-		try {
-			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-				jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext null
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content
+				}
+			} catch (e: Exception) {
+				null
 			}
-		} catch (e: Exception) {
-			"Error"
 		}
-	}
 
-	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
-		val apiKey = settings.openaiApiKey ?: return@withContext "Error: Missing API Key"
+	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+		val apiKey = settings.openaiApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
 		
 		val body = buildJsonObject {
@@ -181,16 +186,16 @@ class AiFeatureManager @Inject constructor(
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-		try {
-			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-				jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext null
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim()
+				}
+			} catch (e: Exception) {
+				null
 			}
-		} catch (e: Exception) {
-			"Error"
 		}
-	}
 
 	private fun getLanguageName(code: String): String {
 		return when (code.lowercase()) {
@@ -254,8 +259,10 @@ class AiFeatureManager @Inject constructor(
 
 		if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-		val maxExpandX = (textRect.width() * 2).coerceAtLeast(200)
-		val maxExpandY = (textRect.height() * 2).coerceAtLeast(200)
+		// Expansion limit: max 2x the text width or 30% of page width, whichever is smaller.
+		// This prevents "blocking the entire frame" if the scan goes runaway.
+		val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.3f).toInt()).coerceAtLeast(100)
+		val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.3f).toInt()).coerceAtLeast(100)
 
 		var left = textRect.left
 		var dist = 0
@@ -294,7 +301,8 @@ class AiFeatureManager @Inject constructor(
 		val green = Color.green(pixel)
 		val blue = Color.blue(pixel)
 		val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-		return luminance >= 180
+		// Threshold: 170 is more inclusive for slightly grey backgrounds
+		return luminance >= 170
 	}
 
 	private data class IntermediateBlock(
