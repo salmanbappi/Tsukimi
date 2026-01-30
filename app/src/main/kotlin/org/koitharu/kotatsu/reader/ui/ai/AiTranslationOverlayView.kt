@@ -94,7 +94,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				// Ensure the longest word fits horizontally without breaking
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					thesize -= step
+					textSize -= step
 					continue
 				}
 
