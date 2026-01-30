@@ -52,29 +52,27 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
-		// Ensure overlay redraws when SSIV zooms or scrolls
-		ssiv.setOnStateChangeListener(object : SubsamplingScaleImageView.OnStateChangeListener {
-			override fun onScaleChanged(newScale: Float, origin: Int) { invalidate() }
-			override fun onCenterChanged(newCenter: PointF, origin: Int) { invalidate() }
-		})
+		ssiv.viewTreeObserver.addOnScrollChangedListener { invalidate() }
+		ssiv.viewTreeObserver.addOnGlobalLayoutListener { invalidate() }
 	}
 
 	override fun onDraw(canvas: Canvas) {
 		super.onDraw(canvas)
 		val ssiv = this.ssiv ?: return
-		
-		val currentScale = ssiv.scale
-		val vTranslate = ssiv.vTranslate ?: PointF(0f, 0f)
+		if (!ssiv.isReady) return
 
 		for (block in blocks) {
 			val sourceRect = block.boundingBox
 			val text = block.text
 
-			// Map source-relative coordinates back to current view coordinates
-			val viewLeft = sourceRect.left * currentScale + vTranslate.x
-			val viewTop = sourceRect.top * currentScale + vTranslate.y
-			val viewRight = sourceRect.right * currentScale + vTranslate.x
-			val viewBottom = sourceRect.bottom * currentScale + vTranslate.y
+			// Standard public way to map source to view coordinates
+			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
+			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
+			
+			val viewLeft = tl.x
+			val viewTop = tl.y
+			val viewRight = br.x
+			val viewBottom = br.y
 			
 			val viewWidth = viewRight - viewLeft
 			val viewHeight = viewBottom - viewTop
@@ -103,7 +101,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val words = text.split(Regex("\\s+"))
 
 			// Auto-sizing Logic
-			var textSize = 60f * (currentScale / 1.5f).coerceAtLeast(0.5f) // Adjust initial size based on scale
+			var textSize = 60f * (ssiv.scale / 1.5f).coerceAtLeast(0.5f)
 			val minTextSize = 10f
 			val step = 1f
 			
@@ -116,14 +114,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
 				
-				// Ensure the longest word fits horizontally without breaking
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					thesize -= step
+					textSize -= step
 					continue
 				}
 
-				// Build layout with balanced strategy
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
@@ -140,7 +136,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					break
 				}
 
-				thesize -= step
+				textSize -= step
 			}
 
 			if (finalLayout == null) {

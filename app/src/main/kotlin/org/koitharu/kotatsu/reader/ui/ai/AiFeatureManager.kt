@@ -46,7 +46,6 @@ class AiFeatureManager @Inject constructor(
 	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
-	// Cache to prevent redundant API calls and stay within rate limits
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
@@ -61,7 +60,6 @@ class AiFeatureManager @Inject constructor(
 	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
 
-		// Return cached translation if available
 		translationCache.get(pageKey)?.let { return@withContext it }
 
 		val inputImage = InputImage.fromBitmap(bitmap, 0)
@@ -85,9 +83,9 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			val translationJobs = mergedBlocks.map { block ->
+			val translationJobs = mergedBlocks.map {
 				async {
-					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -100,10 +98,8 @@ class AiFeatureManager @Inject constructor(
 						"Error"
 					}
 
-					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
 					
-					// Map view-relative coordinates to source-relative coordinates
-					// This ensures bubbles "stick" to the image during zoom/scroll
 					val sourceRect = RectF(
 						(bubbleRect.left - vTranslateX) / viewScale,
 						(bubbleRect.top - vTranslateY) / viewScale,
@@ -117,11 +113,8 @@ class AiFeatureManager @Inject constructor(
 					)
 				}
 			}
+			result.addAll(translationJobs.awaitAll().filterNotNull())
 			
-			val translatedBlocks = translationJobs.awaitAll().filterNotNull()
-			result.addAll(translatedBlocks)
-			
-			// Cache the results
 			if (result.isNotEmpty()) {
 				translationCache.put(pageKey, result)
 			}
@@ -209,14 +202,14 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<MergedText> {
+	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
 		val sorted = blocks.sortedWith(
 			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
 				.thenBy { it.boundingBox?.top ?: 0 }
 		)
-		val merged = mutableListOf<MergedText>()
+		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {
 			val rect = block.boundingBox ?: continue
@@ -234,7 +227,7 @@ class AiFeatureManager @Inject constructor(
 			}
 
 			if (!isMerged) {
-				merged.add(MergedText(StringBuilder(text), Rect(rect)))
+				merged.add(IntermediateBlock(StringBuilder(text), Rect(rect)))
 			}
 		}
 		return merged
@@ -243,10 +236,8 @@ class AiFeatureManager @Inject constructor(
 	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val threshold = (avgHeight * 0.5f).toInt().coerceAtLeast(10)
-
 		val expanded = Rect(r1)
 		expanded.inset(-threshold, -threshold)
-		
 		return Rect.intersects(expanded, r2)
 	}
 	
@@ -301,7 +292,7 @@ class AiFeatureManager @Inject constructor(
 		return luminance >= 180
 	}
 
-	private data class MergedText(
+	private data class IntermediateBlock(
 		val text: StringBuilder,
 		val boundingBox: Rect
 	)
