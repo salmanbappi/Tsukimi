@@ -41,17 +41,29 @@ class SuperImageUpscaler @Inject constructor(
                 interpreter = Interpreter(modelFile, options)
             }
 
-            return@withContext when (factor) {
-                4 -> runModel(bitmap)
-                16 -> {
+            return@withContext when {
+                factor <= 4 -> {
+                    val result = runModel(bitmap) ?: return@withContext null
+                    if (factor == 4) result else resize(result, factor.toDouble() / 4.0)
+                }
+                factor <= 16 -> {
                     val pass1 = runModel(bitmap) ?: return@withContext null
                     val pass2 = runModel(pass1)
-                    if (pass1 != bitmap) pass1.recycle()
-                    pass2
+                    pass1.recycle()
+                    if (pass2 == null) return@withContext null
+                    if (factor == 16) pass2 else resize(pass2, factor.toDouble() / 16.0)
                 }
-                else -> null // 9x not supported by this model directly
+                else -> null
             }
         }
+    }
+
+    private fun resize(bitmap: Bitmap, scale: Double): Bitmap {
+        val w = (bitmap.width * scale).toInt()
+        val h = (bitmap.height * scale).toInt()
+        val result = Bitmap.createScaledBitmap(bitmap, w, h, true)
+        bitmap.recycle()
+        return result
     }
 
     private fun runModel(input: Bitmap): Bitmap? {

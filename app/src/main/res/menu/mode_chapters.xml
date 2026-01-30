@@ -4,6 +4,12 @@
 	xmlns:app="http://schemas.android.com/apk/res-auto">
 
 	<item
+		android:id="@+id/action_ai_upscale"
+		android:icon="@drawable/ic_auto_fix"
+		android:title="@string/ai_upscaling"
+		app:showAsAction="ifRoom|withText" />
+
+	<item
 		android:id="@+id/action_save"
 		android:icon="@drawable/ic_save"
 		android:title="@string/save"

@@ -171,11 +171,38 @@ class ChaptersSelectionCallback(
 	}
 
 	private fun showUpscaleDialog(context: android.content.Context, chapterIds: Set<Long>) {
-		val factors = arrayOf("4x (Fast)", "16x (Ultra - Slow)")
+		val allChapters = viewModel.chapters.value
+		var totalPages = 0
+		chapterIds.forEach { id ->
+			val item = allChapters.find { it is ChapterListItem && it.chapter.id == id } as? ChapterListItem
+			if (item?.isDownloaded == true) {
+				val uri = android.net.Uri.parse(item.chapter.url)
+				if (uri.scheme == "file") {
+					totalPages += java.io.File(uri.path!!).listFiles()?.size ?: 0
+				} else if (uri.scheme == "zip") {
+					val path = uri.schemeSpecificPart.substringBefore("!")
+					try {
+						java.util.zip.ZipFile(path).use { totalPages += it.size() }
+					} catch (e: Exception) {}
+				}
+			}
+		}
+
+		val factors = arrayOf(
+			"4x (Fast) - ~${totalPages * 2}s",
+			"9x (Medium) - ~${totalPages * 5}s",
+			"16x (Ultra) - ~${totalPages * 10}s"
+		)
+		
 		com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
 			.setTitle(R.string.ai_upscaling)
 			.setItems(factors) { _, which ->
-				val factor = if (which == 0) 4 else 16
+				val factor = when (which) {
+					0 -> 4
+					1 -> 9
+					2 -> 16
+					else -> return@setItems
+				}
 				viewModel.upscale(chapterIds, factor)
 				Toast.makeText(context, "Upscaling started", Toast.LENGTH_SHORT).show()
 			}

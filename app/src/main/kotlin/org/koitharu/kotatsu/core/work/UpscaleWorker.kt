@@ -126,6 +126,9 @@ class UpscaleWorker @AssistedInject constructor(
         file.delete()
         tempZip.renameTo(file)
         tempDir.deleteRecursively()
+        
+        // Create marker
+        File(file.parentFile, "${file.name}.upscaled").createNewFile()
     }
     
     private suspend fun upscaleDirectory(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int) {
@@ -151,6 +154,10 @@ class UpscaleWorker @AssistedInject constructor(
                 upscaled.recycle()
             }
         }
+        
+        // Create marker
+        val marker = File(dir, ".upscaled")
+        marker.createNewFile()
     }
 
     private fun isImage(name: String): Boolean {

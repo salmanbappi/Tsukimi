@@ -20,6 +20,7 @@ fun MangaChapter.toListItem(
 	timeAgo: org.koitharu.kotatsu.core.ui.model.DateTimeAgo? = null,
 	readPage: Int = -1,
 	isDeletionConfirmation: Boolean = false,
+	isUpscaled: Boolean = false,
 	downloadProgress: Float = -1f,
 ): ChapterListItem {
 	var flags: Byte = 0
@@ -30,6 +31,7 @@ fun MangaChapter.toListItem(
 	if (isDownloaded) flags = flags or FLAG_DOWNLOADED
 	if (isGrid) flags = flags or FLAG_GRID
 	if (isDeletionConfirmation) flags = flags or ChapterListItem.FLAG_DELETION_CONFIRMATION
+	if (isUpscaled) flags = flags or ChapterListItem.FLAG_UPSCALED
 	return ChapterListItem(
 		chapter = this,
 		flags = flags,

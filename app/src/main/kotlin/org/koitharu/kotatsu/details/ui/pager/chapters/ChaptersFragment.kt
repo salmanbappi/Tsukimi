@@ -121,6 +121,10 @@ class ChaptersFragment :
 			}
 			return
 		}
+		if (view.id == R.id.button_upscale) {
+			showUpscaleDialog(requireContext(), setOf(item.chapter.id))
+			return
+		}
 		if (selectionController?.onItemClick(item.chapter.id) == true) {
 			return
 		}
@@ -230,5 +234,47 @@ class ChaptersFragment :
 
 	private fun onLoadingStateChanged(isLoading: Boolean) {
 		requireViewBinding().progressBar.isVisible = isLoading
+	}
+
+	private fun showUpscaleDialog(context: android.content.Context, chapterIds: Set<Long>) {
+		val manga = viewModel.getMangaOrNull() ?: return
+		val allChapters = viewModel.chapters.value
+		
+		// Count pages for all selected chapters to estimate time
+		var totalPages = 0
+		chapterIds.forEach { id ->
+			val item = allChapters.find { it is ChapterListItem && it.chapter.id == id } as? ChapterListItem
+			if (item?.isDownloaded == true) {
+				val uri = android.net.Uri.parse(item.chapter.url)
+				if (uri.scheme == "file") {
+					totalPages += java.io.File(uri.path!!).listFiles()?.size ?: 0
+				} else if (uri.scheme == "zip") {
+					val path = uri.schemeSpecificPart.substringBefore("!")
+					try {
+						java.util.zip.ZipFile(path).use { totalPages += it.size() }
+					} catch (e: Exception) {}
+				}
+			}
+		}
+
+		val factors = arrayOf(
+			"4x (Fast) - ~${totalPages * 2}s",
+			"9x (Medium) - ~${totalPages * 5}s",
+			"16x (Ultra) - ~${totalPages * 10}s"
+		)
+		
+		com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+			.setTitle(R.string.ai_upscaling)
+			.setItems(factors) { _, which ->
+				val factor = when (which) {
+					0 -> 4
+					1 -> 9
+					2 -> 16
+					else -> return@setItems
+				}
+				viewModel.upscale(chapterIds, factor)
+				android.widget.Toast.makeText(context, "Upscaling started for $totalPages pages", android.widget.Toast.LENGTH_SHORT).show()
+			}
+			.show()
 	}
 }

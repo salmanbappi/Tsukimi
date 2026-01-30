@@ -59,6 +59,9 @@ data class ChapterListItem(
 	val isDeletionConfirmation: Boolean
 		get() = hasFlag(FLAG_DELETION_CONFIRMATION)
 
+	val isUpscaled: Boolean
+		get() = hasFlag(FLAG_UPSCALED)
+
 	operator fun contains(query: String): Boolean = with(chapter) {
 		title?.contains(query, ignoreCase = true) == true
 			|| numberString()?.contains(query) == true
@@ -118,5 +121,6 @@ data class ChapterListItem(
 		const val FLAG_DOWNLOADED: Byte = 32
 		const val FLAG_GRID: Byte = 64
 		const val FLAG_DELETION_CONFIRMATION: Byte = -128
+		const val FLAG_UPSCALED: Byte = 1
 	}
 }

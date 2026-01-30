@@ -4,8 +4,10 @@ import android.view.HapticFeedbackConstants
 import android.graphics.Typeface
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.RecyclerView
 import com.hannesdorfmann.adapterdelegates4.dsl.adapterDelegateViewBinding
 import org.koitharu.kotatsu.R
+import org.koitharu.kotatsu.core.model.LocalMangaSource
 import org.koitharu.kotatsu.core.ui.list.AdapterDelegateClickListenerAdapter
 import org.koitharu.kotatsu.core.ui.list.OnListItemClickListener
 import org.koitharu.kotatsu.core.util.ext.drawableStart
@@ -29,6 +31,13 @@ fun chapterListItemAD(
 		it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
 		clickListener.onItemClick(item, it) 
 	}
+	
+	binding.buttonUpscale.setOnClickListener {
+		it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+		if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+			clickListener.onItemClick(item, it)
+		}
+	}
 
 	bind {
 		binding.textViewTitle.text = item.getTitle(context.resources)
@@ -47,6 +56,15 @@ fun chapterListItemAD(
 		}
 
 		binding.textViewDescription.textAndVisible = description.toString()
+
+		// Upscale Button Logic
+		val isLocal = item.isDownloaded || item.chapter.source == LocalMangaSource
+		binding.buttonUpscale.isVisible = isLocal
+		if (item.isUpscaled) {
+			binding.buttonUpscale.setColorFilter(ContextCompat.getColor(context, R.color.upscaled_tint))
+		} else {
+			binding.buttonUpscale.clearColorFilter()
+		}
 
 		val isDownloading = item.downloadProgress >= 0f
 		binding.progressDownload.isVisible = isDownloading

@@ -24,6 +24,7 @@ fun MangaDetails.mapChapters(
 	deletionConfirmation: Set<Long> = emptySet(),
 	downloadingChapters: Map<Long, Float> = emptyMap(),
 	deletingChapters: Set<Long> = emptySet(),
+	upscaledChapters: Set<Long> = emptySet(),
 ): List<ChapterListItem> {
 	val remoteChapters = chapters[branch].orEmpty()
 	val localChapters = local?.manga?.getChapters(branch).orEmpty()
@@ -59,6 +60,7 @@ fun MangaDetails.mapChapters(
 				timeAgo = timeAgo,
 				readPage = readEntity?.page ?: -1,
 				isDeletionConfirmation = chapter.id in deletionConfirmation,
+				isUpscaled = chapter.id in upscaledChapters,
 				downloadProgress = downloadingChapters[chapter.id] ?: -1f
 			)
 		}
@@ -78,6 +80,7 @@ fun MangaDetails.mapChapters(
 				isGrid = isGrid,
 				descriptionOverride = pageText,
 				isDeletionConfirmation = chapter.id in deletionConfirmation,
+				isUpscaled = chapter.id in upscaledChapters,
 				downloadProgress = downloadingChapters[chapter.id] ?: -1f
 			)
 		}
