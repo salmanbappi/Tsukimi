@@ -4,13 +4,15 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.PointF
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.view.View
+import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import kotlin.math.max
 
 class AiTranslationOverlayView @JvmOverloads constructor(
@@ -20,6 +22,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
 	private var blocks: List<TranslatedBlock> = emptyList()
+	private var ssiv: SubsamplingScaleImageView? = null
 	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
@@ -47,37 +50,60 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		invalidate()
 	}
 
+	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
+		this.ssiv = ssiv
+		// Ensure overlay redraws when SSIV zooms or scrolls
+		ssiv.setOnStateChangeListener(object : SubsamplingScaleImageView.OnStateChangeListener {
+			override fun onScaleChanged(newScale: Float, origin: Int) { invalidate() }
+			override fun onCenterChanged(newCenter: PointF, origin: Int) { invalidate() }
+		})
+	}
+
 	override fun onDraw(canvas: Canvas) {
 		super.onDraw(canvas)
+		val ssiv = this.ssiv ?: return
+		
+		val currentScale = ssiv.scale
+		val vTranslate = ssiv.vTranslate ?: PointF(0f, 0f)
+
 		for (block in blocks) {
-			val rect = block.boundingBox
+			val sourceRect = block.boundingBox
 			val text = block.text
 
-			if (rect.width() <= 0 || rect.height() <= 0 || text.isBlank()) continue
+			// Map source-relative coordinates back to current view coordinates
+			val viewLeft = sourceRect.left * currentScale + vTranslate.x
+			val viewTop = sourceRect.top * currentScale + vTranslate.y
+			val viewRight = sourceRect.right * currentScale + vTranslate.x
+			val viewBottom = sourceRect.bottom * currentScale + vTranslate.y
+			
+			val viewWidth = viewRight - viewLeft
+			val viewHeight = viewBottom - viewTop
 
-			// Draw background bubble (rounded for a premium speech bubble feel)
-			val cornerRadius = (rect.width().coerceAtMost(rect.height()) * 0.4f).coerceAtMost(60f)
+			if (viewWidth <= 0 || viewHeight <= 0 || text.isBlank()) continue
+
+			// Draw background bubble (rounded)
+			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
 			canvas.drawRoundRect(
-				rect.left.toFloat(),
-				rect.top.toFloat(),
-				rect.right.toFloat(),
-				rect.bottom.toFloat(),
+				viewLeft,
+				viewTop,
+				viewRight,
+				viewBottom,
 				cornerRadius,
 				cornerRadius,
 				backgroundPaint
 			)
 
 			// Calculate padding (12% of dimension, min 8px)
-			val paddingX = (rect.width() * 0.12f).toInt().coerceAtLeast(8)
-			val paddingY = (rect.height() * 0.12f).toInt().coerceAtLeast(8)
-			val availableWidth = (rect.width() - 2 * paddingX).coerceAtLeast(1)
-			val availableHeight = (rect.height() - 2 * paddingY).coerceAtLeast(1)
+			val paddingX = (viewWidth * 0.12f).coerceAtLeast(8f)
+			val paddingY = (viewHeight * 0.12f).coerceAtLeast(8f)
+			val availableWidth = (viewWidth - 2 * paddingX).toInt().coerceAtLeast(1)
+			val availableHeight = (viewHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			// Pre-split words to ensure no word is broken mid-way
 			val words = text.split(Regex("\\s+"))
 
 			// Auto-sizing Logic
-			var textSize = 60f // Start large
+			var textSize = 60f * (currentScale / 1.5f).coerceAtLeast(0.5f) // Adjust initial size based on scale
 			val minTextSize = 10f
 			val step = 1f
 			
@@ -85,7 +111,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			var finalYOffset = 0f
 			var finalTextSize = minTextSize
 
-			// Create a working paint for layout calculation
 			val paint = TextPaint(baseTextPaint)
 
 			while (textSize >= minTextSize) {
@@ -94,11 +119,11 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				// Ensure the longest word fits horizontally without breaking
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					thesize -= step
 					continue
 				}
 
-				// Build layout with balanced strategy (better for speech bubbles)
+				// Build layout with balanced strategy
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
@@ -108,19 +133,16 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 				val layout = builder.build()
 
-				// Check if it fits vertically
 				if (layout.height <= availableHeight) {
 					finalLayout = layout
 					finalTextSize = textSize
-					// Calculate vertical center offset within the padded area
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
 
-				textSize -= step
+				thesize -= step
 			}
 
-			// Fallback if no size fits
 			if (finalLayout == null) {
 				paint.textSize = minTextSize
 				finalLayout = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
@@ -131,18 +153,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
-			// Draw text
 			canvas.save()
-			// Translate to padded position
-			canvas.translate((rect.left + paddingX).toFloat(), (rect.top + paddingY).toFloat() + finalYOffset)
+			canvas.translate(viewLeft + paddingX, viewTop + paddingY + finalYOffset)
 			
-			// Draw Stroke
 			val workPaint = finalLayout.paint
 			workPaint.set(strokePaint)
 			workPaint.textSize = finalTextSize
 			finalLayout.draw(canvas)
 			
-			// Draw Fill
 			workPaint.set(baseTextPaint)
 			workPaint.textSize = finalTextSize
 			finalLayout.draw(canvas)

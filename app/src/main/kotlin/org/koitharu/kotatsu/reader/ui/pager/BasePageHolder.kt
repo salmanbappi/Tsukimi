@@ -82,6 +82,7 @@ abstract class BasePageHolder<B : ViewBinding>(
 		}
 		bindingInfo.buttonRetry.setOnClickListener(clickListener)
 		bindingInfo.buttonErrorDetails.setOnClickListener(clickListener)
+		translationOverlay?.setupWithSSIV(ssiv)
 	}
 
 	@CallSuper

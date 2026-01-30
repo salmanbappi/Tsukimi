@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.RectF
+import android.util.LruCache
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
@@ -44,15 +46,29 @@ class AiFeatureManager @Inject constructor(
 	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
-	suspend fun translatePage(bitmap: Bitmap, targetLanguage: String = TranslateLanguage.ENGLISH): List<TranslatedBlock> = withContext(Dispatchers.Default) {
+	// Cache to prevent redundant API calls and stay within rate limits
+	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
+
+	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
+
+	suspend fun translatePage(
+		pageKey: String,
+		bitmap: Bitmap,
+		viewScale: Float,
+		vTranslateX: Float,
+		vTranslateY: Float,
+		targetLanguage: String = TranslateLanguage.ENGLISH
+	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
+
+		// Return cached translation if available
+		translationCache.get(pageKey)?.let { return@withContext it }
 
 		val inputImage = InputImage.fromBitmap(bitmap, 0)
 		val visionText = textRecognizer.process(inputImage).await()
 		
 		val engine = settings.aiTranslationEngine
 		
-		// Setup ML Kit translator if selected
 		val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
 			val options = TranslatorOptions.Builder()
 				.setSourceLanguage(TranslateLanguage.JAPANESE)
@@ -69,10 +85,9 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-			// Process all blocks in parallel for "Premium" speed and responsiveness
-			val translationJobs = mergedBlocks.map {
+			val translationJobs = mergedBlocks.map { block ->
 				async {
-					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -85,17 +100,31 @@ class AiFeatureManager @Inject constructor(
 						"Error"
 					}
 
-					// Try to expand the bounding box to the speech bubble borders
-					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
+					
+					// Map view-relative coordinates to source-relative coordinates
+					// This ensures bubbles "stick" to the image during zoom/scroll
+					val sourceRect = RectF(
+						(bubbleRect.left - vTranslateX) / viewScale,
+						(bubbleRect.top - vTranslateY) / viewScale,
+						(bubbleRect.right - vTranslateX) / viewScale,
+						(bubbleRect.bottom - vTranslateY) / viewScale
+					)
 					
 					TranslatedBlock(
 						text = translatedText,
-						boundingBox = bubbleRect
+						boundingBox = sourceRect
 					)
 				}
 			}
 			
-			result.addAll(translationJobs.awaitAll().filterNotNull())
+			val translatedBlocks = translationJobs.awaitAll().filterNotNull()
+			result.addAll(translatedBlocks)
+			
+			// Cache the results
+			if (result.isNotEmpty()) {
+				translationCache.put(pageKey, result)
+			}
 		} finally {
 			mlKitTranslator?.close()
 		}
@@ -105,7 +134,6 @@ class AiFeatureManager @Inject constructor(
 
 	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
 		val apiKey = settings.deeplApiKey ?: return@withContext "Error: Missing API Key"
-		// DeepL Free API uses a different domain than Pro
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
 		
@@ -120,15 +148,15 @@ class AiFeatureManager @Inject constructor(
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-		try {
-			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-				jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext "Error: ${response.code}"
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content ?: "Error"
+				}
+			} catch (e: Exception) {
+				"Error"
 			}
-		} catch (e: Exception) {
-			"Error"
-		}
 	}
 
 	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
@@ -155,15 +183,15 @@ class AiFeatureManager @Inject constructor(
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
 			
-		try {
-			client.newCall(request).execute().use { response ->
-				if (!response.isSuccessful) return@withContext "Error: ${response.code}"
-				val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-				jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext "Error: ${response.code}"
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim() ?: "Error"
+				}
+			} catch (e: Exception) {
+				"Error"
 			}
-		} catch (e: Exception) {
-			"Error"
-		}
 	}
 
 	private fun getLanguageName(code: String): String {
@@ -184,8 +212,6 @@ class AiFeatureManager @Inject constructor(
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<MergedText> {
 		if (blocks.isEmpty()) return emptyList()
 
-		// Sort blocks Right-to-Left (primary) then Top-to-Bottom (secondary)
-		// This better matches standard Japanese vertical text layout
 		val sorted = blocks.sortedWith(
 			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
 				.thenBy { it.boundingBox?.top ?: 0 }
@@ -197,12 +223,9 @@ class AiFeatureManager @Inject constructor(
 			val text = block.text
 
 			var isMerged = false
-			// Check if this block is close to any existing merged block
-			// We iterate backwards as the most likely merge candidate is the last one
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
 				if (areBlocksClose(m.boundingBox, rect)) {
-					// Merge into existing block
 					m.text.append("\n").append(text)
 					m.boundingBox.union(rect)
 					isMerged = true
@@ -291,5 +314,5 @@ class AiFeatureManager @Inject constructor(
 
 data class TranslatedBlock(
 	val text: String,
-	val boundingBox: Rect
+	val boundingBox: RectF
 )

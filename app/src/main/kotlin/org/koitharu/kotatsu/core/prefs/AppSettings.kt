@@ -262,6 +262,10 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_AI_TRANSLATION, false)
 		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION, value) }
 
+	var isAiAutoTranslationEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_AUTO_TRANSLATION, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_AUTO_TRANSLATION, value) }
+
 	var aiTranslationEngine: TranslationEngine
 		get() = prefs.getEnumValue(KEY_AI_TRANSLATION_ENGINE, TranslationEngine.DEFAULT)
 		set(value) = prefs.edit { putEnumValue(KEY_AI_TRANSLATION_ENGINE, value) }
@@ -802,6 +806,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_READER_ZEN_MODE = "reader_zen_mode"
 		const val KEY_READER_HAPTICS = "reader_haptics"
 		const val KEY_AI_TRANSLATION = "ai_translation"
+		const val KEY_AI_AUTO_TRANSLATION = "ai_auto_translation"
 		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
 		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
 		const val KEY_AI_TRANSLATION_OPENAI_KEY = "ai_translation_openai_key"

@@ -166,6 +166,13 @@
 			android:summary="@string/ai_translation_summary"
 			android:title="@string/ai_translation" />
 
+		<SwitchPreferenceCompat
+			android:defaultValue="false"
+			android:dependency="ai_translation"
+			android:key="ai_auto_translation"
+			android:summary="@string/auto_ai_translation_summary"
+			android:title="@string/auto_ai_translation" />
+
 		<ListPreference
 			android:dependency="ai_translation"
 			android:entries="@array/ai_translation_engines"
