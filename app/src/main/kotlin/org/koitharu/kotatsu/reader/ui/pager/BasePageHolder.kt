@@ -27,6 +27,8 @@ import org.koitharu.kotatsu.core.util.ext.observe
 import org.koitharu.kotatsu.databinding.LayoutPageInfoBinding
 import org.koitharu.kotatsu.parsers.util.ifZero
 import org.koitharu.kotatsu.reader.domain.PageLoader
+import org.koitharu.kotatsu.reader.ui.ai.AiEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
 import org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
@@ -42,6 +44,10 @@ abstract class BasePageHolder<B : ViewBinding>(
 	lifecycleOwner: LifecycleOwner,
 	isWebtoon: Boolean,
 ) : LifecycleAwareViewHolder(binding.root, lifecycleOwner), DefaultOnImageEventListener, ComponentCallbacks2 {
+
+	private val aiFeatureManager: AiFeatureManager by lazy {
+		EntryPointAccessors.fromApplication(context, AiEntryPoint::class.java).aiFeatureManager()
+	}
 
 	protected val viewModel = PageViewModel(
 		loader = loader,
@@ -103,6 +109,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 
 	fun bind(data: ReaderPage) {
 		boundData = data
+		translationOverlay?.isVisible = false
+		translationOverlay?.setTranslatedBlocks(emptyList())
 		viewModel.onBind(data.toMangaPage())
 		onBind(data)
 	}
@@ -143,6 +151,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 	open fun onRecycled() {
 		viewModel.onRecycle()
 		ssiv.recycle()
+		translationOverlay?.isVisible = false
+		translationOverlay?.setTranslatedBlocks(emptyList())
 	}
 
 	override fun onTrimMemory(level: Int) {
@@ -195,7 +205,20 @@ abstract class BasePageHolder<B : ViewBinding>(
 				}
 			}
 
-			is PageState.Shown -> Unit
+			is PageState.Shown -> {
+				val page = boundData ?: return
+				val pageKey = "${page.chapterId}_${page.index}"
+				if (settings.isAiTranslationEnabled && aiFeatureManager.isCached(pageKey)) {
+					lifecycleScope.launch(Dispatchers.Default) {
+						val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), 1f, 0f, 0f)
+						withContext(Dispatchers.Main) {
+							translationOverlay?.setupWithSSIV(ssiv)
+							translationOverlay?.isVisible = true
+							translationOverlay?.setTranslatedBlocks(blocks)
+						}
+					}
+				}
+			}
 		}
 	}
 

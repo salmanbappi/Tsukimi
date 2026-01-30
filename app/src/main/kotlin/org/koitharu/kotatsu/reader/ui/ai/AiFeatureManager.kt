@@ -36,6 +36,16 @@ import org.koitharu.kotatsu.core.prefs.AppSettings
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface AiEntryPoint {
+	fun aiFeatureManager(): AiFeatureManager
+}
+
 @Singleton
 class AiFeatureManager @Inject constructor(
 	@ApplicationContext private val context: Context,
