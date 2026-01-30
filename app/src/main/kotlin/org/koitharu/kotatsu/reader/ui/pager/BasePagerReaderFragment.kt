@@ -162,11 +162,12 @@ abstract class BasePagerReaderFragment : BaseReaderFragment<FragmentReaderPagerB
 		}
 	}
 
-	override fun getCurrentHolders(): List<BasePageHolder<*>> = viewBinding?.run {
-		pager.recyclerView?.children?.mapNotNull {
-			pager.recyclerView?.getChildViewHolder(it) as? BasePageHolder<*>
-		}?.toList()
-	}.orEmpty()
+	override fun getCurrentHolders(): List<BasePageHolder<*>> {
+		val rv = viewBinding?.pager?.recyclerView ?: return emptyList()
+		return rv.children.mapNotNull {
+			rv.getChildViewHolder(it) as? BasePageHolder<*>
+		}.toList()
+	}
 
 	override fun getCurrentState(): ReaderState? = viewBinding?.run {
 		val adapter = pager.adapter as? BaseReaderAdapter<*>

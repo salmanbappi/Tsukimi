@@ -86,9 +86,9 @@ class AiFeatureManager @Inject constructor(
 			val bitmapWidth = bitmap.width.toFloat()
 			val bitmapHeight = bitmap.height.toFloat()
 
-			val translationJobs = mergedBlocks.map {
+			val translationJobs = mergedBlocks.map { block ->
 				async {
-					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
+					val cleanText = block.text.toString().replace(Regex("[\\n\\s]+"), "")
 					if (cleanText.isBlank()) return@async null
 
 					val translatedText = try {
@@ -103,9 +103,8 @@ class AiFeatureManager @Inject constructor(
 
 					if (translatedText.isNullOrBlank()) return@async null
 
-					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
+					val bubbleRect = detectBubbleBounds(block.boundingBox, bitmap)
 					
-					//PERCENTAGE Coordinates: independent of zoom/pan state
 					val pctRect = RectF(
 						bubbleRect.left / bitmapWidth,
 						bubbleRect.top / bitmapHeight,
@@ -113,8 +112,6 @@ class AiFeatureManager @Inject constructor(
 						bubbleRect.bottom / bitmapHeight
 					)
 					
-					// Final safety check: if the bubble is giant (e.g. > 80% width or height), 
-					// it's likely an OCR error on artwork. Skip it to prevent blocking the frame.
 					if (pctRect.width() > 0.8f || pctRect.height() > 0.8f) return@async null
 
 					TranslatedBlock(
@@ -160,7 +157,7 @@ class AiFeatureManager @Inject constructor(
 			} catch (e: Exception) {
 				null
 			}
-		}
+	}
 
 	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.openaiApiKey ?: return@withContext null
@@ -195,7 +192,7 @@ class AiFeatureManager @Inject constructor(
 			} catch (e: Exception) {
 				null
 			}
-		}
+	}
 
 	private fun getLanguageName(code: String): String {
 		return when (code.lowercase()) {
@@ -259,8 +256,6 @@ class AiFeatureManager @Inject constructor(
 
 		if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-		// Expansion limit: max 2x the text width or 30% of page width, whichever is smaller.
-		// This prevents "blocking the entire frame" if the scan goes runaway.
 		val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.3f).toInt()).coerceAtLeast(100)
 		val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.3f).toInt()).coerceAtLeast(100)
 
@@ -301,7 +296,6 @@ class AiFeatureManager @Inject constructor(
 		val green = Color.green(pixel)
 		val blue = Color.blue(pixel)
 		val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-		// Threshold: 170 is more inclusive for slightly grey backgrounds
 		return luminance >= 170
 	}
 

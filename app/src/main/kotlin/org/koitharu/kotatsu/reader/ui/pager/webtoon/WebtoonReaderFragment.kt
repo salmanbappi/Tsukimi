@@ -8,6 +8,7 @@ import android.view.ViewGroup.MarginLayoutParams
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
@@ -172,11 +173,12 @@ class WebtoonReaderFragment : BaseReaderFragment<FragmentReaderWebtoonBinding>()
 		)
 	}
 
-	override fun getCurrentHolders(): List<BasePageHolder<*>> = viewBinding?.run {
-		recyclerView.children.mapNotNull {
-			recyclerView.getChildViewHolder(it) as? BasePageHolder<*>
+	override fun getCurrentHolders(): List<BasePageHolder<*>> {
+		val rv = viewBinding?.recyclerView ?: return emptyList()
+		return rv.children.mapNotNull {
+			rv.getChildViewHolder(it) as? BasePageHolder<*>
 		}.toList()
-	}.orEmpty()
+	}
 
 	override fun onZoomIn() {
 		viewBinding?.frame?.onZoomIn()
