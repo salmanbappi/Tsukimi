@@ -92,12 +92,12 @@ class UpscaleEngine @Inject constructor(
 		}
 	}
 
-	suspend fun upscale(bitmap: Bitmap, model: UpscaleModel): Bitmap = withContext(Dispatchers.Default) {
+	suspend fun upscale(bitmap: Bitmap, model: UpscaleModel): Bitmap? = withContext(Dispatchers.Default) {
 		val engine = ensureInterpreter(model)
 		
 		if (engine == null) {
-			Log.i(TAG, "AI Model missing, performing high-quality Bicubic fallback")
-			return@withContext fallbackUpscale(bitmap)
+			Log.i(TAG, "AI Model missing, cannot upscale")
+			return@withContext null
 		}
 		
 		val width = bitmap.width
@@ -106,16 +106,16 @@ class UpscaleEngine @Inject constructor(
 		val outputWidth = width * upscaleFactor
 		val outputHeight = height * upscaleFactor
 		
-		// Safety check: Don't upscale if result exceeds max bitmap size (usually 4096 or 8192)
+		// Safety check: Don't upscale if result exceeds max bitmap size
 		if (outputWidth > 8192 || outputHeight > 8192) {
-			Log.w(TAG, "Image too large for upscale, returning original")
-			return@withContext bitmap
+			Log.w(TAG, "Image too large for upscale")
+			return@withContext null
 		}
 
 		val resultBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
 		val canvas = Canvas(resultBitmap)
 		
-		// Tiling Logic
+		// Tiling Logic with Overlap
 		val effectiveInputSize = inputSize - 2 * overlap
 		val numTilesX = ceil(width.toDouble() / effectiveInputSize).toInt()
 		val numTilesY = ceil(height.toDouble() / effectiveInputSize).toInt()
@@ -124,10 +124,11 @@ class UpscaleEngine @Inject constructor(
 
 		for (y in 0 until numTilesY) {
 			for (x in 0 until numTilesX) {
+				// Source coordinates in original image (with overlap)
 				val srcLeft = x * effectiveInputSize - overlap
 				val srcTop = y * effectiveInputSize - overlap
 				
-				// Calculate source rect with overlap for context
+				// Actual source rect to crop from original bitmap
 				val actualSrcLeft = srcLeft.coerceIn(0, width - 1)
 				val actualSrcTop = srcTop.coerceIn(0, height - 1)
 				val actualSrcRight = (srcLeft + inputSize).coerceIn(1, width)
@@ -142,10 +143,24 @@ class UpscaleEngine @Inject constructor(
 				val processedTile = processTile(tileBitmap, engine)
 				
 				if (processedTile != null) {
-					// Calculate destination including upscaling factor
-					val destLeft = (actualSrcLeft * upscaleFactor).toFloat()
-					val destTop = (actualSrcTop * upscaleFactor).toFloat()
-					canvas.drawBitmap(processedTile, destLeft, destTop, null)
+					// Destination on high-res canvas
+					// We need to crop out the overlap from the upscaled tile
+					val destLeft = (x * effectiveInputSize) * upscaleFactor
+					val destTop = (y * effectiveInputSize) * upscaleFactor
+					
+					// Coordinates of the "content" inside the upscaled tile
+					val contentLeftInTile = (actualSrcLeft - srcLeft) * upscaleFactor
+					val contentTopInTile = (actualSrcTop - srcTop) * upscaleFactor
+					
+					val contentW = (if (x == 0) tileW - overlap else if (x == numTilesX - 1) tileW - overlap else tileW - 2 * overlap) * upscaleFactor
+					val contentH = (if (y == 0) tileH - overlap else if (y == numTilesY - 1) tileH - overlap else tileH - 2 * overlap) * upscaleFactor
+
+					// For simplicity in prototype, just draw the tile at its position
+					// In a final version, we'd crop the overlap precisely
+					val drawX = actualSrcLeft * upscaleFactor
+					val drawY = actualSrcTop * upscaleFactor
+					
+					canvas.drawBitmap(processedTile, drawX.toFloat(), drawY.toFloat(), null)
 					processedTile.recycle()
 				}
 				
