@@ -509,18 +509,13 @@ class ReaderActivity :
             } ?: return@launch
             
             for (holder in holders) {
-                val ssiv = holder.itemView.findViewById<SubsamplingScaleImageView>(R.id.ssiv) ?: continue
+                val ssiv = holder.itemView.findViewById<View>(R.id.ssiv) ?: continue
                 val overlay = holder.itemView.findViewById<AiTranslationOverlayView>(R.id.translationOverlay) ?: continue
                 val page = holder.boundData ?: continue
                 val pageKey = "${page.chapterId}_${page.index}"
 
-                val scale = withContext(Dispatchers.Main) { ssiv.scale }
-                val center = withContext(Dispatchers.Main) { ssiv.getCenter() ?: PointF(0f, 0f) }
-                val vTranslateX = withContext(Dispatchers.Main) { ssiv.width / 2f - center.x * scale }
-                val vTranslateY = withContext(Dispatchers.Main) { ssiv.height / 2f - center.y * scale }
-
                 if (aiFeatureManager.isCached(pageKey)) {
-                    val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, vTranslateX, vTranslateY)
+                    val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), 1f, 0f, 0f)
                     withContext(Dispatchers.Main) {
                         overlay.isVisible = true
                         overlay.setTranslatedBlocks(blocks)
@@ -536,7 +531,8 @@ class ReaderActivity :
                     ssiv.drawToBitmap()
                 }
                 
-                val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
+                // Percentages are calculated internally by the manager based on this bitmap
+                val blocks = aiFeatureManager.translatePage(pageKey, bitmap, 1f, 0f, 0f)
                 
                 withContext(Dispatchers.Main) {
                     overlay.isVisible = true

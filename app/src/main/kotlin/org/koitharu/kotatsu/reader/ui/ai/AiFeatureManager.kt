@@ -83,6 +83,9 @@ class AiFeatureManager @Inject constructor(
 			val textBlocks = visionText.textBlocks
 			val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
+			val bitmapWidth = bitmap.width.toFloat()
+			val bitmapHeight = bitmap.height.toFloat()
+
 			val translationJobs = mergedBlocks.map {
 				async {
 					val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
@@ -100,16 +103,17 @@ class AiFeatureManager @Inject constructor(
 
 					val bubbleRect = detectBubbleBounds(it.boundingBox, bitmap)
 					
-					val sourceRect = RectF(
-						(bubbleRect.left - vTranslateX) / viewScale,
-						(bubbleRect.top - vTranslateY) / viewScale,
-						(bubbleRect.right - vTranslateX) / viewScale,
-						(bubbleRect.bottom - vTranslateY) / viewScale
+					// PERCENTAGE Coordinates: independent of zoom/pan state
+					val pctRect = RectF(
+						bubbleRect.left / bitmapWidth,
+						bubbleRect.top / bitmapHeight,
+						bubbleRect.right / bitmapWidth,
+						bubbleRect.bottom / bitmapHeight
 					)
 					
 					TranslatedBlock(
 						text = translatedText,
-						boundingBox = sourceRect
+						boundingBox = pctRect
 					)
 				}
 			}
@@ -138,7 +142,7 @@ class AiFeatureManager @Inject constructor(
 		val request = Request.Builder()
 			.url(url)
 			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.post(body.toString().toRequestBody( "application/json".toMediaType()))
 			.build()
 			
 			try {
@@ -173,7 +177,7 @@ class AiFeatureManager @Inject constructor(
 		val request = Request.Builder()
 			.url("https://api.openai.com/v1/chat/completions")
 			.addHeader("Authorization", "Bearer $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.post(body.toString().toRequestBody( "application/json".toMediaType()))
 			.build()
 			
 			try {

@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
@@ -12,7 +11,6 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.view.View
-import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import kotlin.math.max
 
 class AiTranslationOverlayView @JvmOverloads constructor(
@@ -22,7 +20,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
 	private var blocks: List<TranslatedBlock> = emptyList()
-	private var ssiv: SubsamplingScaleImageView? = null
 	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
@@ -50,37 +47,34 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		invalidate()
 	}
 
-	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
-		this.ssiv = ssiv
-		ssiv.viewTreeObserver.addOnScrollChangedListener { invalidate() }
-		ssiv.viewTreeObserver.addOnGlobalLayoutListener { invalidate() }
+	// Dynamic scaling simplified: bubbles are stored as percentages of the parent view.
+	// This makes them immune to library-internal state bugs.
+	fun setupWithSSIV(ssiv: View) {
+		// Just a placeholder to maintain interface compatibility
 	}
 
 	override fun onDraw(canvas: Canvas) {
 		super.onDraw(canvas)
-		val ssiv = this.ssiv ?: return
-		if (!ssiv.isReady) return
+		val viewWidth = width.toFloat()
+		val viewHeight = height.toFloat()
 
 		for (block in blocks) {
-			val sourceRect = block.boundingBox
+			val pctRect = block.boundingBox
 			val text = block.text
 
-			// Standard public way to map source to view coordinates
-			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
-			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
+			// Convert percentages back to actual view pixels
+			val viewLeft = pctRect.left * viewWidth
+			val viewTop = pctRect.top * viewHeight
+			val viewRight = pctRect.right * viewWidth
+			val viewBottom = pctRect.bottom * viewHeight
 			
-			val viewLeft = tl.x
-			val viewTop = tl.y
-			val viewRight = br.x
-			val viewBottom = br.y
-			
-			val viewWidth = viewRight - viewLeft
-			val viewHeight = viewBottom - viewTop
+			val currentWidth = viewRight - viewLeft
+			val currentHeight = viewBottom - viewTop
 
-			if (viewWidth <= 0 || viewHeight <= 0 || text.isBlank()) continue
+			if (currentWidth <= 0 || currentHeight <= 0 || text.isBlank()) continue
 
-			// Draw background bubble (rounded)
-			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
+			// Draw background bubble
+			val cornerRadius = (currentWidth.coerceAtMost(currentHeight) * 0.4f).coerceAtMost(60f)
 			canvas.drawRoundRect(
 				viewLeft,
 				viewTop,
@@ -91,17 +85,16 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				backgroundPaint
 			)
 
-			// Calculate padding (12% of dimension, min 8px)
-			val paddingX = (viewWidth * 0.12f).coerceAtLeast(8f)
-			val paddingY = (viewHeight * 0.12f).coerceAtLeast(8f)
-			val availableWidth = (viewWidth - 2 * paddingX).toInt().coerceAtLeast(1)
-			val availableHeight = (viewHeight - 2 * paddingY).toInt().coerceAtLeast(1)
+			// Calculate padding
+			val paddingX = (currentWidth * 0.12f).coerceAtLeast(8f)
+			val paddingY = (currentHeight * 0.12f).coerceAtLeast(8f)
+			val availableWidth = (currentWidth - 2 * paddingX).toInt().coerceAtLeast(1)
+			val availableHeight = (currentHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
-			// Pre-split words to ensure no word is broken mid-way
 			val words = text.split(Regex("\\s+"))
 
 			// Auto-sizing Logic
-			var textSize = 60f * (ssiv.scale / 1.5f).coerceAtLeast(0.5f)
+			var textSize = 60f 
 			val minTextSize = 10f
 			val step = 1f
 			
@@ -116,7 +109,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					ttextSize -= step
 					continue
 				}
 
@@ -136,7 +129,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					break
 				}
 
-				textSize -= step
+				ttextSize -= step
 			}
 
 			if (finalLayout == null) {
