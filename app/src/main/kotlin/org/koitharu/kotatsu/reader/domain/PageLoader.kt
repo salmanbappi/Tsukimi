@@ -81,8 +81,7 @@ import javax.inject.Inject
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
-import org.koitharu.kotatsu.local.data.UpscaleCache
-import org.koitharu.kotatsu.reader.ui.ai.UpscaleEngine
+
 
 @ActivityRetainedScoped
 class PageLoader @Inject constructor(
@@ -90,10 +89,8 @@ class PageLoader @Inject constructor(
 	lifecycle: ActivityRetainedLifecycle,
 	@MangaHttpClient private val okHttp: OkHttpClient,
 	@PageCache private val cache: LocalStorageCache,
-	@UpscaleCache private val upscaleCache: LocalStorageCache,
 	private val coil: ImageLoader,
 	private val settings: AppSettings,
-	private val upscaleEngine: UpscaleEngine,
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
@@ -191,30 +188,7 @@ class PageLoader @Inject constructor(
 		return loadPageAsync(page, force).await()
 	}
 
-	suspend fun upscalePage(page: MangaPage, originalUri: Uri): Uri? = withContext(Dispatchers.Default) {
-		if (!settings.isAiUpscalingEnabled) return@withContext null
-		
-		val pageUrl = getPageUrl(page)
-		upscaleCache[pageUrl]?.let { return@withContext it.toUri() }
-		
-		// Load original bitmap
-		val bitmap = runInterruptible(Dispatchers.IO) {
-			BitmapDecoderCompat.decode(originalUri.toFile())
-		} ?: return@withContext null
-		
-		try {
-			// Perform upscale
-			val upscaledBitmap = upscaleEngine.upscale(bitmap, settings.aiUpscaleModel) ?: return@withContext null
-			
-			// Save to cache
-			upscaleCache.set(pageUrl, upscaledBitmap).toUri()
-		} catch (e: Exception) {
-			e.printStackTraceDebug()
-			null
-		} finally {
-			bitmap.recycle()
-		}
-	}
+
 
 	@CheckResult
 	suspend fun convertBimap(uri: Uri): Uri = convertLock.withLock {

@@ -150,7 +150,6 @@ class ReaderControlDelegate(
 
                 fun onAiTranslateClick()
          
-                fun onAiUpscaleClick()
-         
+                         
         		fun isReaderResumed(): Boolean	}
 }

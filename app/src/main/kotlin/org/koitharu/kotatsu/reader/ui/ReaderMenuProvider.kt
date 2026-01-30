@@ -27,10 +27,7 @@ class ReaderMenuProvider(
 				true
 			}
 
-			R.id.action_ai_upscale -> {
-				listener.onAiUpscaleClick()
-				true
-			}
+
 
 			R.id.action_info -> {
 				// TODO

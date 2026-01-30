@@ -56,6 +56,8 @@ import org.koitharu.kotatsu.scrobbling.common.domain.model.ScrobblingStatus
 import org.koitharu.kotatsu.stats.data.StatsRepository
 import javax.inject.Inject
 
+import androidx.work.WorkManager
+
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
 	private val historyRepository: HistoryRepository,
@@ -73,6 +75,7 @@ class DetailsViewModel @Inject constructor(
 	private val progressUpdateUseCase: ProgressUpdateUseCase,
 	private val readingTimeUseCase: ReadingTimeUseCase,
 	statsRepository: StatsRepository,
+	workManager: WorkManager,
 ) : ChaptersPagesViewModel(
 	settings = settings,
 	interactor = interactor,
@@ -81,6 +84,7 @@ class DetailsViewModel @Inject constructor(
 	downloadScheduler = downloadScheduler,
 	deleteLocalMangaUseCase = deleteLocalMangaUseCase,
 	localStorageChanges = localStorageChanges,
+	workManager = workManager,
 ) {
 
 	private val intent = MangaIntent(savedStateHandle)

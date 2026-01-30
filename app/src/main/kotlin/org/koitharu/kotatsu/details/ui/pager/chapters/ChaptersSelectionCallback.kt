@@ -53,6 +53,7 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_read).isVisible = items.isNotEmpty()
+		menu.findItem(R.id.action_ai_upscale).isVisible = items.isNotEmpty() && items.all { it.value.isDownloaded }
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {
@@ -67,6 +68,13 @@ class ChaptersSelectionCallback(
 
 	override fun onActionItemClicked(controller: ListSelectionController, mode: ActionMode?, item: MenuItem): Boolean {
 		return when (item.itemId) {
+			R.id.action_ai_upscale -> {
+				val ids = controller.peekCheckedIds()
+				showUpscaleDialog(recyclerView.context, ids)
+				mode?.finish()
+				true
+			}
+
 			R.id.action_save -> {
 				val snapshot = controller.snapshot()
 				mode?.finish()
@@ -160,5 +168,17 @@ class ChaptersSelectionCallback(
 
 			else -> false
 		}
+	}
+
+	private fun showUpscaleDialog(context: android.content.Context, chapterIds: Set<Long>) {
+		val factors = arrayOf("4x (Fast)", "16x (Ultra - Slow)")
+		com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+			.setTitle(R.string.ai_upscaling)
+			.setItems(factors) { _, which ->
+				val factor = if (which == 0) 4 else 16
+				viewModel.upscale(chapterIds, factor)
+				Toast.makeText(context, "Upscaling started", Toast.LENGTH_SHORT).show()
+			}
+			.show()
 	}
 }

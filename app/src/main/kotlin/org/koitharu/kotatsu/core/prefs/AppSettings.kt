@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.model.TranslationEngine
-import org.koitharu.kotatsu.core.model.UpscaleModel
+
 import org.koitharu.kotatsu.core.model.ZoomMode
 import org.koitharu.kotatsu.core.network.DoHProvider
 import org.koitharu.kotatsu.core.util.ext.connectivityManager
@@ -279,13 +279,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getString(KEY_AI_TRANSLATION_OPENAI_KEY, null)?.nullIfEmpty()
 		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_OPENAI_KEY, value?.nullIfEmpty()) }
 
-	var isAiUpscalingEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_UPSCALING, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_UPSCALING, value) }
 
-	var aiUpscaleModel: UpscaleModel
-		get() = prefs.getEnumValue(KEY_AI_UPSCALE_MODEL, UpscaleModel.DEFAULT)
-		set(value) = prefs.edit { putEnumValue(KEY_AI_UPSCALE_MODEL, value) }
 
 	val isReaderMultiTaskEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_MULTITASK, false)
@@ -815,8 +809,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
 		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
 		const val KEY_AI_TRANSLATION_OPENAI_KEY = "ai_translation_openai_key"
-		const val KEY_AI_UPSCALING = "ai_upscaling"
-		const val KEY_AI_UPSCALE_MODEL = "ai_upscale_model"
+
 		const val KEY_SHORTCUTS = "dynamic_shortcuts"
 		const val KEY_READER_TAP_ACTIONS = "reader_tap_actions"
 		const val KEY_READER_OPTIMIZE = "reader_optimize"

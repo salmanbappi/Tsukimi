@@ -75,6 +75,8 @@ import javax.inject.Inject
 private const val BOUNDS_PAGE_OFFSET = 2
 private const val PREFETCH_LIMIT = 10
 
+import androidx.work.WorkManager
+
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -95,6 +97,7 @@ class ReaderViewModel @Inject constructor(
     deleteLocalMangaUseCase: DeleteLocalMangaUseCase,
     downloadScheduler: DownloadWorker.Scheduler,
     readerSettingsProducerFactory: ReaderSettings.Producer.Factory,
+    workManager: WorkManager,
 ) : ChaptersPagesViewModel(
     settings = settings,
     interactor = interactor,
@@ -103,6 +106,7 @@ class ReaderViewModel @Inject constructor(
     downloadScheduler = downloadScheduler,
     deleteLocalMangaUseCase = deleteLocalMangaUseCase,
     localStorageChanges = localStorageChanges,
+    workManager = workManager,
 ) {
     private val intent = MangaIntent(savedStateHandle)
 

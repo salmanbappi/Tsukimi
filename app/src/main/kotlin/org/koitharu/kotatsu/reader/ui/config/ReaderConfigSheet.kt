@@ -99,8 +99,6 @@ class ReaderConfigSheet :
         binding.adjustSensitivitySlider(withAnimation = false)
         
         binding.switchAiTranslation.isChecked = settings.isAiTranslationEnabled
-        binding.switchAiUpscale.isChecked = settings.isAiUpscalingEnabled
-        bindUpscaleModelTitle(binding)
 
         binding.checkableGroup.addOnButtonCheckedListener(this)
         binding.buttonSavePage.setOnClickListener(this)
@@ -110,12 +108,10 @@ class ReaderConfigSheet :
         binding.buttonColorFilter.setOnClickListener(this)
         binding.buttonScrollTimer.setOnClickListener(this)
         binding.buttonBookmark.setOnClickListener(this)
-        binding.buttonAiUpscaleModel.setOnClickListener(this)
         binding.switchDoubleReader.setOnCheckedChangeListener(this)
         binding.switchDoubleFoldable.setOnCheckedChangeListener(this)
         binding.switchZenMode.setOnCheckedChangeListener(this)
         binding.switchAiTranslation.setOnCheckedChangeListener(this)
-        binding.switchAiUpscale.setOnCheckedChangeListener(this)
         binding.sliderDoubleSensitivity.addOnChangeListener(this)
 
         viewModel.isBookmarkAdded.observe(viewLifecycleOwner) {
@@ -181,45 +177,12 @@ class ReaderConfigSheet :
                 }
             }
 
-            R.id.button_ai_upscale_model -> {
-                showUpscaleModelDialog()
-            }
         }
     }
 
-    private fun showUpscaleModelDialog() {
-        val context = context ?: return
-        val models = org.koitharu.kotatsu.core.model.UpscaleModel.entries
-        val items = models.map { model ->
-            when (model) {
-                org.koitharu.kotatsu.core.model.UpscaleModel.FAST -> getString(R.string.ai_upscale_model_fast)
-                org.koitharu.kotatsu.core.model.UpscaleModel.ELITE -> getString(R.string.ai_upscale_model_elite)
-            }
-        }.toTypedArray()
 
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.ai_upscale_model)
-            .setSingleChoiceItems(items, models.indexOf(settings.aiUpscaleModel)) { dialog, which ->
-                settings.aiUpscaleModel = models[which]
-                viewBinding?.let { bindUpscaleModelTitle(it) }
-                dialog.dismiss()
-            }
-            .setNegativeButton(R.string.close, null)
-            .show()
-    }
 
-    private fun bindUpscaleModelTitle(binding: SheetReaderConfigBinding) {
-        val modelName = when (settings.aiUpscaleModel) {
-            org.koitharu.kotatsu.core.model.UpscaleModel.FAST -> getString(R.string.ai_upscale_model_fast)
-            org.koitharu.kotatsu.core.model.UpscaleModel.ELITE -> getString(R.string.ai_upscale_model_elite)
-        }
-        binding.buttonAiUpscaleModel.text = getString(
-            R.string.inline_preference_pattern,
-            getString(R.string.ai_upscale_model),
-            modelName,
-        )
-        binding.buttonAiUpscaleModel.isVisible = settings.isAiUpscalingEnabled
-    }
+
 
     override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
         when (buttonView.id) {
@@ -247,10 +210,6 @@ class ReaderConfigSheet :
                 settings.isAiTranslationEnabled = isChecked
             }
 
-            R.id.switch_ai_upscale -> {
-                settings.isAiUpscalingEnabled = isChecked
-                viewBinding?.let { bindUpscaleModelTitle(it) }
-            }
         }
     }
 
