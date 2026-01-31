@@ -57,7 +57,7 @@ import androidx.work.WorkManager
 
 abstract class ChaptersPagesViewModel(
 	@JvmField protected val settings: AppSettings,
-	@JvmField protected open val interactor: DetailsInteractor,
+	protected open val interactor: DetailsInteractor,
 	private val bookmarksRepository: BookmarksRepository,
 	private val historyRepository: HistoryRepository,
 	private val downloadScheduler: DownloadWorker.Scheduler,
