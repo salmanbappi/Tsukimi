@@ -453,5 +453,6 @@ class AiFeatureManager @Inject constructor(
 
 data class TranslatedBlock(
 	val text: String,
-	val boundingBox: RectF
+	val boundingBox: RectF,
+	val backgroundColor: Int = Color.WHITE
 )
