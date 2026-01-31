@@ -26,10 +26,30 @@ class LiveSharpenTransformation(
         
         val w = input.width
         val h = input.height
-        val output = createBitmap(w, h, input.config ?: Bitmap.Config.ARGB_8888)
+        
+        // Handle HARDWARE bitmaps (immutable) by copying to software config
+        val safeConfig = if (input.config == Bitmap.Config.HARDWARE) {
+            Bitmap.Config.ARGB_8888
+        } else {
+            input.config ?: Bitmap.Config.ARGB_8888
+        }
+        
+        // If input is HARDWARE, we must copy it to software first to read pixels
+        val safeInput = if (input.config == Bitmap.Config.HARDWARE) {
+            input.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            input
+        }
+        
+        val output = createBitmap(w, h, safeConfig)
         
         val pixels = IntArray(w * h)
-        input.getPixels(pixels, 0, w, 0, 0, w, h)
+        safeInput.getPixels(pixels, 0, w, 0, 0, w, h)
+        
+        // Recycle the temporary copy if we created one
+        if (safeInput != input) {
+            safeInput.recycle()
+        }
         
         val outPixels = IntArray(w * h)
         

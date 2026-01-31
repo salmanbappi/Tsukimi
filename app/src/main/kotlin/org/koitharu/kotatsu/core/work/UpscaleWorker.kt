@@ -1,4 +1,4 @@
-package org.koitharu.kotatsu.core.work
+// File preserved for architectural reference but unreachable from UI
 
 import android.app.NotificationManager
 import android.content.Context

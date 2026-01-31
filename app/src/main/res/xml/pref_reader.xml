@@ -206,12 +206,6 @@
 			android:summary="@string/ai_live_sharpening_summary"
 			android:title="@string/ai_live_sharpening" />
 
-		<SwitchPreferenceCompat
-			android:defaultValue="false"
-			android:key="ai_upscaling"
-			android:summary="@string/ai_upscaling_summary"
-			android:title="@string/ai_upscaling" />
-
 	</PreferenceCategory>
 
 	<SwitchPreferenceCompat
