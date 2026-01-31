@@ -23,6 +23,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	private var blocks: List<TranslatedBlock> = emptyList()
 	private var ssiv: SubsamplingScaleImageView? = null
+	private var isSeamlessMode = false
+	
+	@Inject
+	lateinit var settings: AppSettings
 	
 	companion object {
 		private const val REFERENCE_SCALE = 1.5f
@@ -31,6 +35,11 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
 		alpha = 240 // 94% opaque for a premium feel
+		style = Paint.Style.FILL
+		isAntiAlias = true
+	}
+	
+	private val seamlessPaint = Paint().apply {
 		style = Paint.Style.FILL
 		isAntiAlias = true
 	}
@@ -57,9 +66,22 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val textSize: Float,
 		val paddingX: Float,
 		val paddingY: Float,
-		val yOffset: Float
+		val yOffset: Float,
+		val backgroundColor: Int
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
+
+	init {
+		// Manual dependency injection since View is not Hilt-injected by default
+		// Assuming context is Activity/Hilt context or we can get it via EntryPoint if needed.
+		// For now, we'll try to get it if the context is right, or fallback.
+		// Actually, let's inject it via setter from Fragment to be safe.
+	}
+	
+	fun setSettings(appSettings: AppSettings) {
+		this.settings = appSettings
+		isSeamlessMode = settings.isAiSeamlessTranslationEnabled
+	}
 
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
 		// Sort by area descending so larger bubbles (backgrounds) are drawn first,
@@ -143,7 +165,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				textSize = finalTextSize,
 				paddingX = paddingX / REFERENCE_SCALE,
 				paddingY = paddingY / REFERENCE_SCALE,
-				yOffset = finalYOffset / REFERENCE_SCALE
+				yOffset = finalYOffset / REFERENCE_SCALE,
+				backgroundColor = block.backgroundColor
 			))
 		}
 	}
@@ -172,7 +195,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 			// Draw rounded background bubble
 			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
-			canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, backgroundPaint)
+			
+			if (isSeamlessMode) {
+				seamlessPaint.color = prep.backgroundColor
+				seamlessPaint.alpha = 255 // Fully opaque for seamless erase
+				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, seamlessPaint)
+			} else {
+				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, backgroundPaint)
+			}
 
 			// Fast Scaling & Drawing
 			canvas.save()
@@ -184,10 +214,24 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val workPaint = prep.layout.paint
 			workPaint.set(strokePaint)
 			workPaint.textSize = prep.textSize
+			// If seamless, stroke color should probably match background or be subtle?
+			// For now keep white stroke for legibility against colored background
+			workPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+			// Actually, stroke is for text outline. If background is dark, white text.
+			// Let's stick to simple contrast. If bg is dark, text white.
+			
 			prep.layout.draw(canvas)
 			
 			workPaint.set(baseTextPaint)
 			workPaint.textSize = prep.textSize
+			// Simple luminance check for text color
+			if (isSeamlessMode) {
+				val bgLum = Color.luminance(prep.backgroundColor)
+				workPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
+			} else {
+				workPaint.color = Color.BLACK
+			}
+			
 			prep.layout.draw(canvas)
 			
 			canvas.restore()

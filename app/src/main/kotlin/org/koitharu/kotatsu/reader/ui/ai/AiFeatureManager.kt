@@ -163,9 +163,12 @@ class AiFeatureManager @Inject constructor(
 						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
+						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
+
 						TranslatedBlock(
 							text = translatedText,
-							boundingBox = sourceRect
+							boundingBox = sourceRect,
+							backgroundColor = backgroundColor
 						)
 					}
 				}
@@ -356,8 +359,9 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			val maxExpandX = (textRect.width() * 2).coerceAtMost((width * 0.35f).toInt()).coerceAtLeast(100)
-			val maxExpandY = (textRect.height() * 2).coerceAtMost((height * 0.35f).toInt()).coerceAtLeast(100)
+			// Reduced max expansion to prevent merging separate bubbles
+			val maxExpandX = (textRect.width() * 1.5).coerceAtMost((width * 0.25f).toInt()).coerceAtLeast(50)
+			val maxExpandY = (textRect.height() * 1.5).coerceAtMost((height * 0.25f).toInt()).coerceAtLeast(50)
 
 			var left = textRect.left
 			var dist = 0
@@ -391,6 +395,41 @@ class AiFeatureManager @Inject constructor(
 		} catch (e: Exception) {
 			return textRect
 		}
+	}
+
+	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
+		// Sample pixels just inside the detected bounds to find the bubble color
+		val samples = mutableListOf<Int>()
+		val startX = (rect.left + rect.width() * 0.1).toInt()
+		val endX = (rect.right - rect.width() * 0.1).toInt()
+		val startY = (rect.top + rect.height() * 0.1).toInt()
+		val endY = (rect.bottom - rect.height() * 0.1).toInt()
+		
+		try {
+			// Sample 5 points: center and 4 corners (inset)
+			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
+			samples.add(bitmap.getPixel(startX, startY))
+			samples.add(bitmap.getPixel(endX, startY))
+			samples.add(bitmap.getPixel(startX, endY))
+			samples.add(bitmap.getPixel(endX, endY))
+		} catch (e: Exception) {
+			return Color.WHITE
+		}
+
+		// Calculate average luminance to decide if we should use white or the sampled color
+		// Most manga bubbles are white or very light grey.
+		// If distinct colors found, average them.
+		var r = 0; var g = 0; var b = 0
+		for (c in samples) {
+			r += Color.red(c)
+			g += Color.green(c)
+			b += Color.blue(c)
+		}
+		r /= samples.size
+		g /= samples.size
+		b /= samples.size
+		
+		return Color.rgb(r, g, b)
 	}
 
 	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {

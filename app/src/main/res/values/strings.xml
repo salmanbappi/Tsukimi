@@ -825,6 +825,8 @@
     <string name="ai_features">Experimental AI features</string>
     <string name="ai_translation">Live AI translation</string>
     <string name="ai_translation_summary">Use on-device OCR and translation to translate manga pages (Beta)</string>
+    <string name="ai_translation_seamless">Seamless translation mode</string>
+    <string name="ai_translation_seamless_summary">Replace the original text background with the bubble color instead of a white box (Beta)</string>
     <string name="auto_ai_translation">Auto translation</string>
     <string name="auto_ai_translation_summary">Automatically translate pages as they become visible</string>
     <string name="ai_translation_engine">Translation engine</string>
