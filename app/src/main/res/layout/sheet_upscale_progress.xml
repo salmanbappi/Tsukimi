@@ -81,6 +81,17 @@
         tools:text="02:45 remaining" />
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_retry"
+        style="?materialButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/retry"
+        android:visibility="gone"
+        app:cornerRadius="12dp"
+        tools:visibility="visible" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/button_close"
         style="?materialButtonOutlinedStyle"
         android:layout_width="match_parent"

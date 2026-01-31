@@ -254,12 +254,17 @@ class ChaptersFragment :
 	}
 
 	private fun showResourceDownloadDialog() {
+		if (aiResourceManager.isDownloading()) {
+			router.showModelDownloadProgressSheet()
+			return
+		}
+		
 		com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
 			.setTitle("Required Resources")
 			.setMessage("AI Upscaling requires additional resources (~17.1 MB) to be downloaded. Download now?")
 			.setPositiveButton("Download") { _, _ ->
 				aiResourceManager.downloadResources()
-				android.widget.Toast.makeText(requireContext(), "Download started in background", android.widget.Toast.LENGTH_SHORT).show()
+				router.showModelDownloadProgressSheet()
 			}
 			.setNegativeButton(android.R.string.cancel, null)
 			.show()

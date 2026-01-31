@@ -21,13 +21,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer
 import okio.sink
+import org.koitharu.kotatsu.core.ai.model.ModelDownloadProgress
+import org.koitharu.kotatsu.core.ai.model.ModelDownloadStatusProvider
 import org.koitharu.kotatsu.core.network.MangaHttpClient
 import java.io.File
+import kotlinx.coroutines.runBlocking
 
 @HiltWorker
 class AiModelDownloadWorker @AssistedInject constructor(
 	@Assisted context: Context,
 	@Assisted params: WorkerParameters,
+	private val statusProvider: ModelDownloadStatusProvider,
 ) : CoroutineWorker(context, params) {
 
 	private val client = OkHttpClient.Builder()
@@ -53,34 +57,37 @@ class AiModelDownloadWorker @AssistedInject constructor(
 		}
 
 		val models = mapOf(
-			"realesrgan_x4plus_anime_6b.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/realesrgan_x4plus_anime_6b.tflite"
+			"realesrgan_x4plus_anime_6b.tflite" to "https://huggingface.co/kim-vador/Real-ESRGAN-TFLite/resolve/main/realesrgan-x4plus-anime.tflite"
 		)
 
 		var downloaded = 0
-		downloadLoop@for ((name, url) in models) {
+		for ((name, url) in models) {
 			val file = File(modelDir, name)
-			if (file.exists() && file.length() > 10000000) {
+			if (file.exists() && file.length() > 15000000) {
 				Log.i(TAG, "Model $name already exists and looks valid, skipping")
 				downloaded++
-				continue@downloadLoop
+				continue
 			}
 
 			Log.i(TAG, "Downloading model $name from $url")
 			try {
+				runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.CONNECTING)) }
 				val request = Request.Builder()
 					.url(url)
 					.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 					.build()
-				client.newCall(request).execute().use { response ->
+				
+				val success = client.newCall(request).execute().use { response ->
 					if (!response.isSuccessful) {
 						Log.e(TAG, "Failed to download $name: ${response.code} ${response.message}")
-						continue@downloadLoop
+						runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.FAILED, "Server returned ${response.code}")) }
+						return@use false
 					}
-					val body = response.body ?: throw Exception("Empty body")
+					val body = response.body ?: return@use false
 					val totalSize = body.contentLength()
 					var bytesRead = 0L
 					
-					body.source().let { source ->
+					body.source().use { source ->
 						file.sink().buffer().use { sink ->
 							val buffer = okio.Buffer()
 							var read: Long
@@ -90,15 +97,23 @@ class AiModelDownloadWorker @AssistedInject constructor(
 								if (totalSize > 0) {
 									val progress = ((bytesRead.toFloat() / totalSize) * 100).toInt()
 									setForeground(createForegroundInfo(progress))
+									runBlocking {
+										statusProvider.updateProgress(ModelDownloadProgress(progress, totalSize, bytesRead, ModelDownloadProgress.Status.DOWNLOADING))
+									}
 								}
 							}
 						}
-						Log.i(TAG, "Successfully saved $name, size: ${file.length()}")
 					}
+					true
 				}
-				downloaded++
+				if (success) {
+					Log.i(TAG, "Successfully saved $name, size: ${file.length()}")
+					runBlocking { statusProvider.updateProgress(ModelDownloadProgress(100, file.length(), file.length(), ModelDownloadProgress.Status.COMPLETED)) }
+					downloaded++
+				}
 			} catch (e: Exception) {
 				Log.e(TAG, "Error downloading model $name", e)
+				runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.FAILED, e.message)) }
 			}
 		}
 

@@ -80,7 +80,7 @@ class UpscaleWorker @AssistedInject constructor(
             return@withContext Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
-            statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, 0, 0, 0, 0, factor, 0, UpscaleProgress.Status.FAILED))
+            statusProvider.updateProgress(UpscaleProgress(mangaId, chapterId, 0, 0, 0, 0, factor, 0, UpscaleProgress.Status.FAILED, e.message))
              builder.setContentTitle("Upscaling Failed")
                 .setContentText(e.message)
                 .setProgress(0, 0, false)

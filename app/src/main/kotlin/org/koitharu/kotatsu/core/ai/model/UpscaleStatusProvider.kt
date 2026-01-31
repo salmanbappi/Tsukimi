@@ -14,7 +14,8 @@ data class UpscaleProgress(
     val totalPageParts: Int,
     val factor: Int,
     val timeLeftSeconds: Long,
-    val status: Status
+    val status: Status,
+    val errorMessage: String? = null
 ) {
     enum class Status {
         INITIALIZING,
