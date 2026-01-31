@@ -68,8 +68,6 @@ import org.koitharu.kotatsu.widget.WidgetUpdater
 import javax.inject.Provider
 import javax.inject.Singleton
 
-import org.koitharu.kotatsu.local.data.UpscaleCache
-
 @Module
 @InstallIn(SingletonComponent::class)
 interface AppModule {
@@ -223,18 +221,6 @@ interface AppModule {
 			dir = CacheDir.FAVICONS,
 			defaultSize = FileSize.MEGABYTES.convert(8, FileSize.BYTES),
 			minSize = FileSize.MEGABYTES.convert(2, FileSize.BYTES),
-		)
-
-		@Provides
-		@Singleton
-		@UpscaleCache
-		fun provideUpscaleCache(
-			@ApplicationContext context: Context,
-		) = LocalStorageCache(
-			context = context,
-			dir = CacheDir.UPSCALED_PAGES,
-			defaultSize = FileSize.MEGABYTES.convert(300, FileSize.BYTES),
-			minSize = FileSize.MEGABYTES.convert(50, FileSize.BYTES),
 		)
 	}
 }

@@ -58,8 +58,6 @@ import org.koitharu.kotatsu.core.util.ext.toUriOrNull
 import org.koitharu.kotatsu.core.util.ext.withArgs
 import org.koitharu.kotatsu.details.ui.DetailsActivity
 import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesSheet
-import org.koitharu.kotatsu.details.ui.pager.chapters.ModelDownloadProgressSheet
-import org.koitharu.kotatsu.details.ui.pager.chapters.UpscaleProgressSheet
 import org.koitharu.kotatsu.details.ui.related.RelatedMangaActivity
 import org.koitharu.kotatsu.details.ui.scrobbling.ScrobblingInfoSheet
 import org.koitharu.kotatsu.download.ui.dialog.DownloadDialogFragment
@@ -517,14 +515,6 @@ class AppRouter private constructor(
 
     fun showWelcomeSheet() {
         WelcomeSheet().showDistinct()
-    }
-
-    fun showUpscaleProgressSheet() {
-        UpscaleProgressSheet().showDistinct()
-    }
-
-    fun showModelDownloadProgressSheet() {
-        ModelDownloadProgressSheet().showDistinct()
     }
 
     fun showChapterPagesSheet() {

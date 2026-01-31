@@ -53,12 +53,7 @@ import org.koitharu.kotatsu.reader.ui.ReaderActivity
 import org.koitharu.kotatsu.reader.ui.ReaderState
 import org.koitharu.kotatsu.reader.ui.ReaderViewModel
 
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.workDataOf
-import org.koitharu.kotatsu.core.work.UpscaleWorker
-
-import org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider
 
 abstract class ChaptersPagesViewModel(
 	@JvmField protected val settings: AppSettings,
@@ -69,7 +64,6 @@ abstract class ChaptersPagesViewModel(
 	private val deleteLocalMangaUseCase: DeleteLocalMangaUseCase,
 	private val localStorageChanges: SharedFlow<LocalManga?>,
 	private val workManager: WorkManager,
-	private val statusProvider: UpscaleStatusProvider,
 ) : BaseViewModel() {
 
 	val mangaDetails = MutableStateFlow<MangaDetails?>(null)
@@ -78,9 +72,6 @@ abstract class ChaptersPagesViewModel(
 	val onActionDone = MutableEventFlow<ReversibleAction>()
 	val onDownloadStarted = MutableEventFlow<Unit>()
 	val onMangaRemoved = MutableEventFlow<Manga>()
-
-	val upscaleProgress = statusProvider.progress
-		.stateIn(viewModelScope + Dispatchers.Default, SharingStarted.WhileSubscribed(5000), null)
 
 	private val chaptersQuery = MutableStateFlow("")
 	val selectedBranch = MutableStateFlow<String?>(null)
@@ -468,30 +459,6 @@ abstract class ChaptersPagesViewModel(
 			val deleted = currentDeleting.filter { it !in remainingChapters }
 			if (deleted.isNotEmpty()) {
 				deletingChapters.update { it - deleted.toSet() }
-			}
-		}
-	}
-
-	fun upscale(chapterIds: Set<Long>, factor: Int) {
-		launchJob(Dispatchers.Default) {
-			val manga = requireManga()
-			// We need URL for each chapter.
-			// The UpscaleWorker takes URI string.
-			// We iterate and schedule one worker per chapter.
-			
-			val allChapters = mangaDetails.value?.allChapters ?: return@launchJob
-			val targets = allChapters.filter { it.id in chapterIds }
-			
-			targets.forEach { chapter ->
-				val request = OneTimeWorkRequestBuilder<UpscaleWorker>()
-					.setInputData(workDataOf(
-						"manga_id" to manga.id,
-						"chapter_id" to chapter.id,
-						"factor" to factor,
-						"uri" to chapter.url // This should be file:// or zip:// for local chapters
-					))
-					.build()
-				workManager.enqueue(request)
 			}
 		}
 	}

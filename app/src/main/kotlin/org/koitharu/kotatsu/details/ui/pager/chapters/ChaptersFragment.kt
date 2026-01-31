@@ -45,8 +45,6 @@ import org.koitharu.kotatsu.list.ui.model.ListModel
 import org.koitharu.kotatsu.reader.ui.ReaderNavigationCallback
 import org.koitharu.kotatsu.reader.ui.ReaderState
 import kotlin.math.roundToInt
-import org.koitharu.kotatsu.core.ai.AiResourceManager
-import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -57,9 +55,6 @@ class ChaptersFragment :
 	ChipsView.OnChipClickListener {
 
 	private val viewModel by ChaptersPagesViewModel.ActivityVMLazy(this)
-
-	@Inject
-	lateinit var aiResourceManager: org.koitharu.kotatsu.core.ai.AiResourceManager
 
 	private var chaptersAdapter: ChaptersAdapter? = null
 	private var selectionController: ListSelectionController? = null

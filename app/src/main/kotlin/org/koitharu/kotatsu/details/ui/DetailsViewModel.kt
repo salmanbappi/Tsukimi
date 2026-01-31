@@ -65,29 +65,18 @@ class DetailsViewModel @Inject constructor(
 	settings: AppSettings,
 	private val scrobblers: Set<@JvmSuppressWildcards Scrobbler>,
 	@LocalStorageChanges localStorageChanges: SharedFlow<LocalManga?>,
-	downloadScheduler: DownloadWorker.Scheduler,
-	interactor: DetailsInteractor,
-	savedStateHandle: SavedStateHandle,
-	deleteLocalMangaUseCase: DeleteLocalMangaUseCase,
-	private val relatedMangaUseCase: RelatedMangaUseCase,
-	private val mangaListMapper: MangaListMapper,
-	private val detailsLoadUseCase: DetailsLoadUseCase,
-	private val progressUpdateUseCase: ProgressUpdateUseCase,
-	private val readingTimeUseCase: ReadingTimeUseCase,
-	statsRepository: StatsRepository,
-	workManager: WorkManager,
-	statusProvider: org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider,
-) : ChaptersPagesViewModel(
-	settings = settings,
-	interactor = interactor,
-	bookmarksRepository = bookmarksRepository,
-	historyRepository = historyRepository,
-	downloadScheduler = downloadScheduler,
-	deleteLocalMangaUseCase = deleteLocalMangaUseCase,
-	localStorageChanges = localStorageChanges,
-	workManager = workManager,
-	statusProvider = statusProvider,
-) {
+		downloadScheduler: DownloadWorker.Scheduler,
+		workManager: WorkManager,
+	) : ChaptersPagesViewModel(
+		settings = settings,
+		interactor = interactor,
+		bookmarksRepository = bookmarksRepository,
+		historyRepository = historyRepository,
+		downloadScheduler = downloadScheduler,
+		deleteLocalMangaUseCase = deleteLocalMangaUseCase,
+		localStorageChanges = localStorageChanges,
+		workManager = workManager,
+	) {
 
 	private val intent = MangaIntent(savedStateHandle)
 	private var loadingJob: Job

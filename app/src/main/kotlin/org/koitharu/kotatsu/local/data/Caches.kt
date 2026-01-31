@@ -9,7 +9,3 @@ annotation class PageCache
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class FaviconCache
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class UpscaleCache

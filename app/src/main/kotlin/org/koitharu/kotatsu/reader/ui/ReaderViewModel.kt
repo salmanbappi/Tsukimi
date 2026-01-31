@@ -71,10 +71,6 @@ import org.koitharu.kotatsu.scrobbling.discord.ui.DiscordRpc
 import org.koitharu.kotatsu.stats.domain.StatsCollector
 import java.time.Instant
 import javax.inject.Inject
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
-import org.koitharu.kotatsu.core.work.UpscaleWorker
 
 private const val BOUNDS_PAGE_OFFSET = 2
 private const val PREFETCH_LIMIT = 10
@@ -100,7 +96,6 @@ class ReaderViewModel @Inject constructor(
     downloadScheduler: DownloadWorker.Scheduler,
     readerSettingsProducerFactory: ReaderSettings.Producer.Factory,
     workManager: WorkManager,
-    statusProvider: org.koitharu.kotatsu.core.ai.model.UpscaleStatusProvider,
 ) : ChaptersPagesViewModel(
     settings = settings,
     interactor = interactor,
@@ -110,7 +105,6 @@ class ReaderViewModel @Inject constructor(
     deleteLocalMangaUseCase = deleteLocalMangaUseCase,
     localStorageChanges = localStorageChanges,
     workManager = workManager,
-    statusProvider = statusProvider,
 ) {
     private val intent = MangaIntent(savedStateHandle)
 
