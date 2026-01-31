@@ -431,8 +431,12 @@ abstract class ChaptersPagesViewModel(
 	}
 
 	private suspend fun onDownloadComplete(downloadedManga: LocalManga?) {
-		mangaDetails.update {
-			interactor.updateLocal(it, downloadedManga)
+		mangaDetails.update { details ->
+			if (downloadedManga != null) {
+				interactor.updateLocal(details, downloadedManga)
+			} else {
+				details?.copy(localManga = null)
+			}
 		}
 		// Clear deleting state for chapters that are no longer local or have been updated
 		// Assuming downloadedManga reflects the new state. 
