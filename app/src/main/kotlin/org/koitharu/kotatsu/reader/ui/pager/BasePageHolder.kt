@@ -64,6 +64,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value
 
+	private var lastSharpening = -1f
+
 	val context: Context
 		get() = itemView.context
 
@@ -95,8 +97,15 @@ abstract class BasePageHolder<B : ViewBinding>(
 	@CallSuper
 	protected open fun onConfigChanged(settings: ReaderSettings) {
 		settings.applyBackground(itemView)
-		if (settings.applyBitmapConfig(ssiv)) {
-			reloadImage()
+		val sharpeningChanged = lastSharpening != -1f && lastSharpening != settings.sharpening
+		lastSharpening = settings.sharpening
+		
+		if (settings.applyBitmapConfig(ssiv) || sharpeningChanged) {
+			if (sharpeningChanged) {
+				boundData?.let { viewModel.retry(it.toMangaPage(), isFromUser = false, forceSharpen = true) }
+			} else {
+				reloadImage()
+			}
 		} else if (viewModel.state.value is PageState.Shown) {
 			onReady()
 			restoreTranslationIfPossible()

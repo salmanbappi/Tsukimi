@@ -48,9 +48,11 @@ class ColorFilterConfigActivity :
 		setDisplayHomeAsUp(isEnabled = true, showUpAsClose = true)
 		viewBinding.sliderBrightness.addOnChangeListener(this)
 		viewBinding.sliderContrast.addOnChangeListener(this)
+		viewBinding.sliderSharpening.addOnChangeListener(this)
 		val formatter = PercentLabelFormatter(resources)
 		viewBinding.sliderContrast.setLabelFormatter(formatter)
 		viewBinding.sliderBrightness.setLabelFormatter(formatter)
+		viewBinding.sliderSharpening.setLabelFormatter(formatter)
 		viewBinding.switchInvert.setOnCheckedChangeListener(this)
 		viewBinding.switchGrayscale.setOnCheckedChangeListener(this)
 		viewBinding.switchBook.setOnCheckedChangeListener(this)
@@ -86,6 +88,7 @@ class ColorFilterConfigActivity :
 			when (slider.id) {
 				R.id.slider_brightness -> viewModel.setBrightness(value)
 				R.id.slider_contrast -> viewModel.setContrast(value)
+				R.id.slider_sharpening -> viewModel.setSharpening(value)
 			}
 		}
 	}
@@ -120,10 +123,23 @@ class ColorFilterConfigActivity :
 	private fun onColorFilterChanged(readerColorFilter: ReaderColorFilter?) {
 		viewBinding.sliderBrightness.setValueRounded(readerColorFilter?.brightness ?: 0f)
 		viewBinding.sliderContrast.setValueRounded(readerColorFilter?.contrast ?: 0f)
+		viewBinding.sliderSharpening.setValueRounded(readerColorFilter?.sharpening ?: 0f)
 		viewBinding.switchInvert.setChecked(readerColorFilter?.isInverted == true, false)
 		viewBinding.switchGrayscale.setChecked(readerColorFilter?.isGrayscale == true, false)
 		viewBinding.switchBook.setChecked(readerColorFilter?.isBookBackground == true, false)
 		viewBinding.imageViewAfter.colorFilter = readerColorFilter?.toColorFilter()
+		updateAfterImagePreview(readerColorFilter?.sharpening ?: 0f)
+	}
+
+	private fun updateAfterImagePreview(sharpening: Float) {
+		val requestBuilder = ImageRequest.Builder(this)
+			.data(viewModel.preview)
+			.target(viewBinding.imageViewAfter)
+		
+		if (sharpening > 0f) {
+			requestBuilder.transformations(org.koitharu.kotatsu.core.ui.image.LiveSharpenTransformation(sharpening))
+		}
+		coil.enqueue(requestBuilder.build())
 	}
 
 	private fun loadPreview(page: MangaPage) = with(viewBinding.imageViewBefore) {
@@ -142,6 +158,7 @@ class ColorFilterConfigActivity :
 	private fun onLoadingChanged(isLoading: Boolean) {
 		viewBinding.sliderContrast.isEnabled = !isLoading
 		viewBinding.sliderBrightness.isEnabled = !isLoading
+		viewBinding.sliderSharpening.isEnabled = !isLoading
 		viewBinding.switchInvert.isEnabled = !isLoading
 		viewBinding.switchGrayscale.isEnabled = !isLoading
 		viewBinding.buttonDone.isEnabled = !isLoading

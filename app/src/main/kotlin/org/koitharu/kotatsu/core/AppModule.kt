@@ -222,5 +222,16 @@ interface AppModule {
 			defaultSize = FileSize.MEGABYTES.convert(8, FileSize.BYTES),
 			minSize = FileSize.MEGABYTES.convert(2, FileSize.BYTES),
 		)
+		@Provides
+		@Singleton
+		@ProcessedPageCache
+		fun provideProcessedPageCache(
+			@ApplicationContext context: Context,
+		) = LocalStorageCache(
+			context = context,
+			dir = CacheDir.PROCESSED_PAGES,
+			defaultSize = FileSize.MEGABYTES.convert(300, FileSize.BYTES),
+			minSize = FileSize.MEGABYTES.convert(50, FileSize.BYTES),
+		)
 	}
 }

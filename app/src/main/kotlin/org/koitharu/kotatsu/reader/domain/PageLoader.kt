@@ -70,6 +70,7 @@ import org.koitharu.kotatsu.core.util.progress.ProgressDeferred
 import org.koitharu.kotatsu.download.ui.worker.DownloadSlowdownDispatcher
 import org.koitharu.kotatsu.local.data.LocalStorageCache
 import org.koitharu.kotatsu.local.data.PageCache
+import org.koitharu.kotatsu.local.data.ProcessedPageCache
 import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.parsers.model.MangaSource
 import org.koitharu.kotatsu.parsers.util.requireBody
@@ -91,6 +92,7 @@ class PageLoader @Inject constructor(
 	lifecycle: ActivityRetainedLifecycle,
 	@MangaHttpClient private val okHttp: OkHttpClient,
 	@PageCache private val cache: LocalStorageCache,
+	@ProcessedPageCache private val processedCache: LocalStorageCache,
 	private val coil: ImageLoader,
 	private val settings: AppSettings,
 	private val mangaRepositoryFactory: MangaRepository.Factory,
@@ -228,18 +230,27 @@ class PageLoader @Inject constructor(
 		return getRepository(page.source).getPageUrl(page)
 	}
 
-	suspend fun applyLiveSharpening(uri: Uri): Uri = convertLock.withLock {
+	suspend fun applyLiveSharpening(uri: Uri, strength: Float): Uri = convertLock.withLock {
 		if (uri.isZipUri()) return@withLock uri // Skip zip for now to avoid complex re-zipping here
 		
-		val file = uri.toFile()
+		val rawFile = uri.toFile()
+		val cacheKey = "${rawFile.name}_sharpen_$strength"
+		
+		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
 		withContext(Dispatchers.IO) {
-			val bitmap = BitmapDecoderCompat.decode(file) ?: return@withContext
-			val sharpened = LiveSharpenTransformation().transform(bitmap, Size.ORIGINAL)
-			sharpened.compressToPNG(file)
+			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+			val sharpened = LiveSharpenTransformation(strength).transform(bitmap, Size.ORIGINAL)
+			
+			val processedFile = processedCache.createFile(cacheKey, "png")
+			sharpened.compressToPNG(processedFile)
+			processedCache.set(cacheKey, processedFile)
+			
 			sharpened.recycle()
 			bitmap.recycle()
 		}
-		uri
+		
+		processedCache.get(cacheKey)?.toUri() ?: uri
 	}
 
 	suspend fun invalidate(clearCache: Boolean) {

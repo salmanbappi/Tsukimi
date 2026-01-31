@@ -200,12 +200,6 @@
 			android:summary="@string/groq_api_key_summary"
 			android:title="@string/groq_api_key" />
 
-		<SwitchPreferenceCompat
-			android:defaultValue="false"
-			android:key="ai_live_sharpening"
-			android:summary="@string/ai_live_sharpening_summary"
-			android:title="@string/ai_live_sharpening" />
-
 	</PreferenceCategory>
 
 	<SwitchPreferenceCompat

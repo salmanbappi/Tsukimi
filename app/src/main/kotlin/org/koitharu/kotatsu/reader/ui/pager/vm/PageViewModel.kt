@@ -51,11 +51,11 @@ class PageViewModel(
 		val prevJob = job
 		job = scope.launch(Dispatchers.Default) {
 			prevJob?.cancelAndJoin()
-			doLoad(page, force = false)
+			doLoad(page, force = false, forceSharpen = false)
 		}
 	}
 
-	fun retry(page: MangaPage, isFromUser: Boolean) {
+	fun retry(page: MangaPage, isFromUser: Boolean, forceSharpen: Boolean = false) {
 		val prevJob = job
 		job = scope.launch {
 			prevJob?.cancelAndJoin()
@@ -66,7 +66,7 @@ class PageViewModel(
 				}
 			}
 			withContext(Dispatchers.Default) {
-				doLoad(page, force = true)
+				doLoad(page, force = isFromUser, forceSharpen = forceSharpen)
 			}
 		}
 	}
@@ -136,7 +136,7 @@ class PageViewModel(
 	}
 
 	@WorkerThread
-	private suspend fun doLoad(data: MangaPage, force: Boolean) = coroutineScope {
+	private suspend fun doLoad(data: MangaPage, force: Boolean, forceSharpen: Boolean) = coroutineScope {
 		state.value = PageState.Loading(null, -1)
 		val previewJob = launch {
 			val preview = loader.loadPreview(data) ?: return@launch
@@ -151,9 +151,10 @@ class PageViewModel(
 			progressObserver.cancelAndJoin()
 			previewJob.cancel()
 			
-			if (settingsProducer.value.isAiLiveSharpeningEnabled) {
+			val sharpeningStrength = settingsProducer.value.sharpening
+			if (sharpeningStrength > 0f) {
 				state.value = PageState.Converting()
-				uri = loader.applyLiveSharpening(uri)
+				uri = loader.applyLiveSharpening(uri, sharpeningStrength)
 			}
 
 			cachedBounds = if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {
