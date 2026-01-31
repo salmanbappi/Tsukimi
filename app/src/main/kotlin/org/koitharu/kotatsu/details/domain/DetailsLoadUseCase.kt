@@ -136,9 +136,30 @@ class DetailsLoadUseCase @Inject constructor(
 				),
 			)
 		}
-		val remoteDetails = remoteDeferred.await().getOrThrow()
+		val remoteResult = runCatching { remoteDeferred.await().getOrThrow() }
+		val remoteDetails = remoteResult.getOrNull()
+
+		if (remoteDetails == null && localManga != null) {
+			// Network failed but we have local copy -> treat as success with cached data
+			emit(
+				MangaDetails(
+					manga = localManga.manga,
+					localManga = localManga,
+					override = override,
+					description = localManga.manga.description?.parseAsHtml(withImages = true),
+					isLoaded = true,
+				),
+			)
+			return@coroutineScope
+		}
+
+		// If we don't have local data, rethrow the error
+		if (remoteDetails == null) {
+			remoteResult.getOrThrow()
+		}
+
 		val mangaDetails = MangaDetails(
-			manga = remoteDetails,
+			manga = remoteDetails!!,
 			localManga = localManga,
 			override = override,
 			description = (remoteDetails.description

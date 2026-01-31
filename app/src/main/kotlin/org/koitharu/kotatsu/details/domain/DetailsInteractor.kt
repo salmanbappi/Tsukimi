@@ -92,6 +92,8 @@ class DetailsInteractor @Inject constructor(
 
 	suspend fun findRemote(seed: Manga) = localMangaRepository.getRemoteManga(seed)
 
+	suspend fun findSavedManga(manga: Manga, withDetails: Boolean) = localMangaRepository.findSavedManga(manga, withDetails)
+
 	fun observeReadChapters(mangaId: Long): Flow<List<Long>> {
 		return historyRepository.observeReadChapters(mangaId)
 	}
