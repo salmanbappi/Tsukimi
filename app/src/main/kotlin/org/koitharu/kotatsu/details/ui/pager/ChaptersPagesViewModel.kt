@@ -431,7 +431,6 @@ abstract class ChaptersPagesViewModel(
 	}
 
 	private suspend fun onDownloadComplete(downloadedManga: LocalManga?) {
-		downloadedManga ?: return
 		mangaDetails.update {
 			interactor.updateLocal(it, downloadedManga)
 		}
@@ -441,6 +440,11 @@ abstract class ChaptersPagesViewModel(
 		// We should just remove any IDs that are no longer "downloaded" from deletingChapters?
 		// Or simpler: just clear the specific IDs if we know they are done.
 		// But onDownloadComplete provides the *new* LocalManga. 
+		
+		if (downloadedManga == null) {
+			deletingChapters.value = emptySet()
+			return
+		}
 		
 		val currentDeleting = deletingChapters.value
 		if (currentDeleting.isNotEmpty()) {
