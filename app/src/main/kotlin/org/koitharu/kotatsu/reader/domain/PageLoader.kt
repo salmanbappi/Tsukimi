@@ -242,9 +242,7 @@ class PageLoader @Inject constructor(
 			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
 			val sharpened = LiveSharpenTransformation(strength).transform(bitmap, Size.ORIGINAL)
 			
-			val processedFile = processedCache.createFile(cacheKey, "png")
-			sharpened.compressToPNG(processedFile)
-			processedCache.set(cacheKey, processedFile)
+			processedCache.set(cacheKey, sharpened)
 			
 			sharpened.recycle()
 			bitmap.recycle()
