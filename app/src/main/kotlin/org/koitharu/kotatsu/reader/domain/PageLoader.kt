@@ -232,8 +232,8 @@ class PageLoader @Inject constructor(
 		if (uri.isZipUri()) return@withLock uri // Skip zip for now to avoid complex re-zipping here
 		
 		val file = uri.toFile()
-		runInterruptible(Dispatchers.IO) {
-			val bitmap = BitmapDecoderCompat.decode(file) ?: return@runInterruptible
+		withContext(Dispatchers.IO) {
+			val bitmap = BitmapDecoderCompat.decode(file) ?: return@withContext
 			val sharpened = LiveSharpenTransformation().transform(bitmap, Size.ORIGINAL)
 			sharpened.compressToPNG(file)
 			sharpened.recycle()
