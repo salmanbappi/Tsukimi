@@ -537,6 +537,7 @@ class ReaderActivity :
                     val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, vTranslateX, vTranslateY)
                     withContext(Dispatchers.Main) {
                         overlay.setupWithSSIV(ssiv)
+                        overlay.setSettings(settings)
                         overlay.isVisible = true
                         overlay.setTranslatedBlocks(blocks)
                     }
@@ -568,6 +569,7 @@ class ReaderActivity :
                 
                 withContext(Dispatchers.Main) {
                     overlay.setupWithSSIV(ssiv)
+                    overlay.setSettings(settings)
                     overlay.isVisible = true
                     overlay.setTranslatedBlocks(blocks)
                     viewBinding.toastView.hide()
