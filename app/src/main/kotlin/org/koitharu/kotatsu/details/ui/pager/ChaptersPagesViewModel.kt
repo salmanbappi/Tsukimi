@@ -433,22 +433,34 @@ abstract class ChaptersPagesViewModel(
 	private suspend fun onDownloadComplete(downloadedManga: LocalManga?) {
 		mangaDetails.update { details ->
 			if (downloadedManga != null) {
-				interactor.updateLocal(details, downloadedManga)
+				if (details?.id == downloadedManga.manga.id) {
+					interactor.updateLocal(details, downloadedManga)
+				} else {
+					details
+				}
 			} else {
-				details?.copy(localManga = null)
+				// We don't know which one was deleted, so we must refresh our state
+				// from the database/interactor to see if we are still 'downloaded'
+				details
 			}
 		}
 		// Clear deleting state for chapters that are no longer local or have been updated
-		// Assuming downloadedManga reflects the new state. 
-		// Actually, if we deleted, downloadedManga might be the new state (without those chapters).
-		// We should just remove any IDs that are no longer "downloaded" from deletingChapters?
-		// Or simpler: just clear the specific IDs if we know they are done.
-		// But onDownloadComplete provides the *new* LocalManga. 
 		
 		if (downloadedManga == null) {
+			// If null, we might need to re-verify our local state
+			manga.value?.let { m ->
+				launchJob(Dispatchers.Default) {
+					val saved = interactor.findSavedManga(m, withDetails = false)
+					mangaDetails.update { details ->
+						details?.copy(localManga = saved)
+					}
+				}
+			}
 			deletingChapters.value = emptySet()
 			return
 		}
+		
+		if (downloadedManga.manga.id != manga.value?.id) return
 		
 		val currentDeleting = deletingChapters.value
 		if (currentDeleting.isNotEmpty()) {

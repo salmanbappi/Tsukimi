@@ -57,11 +57,15 @@ class AiModelDownloadWorker @AssistedInject constructor(
 		}
 
 		val models = mapOf(
-			"realesrgan_x4plus_anime_6b.tflite" to "https://github.com/salmanbappi/AI-Models/releases/download/v1.0/realesrgan_x4plus_anime_6b.tflite"
+			"realesrgan_x4plus_anime_6b.tflite" to listOf(
+				"https://github.com/salmanbappi/AI-Models/releases/download/v1.0/realesrgan_x4plus_anime_6b.tflite",
+				"https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus-w8a8.tflite",
+				"https://huggingface.co/repsup/Real-ESRGAN-TFLite/resolve/main/realesrgan-x4plus-anime.tflite"
+			)
 		)
 
 		var downloaded = 0
-		for ((name, url) in models) {
+		for ((name, urls) in models) {
 			val file = File(modelDir, name)
 			if (file.exists() && file.length() > 15000000) {
 				Log.i(TAG, "Model $name already exists and looks valid, skipping")
@@ -69,51 +73,61 @@ class AiModelDownloadWorker @AssistedInject constructor(
 				continue
 			}
 
-			Log.i(TAG, "Downloading model $name from $url")
-			try {
-				runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.CONNECTING)) }
-				val request = Request.Builder()
-					.url(url)
-					.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-					.build()
-				
-				val success = client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) {
-						Log.e(TAG, "Failed to download $name: ${response.code} ${response.message}")
-						runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.FAILED, "Server returned ${response.code}")) }
-						return@use false
-					}
-					val body = response.body ?: return@use false
-					val totalSize = body.contentLength()
-					var bytesRead = 0L
+			var success = false
+			var lastError: String? = null
+			
+			for (url in urls) {
+				Log.i(TAG, "Downloading model $name from $url")
+				try {
+					runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.CONNECTING)) }
+					val request = Request.Builder()
+						.url(url)
+						.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+						.build()
 					
-					body.source().use { source ->
-						file.sink().buffer().use { sink ->
-							val buffer = okio.Buffer()
-							var read: Long
-							while (source.read(buffer, 8192).also { read = it } != -1L) {
-								sink.write(buffer, read)
-								bytesRead += read
-								if (totalSize > 0) {
-									val progress = ((bytesRead.toFloat() / totalSize) * 100).toInt()
-									setForeground(createForegroundInfo(progress))
-									runBlocking {
-										statusProvider.updateProgress(ModelDownloadProgress(progress, totalSize, bytesRead, ModelDownloadProgress.Status.DOWNLOADING))
+					success = client.newCall(request).execute().use { response ->
+						if (!response.isSuccessful) {
+							Log.e(TAG, "Failed to download from $url: ${response.code}")
+							lastError = "Server returned ${response.code}"
+							return@use false
+						}
+						val body = response.body ?: return@use false
+						val totalSize = body.contentLength()
+						var bytesRead = 0L
+						
+						body.source().use { source ->
+							file.sink().buffer().use { sink ->
+								val buffer = okio.Buffer()
+								var read: Long
+								while (source.read(buffer, 8192).also { read = it } != -1L) {
+									sink.write(buffer, read)
+									bytesRead += read
+									if (totalSize > 0) {
+										val progress = ((bytesRead.toFloat() / totalSize) * 100).toInt()
+										setForeground(createForegroundInfo(progress))
+										runBlocking {
+											statusProvider.updateProgress(ModelDownloadProgress(progress, totalSize, bytesRead, ModelDownloadProgress.Status.DOWNLOADING))
+										}
 									}
 								}
 							}
 						}
+						true
 					}
-					true
+					if (success) {
+						Log.i(TAG, "Successfully saved $name, size: ${file.length()}")
+						runBlocking { statusProvider.updateProgress(ModelDownloadProgress(100, file.length(), file.length(), ModelDownloadProgress.Status.COMPLETED)) }
+						downloaded++
+						break
+					}
+				} catch (e: Exception) {
+					Log.e(TAG, "Error downloading model from $url", e)
+					lastError = e.message
 				}
-				if (success) {
-					Log.i(TAG, "Successfully saved $name, size: ${file.length()}")
-					runBlocking { statusProvider.updateProgress(ModelDownloadProgress(100, file.length(), file.length(), ModelDownloadProgress.Status.COMPLETED)) }
-					downloaded++
-				}
-			} catch (e: Exception) {
-				Log.e(TAG, "Error downloading model $name", e)
-				runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.FAILED, e.message)) }
+			}
+			
+			if (!success) {
+				runBlocking { statusProvider.updateProgress(ModelDownloadProgress(0, 0, 0, ModelDownloadProgress.Status.FAILED, lastError)) }
 			}
 		}
 
