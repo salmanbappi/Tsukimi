@@ -59,6 +59,7 @@ import org.koitharu.kotatsu.core.util.ext.isFileUri
 import org.koitharu.kotatsu.core.util.ext.isNotEmpty
 import org.koitharu.kotatsu.core.util.ext.isPowerSaveMode
 import org.koitharu.kotatsu.core.util.ext.isZipUri
+import org.koitharu.kotatsu.core.util.ext.md5
 import org.koitharu.kotatsu.core.util.ext.lifecycleScope
 import org.koitharu.kotatsu.core.util.ext.mangaSourceExtra
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
@@ -231,19 +232,18 @@ class PageLoader @Inject constructor(
 	}
 
 	suspend fun applyLiveSharpening(uri: Uri, strength: Float): Uri = convertLock.withLock {
-		if (uri.isZipUri()) return@withLock uri // Skip zip for now to avoid complex re-zipping here
+		if (uri.isZipUri()) return@withLock uri
 		
 		val rawFile = uri.toFile()
-		val cacheKey = "${rawFile.name}_sharpen_$strength"
+		// Safe key: MD5(filename + strength)
+		val cacheKey = "${rawFile.name}_$strength".md5()
 		
 		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
 
 		withContext(Dispatchers.IO) {
 			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
 			val sharpened = LiveSharpenTransformation(strength).transform(bitmap, Size.ORIGINAL)
-			
 			processedCache.set(cacheKey, sharpened)
-			
 			sharpened.recycle()
 			bitmap.recycle()
 		}

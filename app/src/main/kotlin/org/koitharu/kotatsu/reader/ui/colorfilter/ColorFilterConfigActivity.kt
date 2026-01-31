@@ -140,6 +140,7 @@ class ColorFilterConfigActivity :
 				onSuccess = { viewBinding.imageViewAfter.setImageDrawable(it.asDrawable(resources)) },
 				onError = { viewBinding.imageViewAfter.setImageDrawable(it?.asDrawable(resources)) }
 			)
+			.memoryCacheKey("preview_sharpen_${sharpening}") // Unique cache key for preview
 			.apply {
 				if (sharpening > 0f) {
 					transformations(org.koitharu.kotatsu.core.ui.image.LiveSharpenTransformation(sharpening))

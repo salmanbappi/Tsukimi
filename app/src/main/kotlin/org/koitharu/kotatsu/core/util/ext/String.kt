@@ -72,6 +72,11 @@ fun <T> Collection<T>.joinToStringWithLimit(context: Context, limit: Int, transf
 
 fun String.isHttpUrl() = startsWith("https://", ignoreCase = true) || startsWith("http://", ignoreCase = true)
 
+fun String.md5(): String {
+	val md = java.security.MessageDigest.getInstance("MD5")
+	return md.digest(this.toByteArray()).joinToString("") { "%02x".format(it) }
+}
+
 fun concatStrings(context: Context, a: String?, b: String?): String? = when {
 	a.isNullOrEmpty() && b.isNullOrEmpty() -> null
 	a.isNullOrEmpty() -> b?.nullIfEmpty()
