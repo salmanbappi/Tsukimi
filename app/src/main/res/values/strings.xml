@@ -333,7 +333,7 @@
     <string name="history_shortcuts_summary">Make recent manga available by long pressing on application icon</string>
     <string name="reader_control_ltr_summary">Do not adjust the page switching direction to the reader mode, e. g. pressing the right key always switches to the next page. This option affects only hardware input devices</string>
     <string name="reader_control_ltr">Ergonomic reader control</string>
-    <string name="color_correction">Color correction</string>
+    <string name="color_correction">Filters</string>
     <string name="brightness">Brightness</string>
     <string name="contrast">Contrast</string>
     <string name="reset">Reset</string>
@@ -837,6 +837,7 @@
     <string name="ai_upscaling">AI upscaling</string>
     <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
     <string name="sharpening">Sharpening</string>
+    <string name="denoising">Denoising</string>
     <string name="ai_upscale_model">Upscaling model</string>
     <string name="ai_upscale_model_fast">Fast (Waifu2x)</string>
     <string name="ai_upscale_model_elite">Elite (Real-ESRGAN)</string>

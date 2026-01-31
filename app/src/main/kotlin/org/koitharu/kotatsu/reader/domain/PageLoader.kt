@@ -46,7 +46,7 @@ import org.koitharu.kotatsu.core.parser.CachingMangaRepository
 import org.koitharu.kotatsu.core.parser.MangaRepository
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.ui.image.TrimTransformation
-import org.koitharu.kotatsu.core.ui.image.LiveSharpenTransformation
+import org.koitharu.kotatsu.core.ui.image.ImageFiltersTransformation
 import org.koitharu.kotatsu.core.util.FileSize
 import org.koitharu.kotatsu.core.util.MimeTypes
 import org.koitharu.kotatsu.core.util.ext.URI_SCHEME_ZIP
@@ -231,20 +231,20 @@ class PageLoader @Inject constructor(
 		return getRepository(page.source).getPageUrl(page)
 	}
 
-	suspend fun applyLiveSharpening(uri: Uri, strength: Float): Uri = convertLock.withLock {
+	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri = convertLock.withLock {
 		if (uri.isZipUri()) return@withLock uri
 		
 		val rawFile = uri.toFile()
-		// Safe key: MD5(filename + strength)
-		val cacheKey = "${rawFile.name}_$strength".md5()
+		// Safe key: MD5(absolutePath + sharpening + denoising) to ensure unique per manga/chapter
+		val cacheKey = "${rawFile.absolutePath}_s${sharpening}_d${denoising}".md5()
 		
 		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
 
 		withContext(Dispatchers.IO) {
 			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
-			val sharpened = LiveSharpenTransformation(strength).transform(bitmap, Size.ORIGINAL)
-			processedCache.set(cacheKey, sharpened)
-			sharpened.recycle()
+			val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
+			processedCache.set(cacheKey, filtered)
+			filtered.recycle()
 			bitmap.recycle()
 		}
 		

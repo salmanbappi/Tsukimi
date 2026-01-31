@@ -58,6 +58,7 @@ class MangaDataRepository @Inject constructor(
 					cfBrightness = colorFilter?.brightness ?: 0f,
 					cfContrast = colorFilter?.contrast ?: 0f,
 					cfSharpening = colorFilter?.sharpening ?: 0f,
+					cfDenoising = colorFilter?.denoising ?: 0f,
 					cfInvert = colorFilter?.isInverted == true,
 					cfGrayscale = colorFilter?.isGrayscale == true,
 					cfBookEffect = colorFilter?.isBookBackground == true,
@@ -210,11 +211,12 @@ class MangaDataRepository @Inject constructor(
 	}
 
 	private fun MangaPrefsEntity.getColorFilterOrNull(): ReaderColorFilter? {
-		return if (cfBrightness != 0f || cfContrast != 0f || cfSharpening != 0f || cfInvert || cfGrayscale || cfBookEffect) {
+		return if (cfBrightness != 0f || cfContrast != 0f || cfSharpening != 0f || cfDenoising != 0f || cfInvert || cfGrayscale || cfBookEffect) {
 			ReaderColorFilter(
 				brightness = cfBrightness,
 				contrast = cfContrast,
 				sharpening = cfSharpening,
+				denoising = cfDenoising,
 				isInverted = cfInvert,
 				isGrayscale = cfGrayscale,
 				isBookBackground = cfBookEffect
@@ -242,6 +244,7 @@ class MangaDataRepository @Inject constructor(
 		cfBrightness = ReaderColorFilter.EMPTY.brightness,
 		cfContrast = ReaderColorFilter.EMPTY.contrast,
 		cfSharpening = ReaderColorFilter.EMPTY.sharpening,
+		cfDenoising = ReaderColorFilter.EMPTY.denoising,
 		cfInvert = ReaderColorFilter.EMPTY.isInverted,
 		cfGrayscale = ReaderColorFilter.EMPTY.isGrayscale,
 		cfBookEffect = ReaderColorFilter.EMPTY.isBookBackground,

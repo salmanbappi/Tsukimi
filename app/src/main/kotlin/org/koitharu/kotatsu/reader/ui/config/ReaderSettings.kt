@@ -40,6 +40,7 @@ data class ReaderSettings(
 	val isPagesCropEnabledWebtoon: Boolean,
 	val isAiTranslationEnabled: Boolean,
 	val sharpening: Float,
+	val denoising: Float,
 ) {
 
 	private constructor(settings: AppSettings, colorFilterOverride: ReaderColorFilter?) : this(
@@ -57,6 +58,7 @@ data class ReaderSettings(
 		isPagesCropEnabledWebtoon = settings.isPagesCropEnabled(ReaderMode.WEBTOON),
 		isAiTranslationEnabled = settings.isAiTranslationEnabled,
 		sharpening = colorFilterOverride?.sharpening ?: settings.readerColorFilter?.sharpening ?: 0f,
+		denoising = colorFilterOverride?.denoising ?: settings.readerColorFilter?.denoising ?: 0f,
 	)
 
 	fun applyBackground(view: View) {
@@ -109,6 +111,7 @@ data class ReaderSettings(
 			AppSettings.KEY_READER_CROP,
 			AppSettings.KEY_AI_TRANSLATION,
 			AppSettings.KEY_CF_SHARPENING,
+			AppSettings.KEY_CF_DENOISING,
 		)
 		private var job: Job? = null
 

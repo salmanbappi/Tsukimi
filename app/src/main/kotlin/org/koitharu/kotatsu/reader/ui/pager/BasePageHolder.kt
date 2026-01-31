@@ -65,6 +65,7 @@ abstract class BasePageHolder<B : ViewBinding>(
 		get() = viewModel.settingsProducer.value
 
 	private var lastSharpening = -1f
+	private var lastDenoising = -1f
 
 	val context: Context
 		get() = itemView.context
@@ -98,10 +99,12 @@ abstract class BasePageHolder<B : ViewBinding>(
 	protected open fun onConfigChanged(settings: ReaderSettings) {
 		settings.applyBackground(itemView)
 		val sharpeningChanged = lastSharpening != -1f && lastSharpening != settings.sharpening
+		val denoisingChanged = lastDenoising != -1f && lastDenoising != settings.denoising
 		lastSharpening = settings.sharpening
+		lastDenoising = settings.denoising
 		
-		if (settings.applyBitmapConfig(ssiv) || sharpeningChanged) {
-			if (sharpeningChanged) {
+		if (settings.applyBitmapConfig(ssiv) || sharpeningChanged || denoisingChanged) {
+			if (sharpeningChanged || denoisingChanged) {
 				boundData?.let { viewModel.retry(it.toMangaPage(), isFromUser = false, forceSharpen = true) }
 			} else {
 				reloadImage()

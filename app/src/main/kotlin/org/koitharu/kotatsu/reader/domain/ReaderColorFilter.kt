@@ -9,13 +9,14 @@ data class ReaderColorFilter(
 	val brightness: Float,
 	val contrast: Float,
 	val sharpening: Float,
+	val denoising: Float,
 	val isInverted: Boolean,
 	val isGrayscale: Boolean,
 	val isBookBackground: Boolean,
 ) {
 
 	val isEmpty: Boolean
-		get() = !isGrayscale && !isInverted && !isBookBackground && brightness == 0f && contrast == 0f && sharpening == 0f
+		get() = !isGrayscale && !isInverted && !isBookBackground && brightness == 0f && contrast == 0f && sharpening == 0f && denoising == 0f
 
 	fun toColorFilter(): ColorMatrixColorFilter {
 		val cm = ColorMatrix()
@@ -92,6 +93,7 @@ data class ReaderColorFilter(
 			brightness = 0.0f,
 			contrast = 0.0f,
 			sharpening = 0.0f,
+			denoising = 0.0f,
 			isInverted = false,
 			isGrayscale = false,
 			isBookBackground = false,

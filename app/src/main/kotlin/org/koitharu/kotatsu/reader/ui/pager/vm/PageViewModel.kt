@@ -151,10 +151,11 @@ class PageViewModel(
 			progressObserver.cancelAndJoin()
 			previewJob.cancel()
 			
-			val sharpeningStrength = settingsProducer.value.sharpening
-			if (sharpeningStrength > 0f) {
+			val sharpening = settingsProducer.value.sharpening
+			val denoising = settingsProducer.value.denoising
+			if (sharpening > 0f || denoising > 0f) {
 				state.value = PageState.Converting()
-				uri = loader.applyLiveSharpening(uri, sharpeningStrength)
+				uri = loader.applyImageFilters(uri, sharpening, denoising)
 			}
 
 			cachedBounds = if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {

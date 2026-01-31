@@ -25,6 +25,7 @@ data class MangaPrefsEntity(
 	@ColumnInfo(name = "cf_brightness") val cfBrightness: Float,
 	@ColumnInfo(name = "cf_contrast") val cfContrast: Float,
 	@ColumnInfo(name = "cf_sharpening", defaultValue = "0") val cfSharpening: Float,
+	@ColumnInfo(name = "cf_denoising", defaultValue = "0") val cfDenoising: Float,
 	@ColumnInfo(name = "cf_invert") val cfInvert: Boolean,
 	@ColumnInfo(name = "cf_grayscale") val cfGrayscale: Boolean,
 	@ColumnInfo(name = "cf_book") val cfBookEffect: Boolean,
