@@ -832,8 +832,8 @@
     <string name="ai_translation_engine">Translation engine</string>
     <string name="deepl_api_key">DeepL API key</string>
     <string name="deepl_api_key_summary">Supports both Free and Pro keys. Free keys end with :fx</string>
-    <string name="openai_api_key">OpenAI API key</string>
-    <string name="openai_api_key_summary">Supports GPT-4o-mini. Enter your API key (sk-...)</string>
+    <string name="groq_api_key">Groq API key</string>
+    <string name="groq_api_key_summary">Supports Llama 3.1. Enter your API key (gsk-...)</string>
     <string name="ai_upscaling">AI upscaling</string>
     <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
     <string name="ai_upscale_model">Upscaling model</string>

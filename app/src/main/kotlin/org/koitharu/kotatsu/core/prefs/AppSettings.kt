@@ -279,9 +279,9 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getString(KEY_AI_TRANSLATION_DEEPL_KEY, null)?.nullIfEmpty()
 		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_DEEPL_KEY, value?.nullIfEmpty()) }
 
-	var openaiApiKey: String?
-		get() = prefs.getString(KEY_AI_TRANSLATION_OPENAI_KEY, null)?.nullIfEmpty()
-		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_OPENAI_KEY, value?.nullIfEmpty()) }
+	var groqApiKey: String?
+		get() = prefs.getString(KEY_AI_TRANSLATION_GROQ_KEY, null)?.nullIfEmpty()
+		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_GROQ_KEY, value?.nullIfEmpty()) }
 
 
 
@@ -813,7 +813,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_AI_SEAMLESS_TRANSLATION = "ai_seamless_translation"
 		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
 		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
-		const val KEY_AI_TRANSLATION_OPENAI_KEY = "ai_translation_openai_key"
+		const val KEY_AI_TRANSLATION_GROQ_KEY = "ai_translation_groq_key"
 
 		const val KEY_SHORTCUTS = "dynamic_shortcuts"
 		const val KEY_READER_TAP_ACTIONS = "reader_tap_actions"

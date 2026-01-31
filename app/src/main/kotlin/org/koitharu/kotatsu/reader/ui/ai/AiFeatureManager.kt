@@ -119,8 +119,8 @@ class AiFeatureManager @Inject constructor(
 				val textBlocks = visionText.textBlocks
 				val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-				val translatedTexts = if (engine == TranslationEngine.OPENAI && mergedBlocks.size > 1) {
-					translateBatchWithOpenAI(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
+				val translatedTexts = if (engine == TranslationEngine.GROQ && mergedBlocks.size > 1) {
+					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
 				} else null
 
 				val translationJobs = mergedBlocks.mapIndexed { index, it ->
@@ -132,7 +132,7 @@ class AiFeatureManager @Inject constructor(
 							when (engine) {
 								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
 								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-								TranslationEngine.OPENAI -> translateWithOpenAI(cleanText, targetLanguage)
+								TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
 							}
 						} catch (e: Exception) {
 							null
@@ -190,8 +190,8 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private suspend fun translateBatchWithOpenAI(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
-		val apiKey = settings.openaiApiKey ?: return@withContext null
+	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
+		val apiKey = settings.groqApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
 		
 		val input = buildJsonObject {
@@ -201,7 +201,7 @@ class AiFeatureManager @Inject constructor(
 		}
 
 		val body = buildJsonObject {
-			put("model", "gpt-4o-mini")
+			put("model", "llama-3.1-8b-instant")
 			put("response_format", buildJsonObject { put("type", "json_object") })
 			putJsonArray("messages") {
 				add(buildJsonObject {
@@ -216,7 +216,7 @@ class AiFeatureManager @Inject constructor(
 		}
 		
 		val request = Request.Builder()
-			.url("https://api.openai.com/v1/chat/completions")
+			.url("https://api.groq.com/openai/v1/chat/completions")
 			.addHeader("Authorization", "Bearer $apiKey")
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()
@@ -261,12 +261,12 @@ class AiFeatureManager @Inject constructor(
 			}
 	}
 
-	private suspend fun translateWithOpenAI(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
-		val apiKey = settings.openaiApiKey ?: return@withContext null
+	private suspend fun translateWithGroq(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+		val apiKey = settings.groqApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
 		
 		val body = buildJsonObject {
-			put("model", "gpt-4o-mini")
+			put("model", "llama-3.1-8b-instant")
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
@@ -280,7 +280,7 @@ class AiFeatureManager @Inject constructor(
 		}
 		
 		val request = Request.Builder()
-			.url("https://api.openai.com/v1/chat/completions")
+			.url("https://api.groq.com/openai/v1/chat/completions")
 			.addHeader("Authorization", "Bearer $apiKey")
 			.post(body.toString().toRequestBody("application/json".toMediaType()))
 			.build()

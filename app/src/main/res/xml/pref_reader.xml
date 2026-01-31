@@ -196,9 +196,9 @@
 
 		<EditTextPreference
 			android:dependency="ai_translation"
-			android:key="ai_translation_openai_key"
-			android:summary="@string/openai_api_key_summary"
-			android:title="@string/openai_api_key" />
+			android:key="ai_translation_groq_key"
+			android:summary="@string/groq_api_key_summary"
+			android:title="@string/groq_api_key" />
 
 		<SwitchPreferenceCompat
 			android:defaultValue="false"
