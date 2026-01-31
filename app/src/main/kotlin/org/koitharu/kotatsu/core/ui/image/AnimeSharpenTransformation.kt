@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
  * A fast, lightweight sharpening filter that mimics the "Anime4K" deblur/sharpen effect.
  * It uses a convolution kernel to enhance edge contrast without the heavy overhead of Neural Networks.
  */
-class AnimeSharpenTransformation(
+data class AnimeSharpenTransformation(
     private val strength: Float = 1.0f
 ) : Transformation {
 
