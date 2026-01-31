@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.net.toFile
+import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -26,12 +27,18 @@ import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.runBlocking
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import org.koitharu.kotatsu.local.data.LocalStorageChanges
+import org.koitharu.kotatsu.local.data.input.LocalMangaParser
+import org.koitharu.kotatsu.local.domain.model.LocalManga
+
 @HiltWorker
 class UpscaleWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val upscaler: SuperImageUpscaler,
-    private val statusProvider: UpscaleStatusProvider
+    private val statusProvider: UpscaleStatusProvider,
+    @LocalStorageChanges private val localStorageChanges: MutableSharedFlow<LocalManga?>,
 ) : CoroutineWorker(appContext, params) {
 
     private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -153,6 +160,13 @@ class UpscaleWorker @AssistedInject constructor(
         
         // Create marker
         File(file.parentFile, "${file.name}.upscaled").createNewFile()
+        
+        // Notify UI to refresh upscaled status
+        try {
+            localStorageChanges.emit(LocalMangaParser(file.parentFile.toUri()).getManga(withDetails = false))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
     private suspend fun upscaleDirectory(uri: Uri, factor: Int, builder: NotificationCompat.Builder, notificationId: Int, mangaId: Long, chapterId: Long) {
@@ -195,6 +209,13 @@ class UpscaleWorker @AssistedInject constructor(
         // Create marker
         val marker = File(dir, ".upscaled")
         marker.createNewFile()
+        
+        // Notify UI to refresh upscaled status
+        try {
+            localStorageChanges.emit(LocalMangaParser(dir.parentFile.toUri()).getManga(withDetails = false))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun isImage(name: String): Boolean {
