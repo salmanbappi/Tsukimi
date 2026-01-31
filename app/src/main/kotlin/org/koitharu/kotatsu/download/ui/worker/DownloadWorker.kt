@@ -395,7 +395,7 @@ class DownloadWorker @AssistedInject constructor(
 			}
 			return file
 		}
-		val request = PageLoader.createPageRequest(url, source)
+		val request = PageLoader.createPageRequest(url, source).build()
 		slowdownDispatcher.delay(source)
 		return imageProxyInterceptor.interceptPageRequest(request, okHttp)
 			.ensureSuccess()

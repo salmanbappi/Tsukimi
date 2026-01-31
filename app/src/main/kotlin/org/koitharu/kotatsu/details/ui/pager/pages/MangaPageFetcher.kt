@@ -72,7 +72,7 @@ class MangaPageFetcher(
 	}
 
 	private suspend fun fetchPage(pageUrl: String): FetchResult {
-		val request = PageLoader.createPageRequest(pageUrl, page.source)
+		val request = PageLoader.createPageRequest(pageUrl, page.source).build()
 		return imageProxyInterceptor.interceptPageRequest(request, okHttpClient).use { response ->
 			if (!response.isSuccessful) {
 				throw HttpException(response.toNetworkResponse())

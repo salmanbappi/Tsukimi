@@ -73,4 +73,13 @@ class AnimeSharpenTransformation(
         output.setPixels(outPixels, 0, w, 0, 0, w, h)
         return output
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        return other is AnimeSharpenTransformation && strength == other.strength
+    }
+
+    override fun hashCode(): Int {
+        return strength.hashCode()
+    }
 }
