@@ -38,23 +38,30 @@ class SuperImageUpscaler @Inject constructor(
 
             // Initialize interpreter if needed
             if (interpreter == null) {
-                val options = Interpreter.Options()
-                if (CompatibilityList().isDelegateSupportedOnThisDevice) {
-                    options.addDelegate(GpuDelegate())
+                try {
+                    val options = Interpreter.Options()
+                    if (CompatibilityList().isDelegateSupportedOnThisDevice) {
+                        options.addDelegate(GpuDelegate())
+                    }
+                    interpreter = Interpreter(modelFile, options)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Fallback to CPU if GPU fails
+                    val options = Interpreter.Options()
+                    interpreter = Interpreter(modelFile, options)
                 }
-                interpreter = Interpreter(modelFile, options)
             }
 
             return@withContext when {
                 factor <= 4 -> {
-                    val result = runModel(bitmap, onProgress) ?: return@withContext null
+                    val result = runModelSafely(bitmap, onProgress) ?: return@withContext null
                     if (factor == 4) result else resize(result, factor.toDouble() / 4.0)
                 }
                 factor <= 16 -> {
                     // Pass 1 (4x)
-                    val pass1 = runModel(bitmap) { p, t -> onProgress(p, t * 2) } ?: return@withContext null
+                    val pass1 = runModelSafely(bitmap) { p, t -> onProgress(p, t * 2) } ?: return@withContext null
                     // Pass 2 (Another 4x -> 16x)
-                    val pass2 = runModel(pass1) { p, t -> onProgress(t + p, t * 2) }
+                    val pass2 = runModelSafely(pass1) { p, t -> onProgress(t + p, t * 2) }
                     pass1.recycle()
                     if (pass2 == null) return@withContext null
                     if (factor == 16) pass2 else resize(pass2, factor.toDouble() / 16.0)
@@ -70,6 +77,23 @@ class SuperImageUpscaler @Inject constructor(
         val result = Bitmap.createScaledBitmap(bitmap, w, h, true)
         bitmap.recycle()
         return result
+    }
+
+    private fun runModelSafely(input: Bitmap, onProgress: (parts: Int, total: Int) -> Unit): Bitmap? {
+        return try {
+            runModel(input, onProgress)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // If failed with GPU, try to recreate interpreter on CPU and retry once
+            try {
+                interpreter?.close()
+                interpreter = Interpreter(modelFile, Interpreter.Options())
+                runModel(input, onProgress)
+            } catch (retryException: Exception) {
+                retryException.printStackTrace()
+                null
+            }
+        }
     }
 
     private fun runModel(input: Bitmap, onProgress: (parts: Int, total: Int) -> Unit): Bitmap? {
