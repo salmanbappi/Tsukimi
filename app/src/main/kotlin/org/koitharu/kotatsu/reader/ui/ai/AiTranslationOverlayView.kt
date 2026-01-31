@@ -13,6 +13,8 @@ import android.text.TextPaint
 import android.util.AttributeSet
 import android.view.View
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import javax.inject.Inject
+import org.koitharu.kotatsu.core.prefs.AppSettings
 import kotlin.math.max
 
 class AiTranslationOverlayView @JvmOverloads constructor(
@@ -25,8 +27,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var ssiv: SubsamplingScaleImageView? = null
 	private var isSeamlessMode = false
 	
-	@Inject
-	lateinit var settings: AppSettings
+	// Not using @Inject here because Views are not automatically injected by Hilt.
+	// We rely on setSettings() being called from the Fragment/Activity.
+	private var settings: AppSettings? = null
 	
 	companion object {
 		private const val REFERENCE_SCALE = 1.5f
@@ -80,7 +83,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	fun setSettings(appSettings: AppSettings) {
 		this.settings = appSettings
-		isSeamlessMode = settings.isAiSeamlessTranslationEnabled
+		isSeamlessMode = appSettings.isAiSeamlessTranslationEnabled
 	}
 
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
