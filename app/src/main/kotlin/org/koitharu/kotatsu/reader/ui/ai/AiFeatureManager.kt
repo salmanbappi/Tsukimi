@@ -360,8 +360,8 @@ class AiFeatureManager @Inject constructor(
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
 			// Reduced max expansion to prevent merging separate bubbles
-			val maxExpandX = (textRect.width().toDouble() * 1.5).coerceAtMost((width * 0.25).toDouble()).coerceAtLeast(50.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 1.5).coerceAtMost((height * 0.25).toDouble()).coerceAtLeast(50.0).toInt()
+			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
+			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
 
 			var left = textRect.left
 			var dist = 0
@@ -439,7 +439,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 155 // Slightly more permissive
+			return luminance >= 220 // Stricter threshold for "white" bubble background
 		} catch (e: Exception) {
 			return false
 		}
