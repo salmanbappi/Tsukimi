@@ -15,6 +15,7 @@ import coil3.ImageLoader
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.transformations
+import coil3.size.Size
 import coil3.toBitmap
 import com.davemorrissey.labs.subscaleview.ImageSource
 import dagger.hilt.android.ActivityRetainedLifecycle
@@ -227,6 +228,20 @@ class PageLoader @Inject constructor(
 		return getRepository(page.source).getPageUrl(page)
 	}
 
+	suspend fun applyLiveSharpening(uri: Uri): Uri = convertLock.withLock {
+		if (uri.isZipUri()) return@withLock uri // Skip zip for now to avoid complex re-zipping here
+		
+		val file = uri.toFile()
+		runInterruptible(Dispatchers.IO) {
+			val bitmap = BitmapDecoderCompat.decode(file) ?: return@runInterruptible
+			val sharpened = LiveSharpenTransformation().transform(bitmap, Size.ORIGINAL)
+			sharpened.compressToPNG(file)
+			sharpened.recycle()
+			bitmap.recycle()
+		}
+		uri
+	}
+
 	suspend fun invalidate(clearCache: Boolean) {
 		tasks.clear()
 		loaderScope.cancelChildrenAndJoin()
@@ -304,13 +319,9 @@ class PageLoader @Inject constructor(
 				if (isPrefetch) {
 					downloadSlowdownDispatcher.delay(page.source)
 				}
-				                                val requestBuilder = createPageRequest(pageUrl, page.source)
-				
-				                                if (settings.isAiLiveSharpeningEnabled) {
-				                                        requestBuilder.transformations(LiveSharpenTransformation())
-				                                }
-				
-				                                imageProxyInterceptor.interceptPageRequest(requestBuilder.build(), okHttp).ensureSuccess().use { response ->					response.requireBody().withProgress(progress).use {
+				val request = createPageRequest(pageUrl, page.source).build()
+				imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
+					response.requireBody().withProgress(progress).use {
 						cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
 					}
 				}.toUri()
