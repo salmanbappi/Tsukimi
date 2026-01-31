@@ -223,6 +223,7 @@ class MainNavigationDelegate(
 			putBoolean(AppRouter.KEY_IS_BOTTOMTAB, true)
 		}
 		fragment.enterTransition = MaterialFadeThrough()
+		fragment.exitTransition = MaterialFadeThrough()
 		fragmentManager.beginTransaction()
 			.setReorderingAllowed(true)
 			.replace(R.id.container, fragmentClass, args, TAG_PRIMARY)

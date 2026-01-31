@@ -27,12 +27,19 @@ fun mangaGridItemAD(
 		itemView.setTooltipCompat(item.getSummary(context))
 		binding.textViewTitle.text = item.title
 		binding.progressView.setProgress(item.progress, PAYLOAD_PROGRESS_CHANGED in payloads)
+		
+		val icons = ArrayList<Any>(2)
+		if (item.isSaved) icons.add(R.drawable.ic_storage)
+		if (item.isFavorite) icons.add(R.drawable.ic_heart_outline)
+		
 		with(binding.iconsView) {
-			clearIcons()
-			if (item.isSaved) addIcon(R.drawable.ic_storage)
-			if (item.isFavorite) addIcon(R.drawable.ic_heart_outline)
-			isVisible = iconsCount > 0
+			setIcons(icons)
+			val newVisibility = icons.isNotEmpty()
+			if (isVisible != newVisibility) {
+				isVisible = newVisibility
+			}
 		}
+		
 		binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)
 		binding.badge.number = item.counter
 		binding.badge.isVisible = item.counter > 0

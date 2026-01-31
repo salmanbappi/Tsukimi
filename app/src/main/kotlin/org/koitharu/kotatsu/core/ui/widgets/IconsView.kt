@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
 import androidx.core.content.withStyledAttributes
 import androidx.core.view.isNotEmpty
 import androidx.core.view.isVisible
@@ -37,37 +38,67 @@ class IconsView @JvmOverloads constructor(
 		}
 	}
 
-	fun setIcons(icons: Iterable<Drawable>) {
+	fun setIcons(icons: List<Any>) {
+		// 'icons' can contain Drawables or Int (resIds)
 		var index = 0
 		for (icon in icons) {
-			val imageView = (getChildAt(index) as ImageView?) ?: addImageView()
-			imageView.setImageDrawable(icon)
-			imageView.isVisible = true
+			val imageView = (getChildAt(index) as? ImageView) ?: addImageView()
+			
+			// Only update/invalidate if changed
+			if (icon is Int) {
+				// We can't easily check current drawable res id without tagging, 
+				// but setting same res id is usually cheap in ImageView.
+				// However, visibility check is crucial.
+				if (imageView.tag != icon) {
+					imageView.setImageResource(icon)
+					imageView.tag = icon
+				}
+			} else if (icon is Drawable) {
+				if (imageView.drawable != icon) {
+					imageView.setImageDrawable(icon)
+					imageView.tag = null
+				}
+			}
+			
+			if (!imageView.isVisible) {
+				imageView.isVisible = true
+			}
 			index++
 		}
+		
+		// Hide remaining
 		for (i in index until childCount) {
 			val imageView = getChildAt(i) as? ImageView ?: continue
-			imageView.setImageDrawable(null)
-			imageView.isVisible = false
+			if (imageView.isVisible) {
+				imageView.setImageDrawable(null)
+				imageView.tag = null
+				imageView.isVisible = false
+			}
 		}
 	}
 
 	fun clearIcons() {
+		// Deprecated in favor of setIcons for batch updates to avoid multiple layout passes
 		repeat(childCount) { i ->
-			getChildAt(i).isVisible = false
+			val view = getChildAt(i)
+			if (view.isVisible) view.isVisible = false
 		}
 	}
 
 	fun addIcon(drawable: Drawable) {
 		val imageView = getNextImageView()
 		imageView.setImageDrawable(drawable)
-		imageView.isVisible = true
+		imageView.tag = null
+		if (!imageView.isVisible) imageView.isVisible = true
 	}
 
 	fun addIcon(@DrawableRes resId: Int) {
 		val imageView = getNextImageView()
-		imageView.setImageResource(resId)
-		imageView.isVisible = true
+		if (imageView.tag != resId) {
+			imageView.setImageResource(resId)
+			imageView.tag = resId
+		}
+		if (!imageView.isVisible) imageView.isVisible = true
 	}
 
 	private fun getNextImageView(): ImageView {
