@@ -836,6 +836,8 @@
     <string name="groq_api_key_summary">Supports Llama 3.1. Enter your API key (gsk-...)</string>
     <string name="ai_upscaling">AI upscaling</string>
     <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
+    <string name="ai_live_sharpening">Live Sharpening (Anime4K style)</string>
+    <string name="ai_live_sharpening_summary">Automatically sharpen pages while reading. Zero wait time.</string>
     <string name="ai_upscale_model">Upscaling model</string>
     <string name="ai_upscale_model_fast">Fast (Waifu2x)</string>
     <string name="ai_upscale_model_elite">Elite (Real-ESRGAN)</string>
