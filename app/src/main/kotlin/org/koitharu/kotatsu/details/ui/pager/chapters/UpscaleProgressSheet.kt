@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.viewModels
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.core.view.WindowInsetsCompat
+import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.ai.model.UpscaleProgress
 import org.koitharu.kotatsu.core.ui.sheet.BaseAdaptiveSheet
 import org.koitharu.kotatsu.core.util.ext.observe
