@@ -60,23 +60,32 @@ import androidx.work.WorkManager
 
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
+	private val savedStateHandle: SavedStateHandle,
+	private val interactor: DetailsInteractor,
+	private val detailsLoadUseCase: DetailsLoadUseCase,
+	private val progressUpdateUseCase: ProgressUpdateUseCase,
 	private val historyRepository: HistoryRepository,
 	bookmarksRepository: BookmarksRepository,
 	settings: AppSettings,
+	private val statsRepository: StatsRepository,
+	private val readingTimeUseCase: ReadingTimeUseCase,
+	private val relatedMangaUseCase: RelatedMangaUseCase,
+	private val mangaListMapper: MangaListMapper,
+	private val deleteLocalMangaUseCase: DeleteLocalMangaUseCase,
 	private val scrobblers: Set<@JvmSuppressWildcards Scrobbler>,
 	@LocalStorageChanges localStorageChanges: SharedFlow<LocalManga?>,
-		downloadScheduler: DownloadWorker.Scheduler,
-		workManager: WorkManager,
-	) : ChaptersPagesViewModel(
-		settings = settings,
-		interactor = interactor,
-		bookmarksRepository = bookmarksRepository,
-		historyRepository = historyRepository,
-		downloadScheduler = downloadScheduler,
-		deleteLocalMangaUseCase = deleteLocalMangaUseCase,
-		localStorageChanges = localStorageChanges,
-		workManager = workManager,
-	) {
+	downloadScheduler: DownloadWorker.Scheduler,
+	workManager: WorkManager,
+) : ChaptersPagesViewModel(
+	settings = settings,
+	interactor = interactor,
+	bookmarksRepository = bookmarksRepository,
+	historyRepository = historyRepository,
+	downloadScheduler = downloadScheduler,
+	deleteLocalMangaUseCase = deleteLocalMangaUseCase,
+	localStorageChanges = localStorageChanges,
+	workManager = workManager,
+) {
 
 	private val intent = MangaIntent(savedStateHandle)
 	private var loadingJob: Job

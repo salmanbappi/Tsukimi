@@ -83,8 +83,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import androidx.appcompat.R as appcompatR
 
-import org.koitharu.kotatsu.core.work.AiModelDownloadWorker
-
 @AndroidEntryPoint
 class ReaderActivity :
     BaseFullscreenActivity<ActivityReaderBinding>(),

@@ -48,7 +48,6 @@ class ChaptersSelectionCallback(
 			val isLocal = x.isDownloaded || x.chapter.source == LocalMangaSource
 			if (isLocal) canSave = false else canDelete = false
 		}
-		menu.findItem(R.id.action_ai_upscale).isVisible = items.isNotEmpty() && items.all { it.value.isDownloaded }
 		menu.findItem(R.id.action_save).isVisible = false // canSave
 		menu.findItem(R.id.action_delete).isVisible = false // canDelete
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
@@ -69,14 +68,6 @@ class ChaptersSelectionCallback(
 
 	override fun onActionItemClicked(controller: ListSelectionController, mode: ActionMode?, item: MenuItem): Boolean {
 		return when (item.itemId) {
-			R.id.action_ai_upscale -> {
-				val ids = mutableSetOf<Long>()
-				controller.peekCheckedIds().forEach { ids.add(it) }
-				showUpscaleDialog(recyclerView.context, ids)
-				mode?.finish()
-				true
-			}
-
 			R.id.action_save -> {
 				val snapshot = controller.snapshot()
 				mode?.finish()
@@ -170,44 +161,5 @@ class ChaptersSelectionCallback(
 
 			else -> false
 		}
-	}
-
-	private fun showUpscaleDialog(context: android.content.Context, chapterIds: Set<Long>) {
-		val allChapters = viewModel.chapters.value
-		var totalPages = 0
-		chapterIds.forEach { id ->
-			val item = allChapters.find { it is ChapterListItem && it.chapter.id == id } as? ChapterListItem
-			if (item?.isDownloaded == true) {
-				val uri = android.net.Uri.parse(item.chapter.url)
-				if (uri.scheme == "file") {
-					totalPages += java.io.File(uri.path!!).listFiles()?.size ?: 0
-				} else if (uri.scheme == "zip") {
-					val path = uri.schemeSpecificPart.substringBefore("!")
-					try {
-						java.util.zip.ZipFile(path).use { totalPages += it.size() }
-					} catch (e: Exception) {}
-				}
-			}
-		}
-
-		val factors = arrayOf(
-			"4x (Fast) - ~${totalPages * 2}s",
-			"9x (Medium) - ~${totalPages * 5}s",
-			"16x (Ultra) - ~${totalPages * 10}s"
-		)
-		
-		com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
-			.setTitle(R.string.ai_upscaling)
-			.setItems(factors) { _, which ->
-				val factor = when (which) {
-					0 -> 4
-					1 -> 9
-					2 -> 16
-					else -> return@setItems
-				}
-				viewModel.upscale(chapterIds, factor)
-				Toast.makeText(context, "Upscaling started", Toast.LENGTH_SHORT).show()
-			}
-			.show()
 	}
 }
