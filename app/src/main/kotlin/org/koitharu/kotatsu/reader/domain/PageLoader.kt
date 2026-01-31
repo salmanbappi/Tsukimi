@@ -45,7 +45,7 @@ import org.koitharu.kotatsu.core.parser.CachingMangaRepository
 import org.koitharu.kotatsu.core.parser.MangaRepository
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.ui.image.TrimTransformation
-import org.koitharu.kotatsu.core.ui.image.AnimeSharpenTransformation
+import org.koitharu.kotatsu.core.ui.image.LiveSharpenTransformation
 import org.koitharu.kotatsu.core.util.FileSize
 import org.koitharu.kotatsu.core.util.MimeTypes
 import org.koitharu.kotatsu.core.util.ext.URI_SCHEME_ZIP
@@ -304,14 +304,13 @@ class PageLoader @Inject constructor(
 				if (isPrefetch) {
 					downloadSlowdownDispatcher.delay(page.source)
 				}
-				val requestBuilder = createPageRequest(pageUrl, page.source)
+				                                val requestBuilder = createPageRequest(pageUrl, page.source)
 				
-				if (settings.isAiLiveSharpeningEnabled) {
-					requestBuilder.transformations(AnimeSharpenTransformation())
-				}
+				                                if (settings.isAiLiveSharpeningEnabled) {
+				                                        requestBuilder.transformations(LiveSharpenTransformation())
+				                                }
 				
-				imageProxyInterceptor.interceptPageRequest(requestBuilder.build(), okHttp).ensureSuccess().use { response ->
-					response.requireBody().withProgress(progress).use {
+				                                imageProxyInterceptor.interceptPageRequest(requestBuilder.build(), okHttp).ensureSuccess().use { response ->					response.requireBody().withProgress(progress).use {
 						cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
 					}
 				}.toUri()
