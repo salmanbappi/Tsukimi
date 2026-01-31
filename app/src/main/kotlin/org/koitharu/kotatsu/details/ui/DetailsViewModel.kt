@@ -61,7 +61,7 @@ import androidx.work.WorkManager
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
 	private val savedStateHandle: SavedStateHandle,
-	private val interactor: DetailsInteractor,
+	override val interactor: DetailsInteractor,
 	private val detailsLoadUseCase: DetailsLoadUseCase,
 	private val progressUpdateUseCase: ProgressUpdateUseCase,
 	private val historyRepository: HistoryRepository,
