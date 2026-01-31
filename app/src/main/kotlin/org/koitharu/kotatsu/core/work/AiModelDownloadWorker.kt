@@ -58,9 +58,8 @@ class AiModelDownloadWorker @AssistedInject constructor(
 
 		val models = mapOf(
 			"realesrgan_x4plus_anime_6b.tflite" to listOf(
-				"https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus-w8a8.tflite",
-				"https://huggingface.co/repsup/Real-ESRGAN-TFLite/resolve/main/realesrgan-x4plus-anime.tflite",
-				"https://github.com/salmanbappi/AI-Models/releases/download/v1.0/realesrgan_x4plus_anime_6b.tflite"
+				"https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/5026e4a0b6c3c64fe1096fa9794f086484c42800/Real-ESRGAN-x4plus.tflite",
+				"https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus-w8a8.tflite"
 			)
 		)
 

@@ -62,7 +62,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
 
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
-		blocks = newBlocks
+		// Sort by area descending so larger bubbles (backgrounds) are drawn first,
+		// allowing smaller nested bubbles to appear on top.
+		blocks = newBlocks.sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
 		prepareLayouts()
 		invalidate()
 	}
