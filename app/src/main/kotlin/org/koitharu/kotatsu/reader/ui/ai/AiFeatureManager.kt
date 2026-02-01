@@ -354,41 +354,61 @@ class AiFeatureManager @Inject constructor(
 		try {
 			val width = bitmap.width
 			val height = bitmap.height
-			val centerX = textRect.centerX()
-			val centerY = textRect.centerY()
+			
+			// If textRect is already out of bounds, return as is
+			if (textRect.left < 0 || textRect.top < 0 || textRect.right > width || textRect.bottom > height) return textRect
 
-			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
-
-			// Reduced max expansion to prevent merging separate bubbles
-			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
+			// Increased max expansion to allow for larger bubbles while still preventing extreme leaks
+			val maxExpandX = (textRect.width().toDouble() * 1.2).coerceAtMost((width * 0.25).toDouble()).coerceAtLeast(60.0).toInt()
+			val maxExpandY = (textRect.height().toDouble() * 1.2).coerceAtMost((height * 0.25).toDouble()).coerceAtLeast(60.0).toInt()
 
 			var left = textRect.left
 			var dist = 0
-			while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
-				left--
-				dist++
+			while (left > 0 && dist < maxExpandX) {
+				// Check multiple points along the vertical edge to handle uneven bubbles
+				val p1 = isPixelLight(bitmap, left - 1, textRect.top + textRect.height() / 4)
+				val p2 = isPixelLight(bitmap, left - 1, textRect.centerY())
+				val p3 = isPixelLight(bitmap, left - 1, textRect.bottom - textRect.height() / 4)
+				if (p1 || p2 || p3) {
+					left--
+					dist++
+				} else break
 			}
 
 			var right = textRect.right
 			dist = 0
-			while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
-				right++
-				dist++
+			while (right < width - 1 && dist < maxExpandX) {
+				val p1 = isPixelLight(bitmap, right + 1, textRect.top + textRect.height() / 4)
+				val p2 = isPixelLight(bitmap, right + 1, textRect.centerY())
+				val p3 = isPixelLight(bitmap, right + 1, textRect.bottom - textRect.height() / 4)
+				if (p1 || p2 || p3) {
+					right++
+					dist++
+				} else break
 			}
 
 			var top = textRect.top
 			dist = 0
-			while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
-				top--
-				dist++
+			while (top > 0 && dist < maxExpandY) {
+				val p1 = isPixelLight(bitmap, textRect.left + textRect.width() / 4, top - 1)
+				val p2 = isPixelLight(bitmap, textRect.centerX(), top - 1)
+				val p3 = isPixelLight(bitmap, textRect.right - textRect.width() / 4, top - 1)
+				if (p1 || p2 || p3) {
+					top--
+					dist++
+				} else break
 			}
 
 			var bottom = textRect.bottom
 			dist = 0
-			while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
-				bottom++
-				dist++
+			while (bottom < height - 1 && dist < maxExpandY) {
+				val p1 = isPixelLight(bitmap, textRect.left + textRect.width() / 4, bottom + 1)
+				val p2 = isPixelLight(bitmap, textRect.centerX(), bottom + 1)
+				val p3 = isPixelLight(bitmap, textRect.right - textRect.width() / 4, bottom + 1)
+				if (p1 || p2 || p3) {
+					bottom++
+					dist++
+				} else break
 			}
 
 			return Rect(left, top, right, bottom)
@@ -400,26 +420,31 @@ class AiFeatureManager @Inject constructor(
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
 		// Sample pixels just inside the detected bounds to find the bubble color
 		val samples = mutableListOf<Int>()
-		val startX = (rect.left + rect.width() * 0.1).toInt()
-		val endX = (rect.right - rect.width() * 0.1).toInt()
-		val startY = (rect.top + rect.height() * 0.1).toInt()
-		val endY = (rect.bottom - rect.height() * 0.1).toInt()
+		val insetX = (rect.width() * 0.1).toInt().coerceAtLeast(1)
+		val insetY = (rect.height() * 0.1).toInt().coerceAtLeast(1)
+		
+		val startX = rect.left + insetX
+		val endX = rect.right - insetX
+		val startY = rect.top + insetY
+		val endY = rect.bottom - insetY
 		
 		try {
 			// Sample 5 points: center and 4 corners (inset)
 			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
-			samples.add(bitmap.getPixel(startX, startY))
-			samples.add(bitmap.getPixel(endX, startY))
-			samples.add(bitmap.getPixel(startX, endY))
-			samples.add(bitmap.getPixel(endX, endY))
+			if (startX < endX && startY < endY) {
+				samples.add(bitmap.getPixel(startX, startY))
+				samples.add(bitmap.getPixel(endX, startY))
+				samples.add(bitmap.getPixel(startX, endY))
+				samples.add(bitmap.getPixel(endX, endY))
+			}
 		} catch (e: Exception) {
 			return Color.WHITE
 		}
 
+		if (samples.isEmpty()) return Color.WHITE
+
 		// Calculate average luminance to decide if we should use white or the sampled color
-		// Most manga bubbles are white or very light grey.
-		// If distinct colors found, average them.
-		var r = 0; var g = 0; var b = 0
+		var r = 0L; var g = 0L; var b = 0L
 		for (c in samples) {
 			r += Color.red(c)
 			g += Color.green(c)
@@ -429,17 +454,19 @@ class AiFeatureManager @Inject constructor(
 		g /= samples.size
 		b /= samples.size
 		
-		return Color.rgb(r, g, b)
+		return Color.rgb(r.toInt(), g.toInt(), b.toInt())
 	}
 
 	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {
+		if (x !in 0 until bitmap.width || y !in 0 until bitmap.height) return false
 		try {
 			val pixel = bitmap.getPixel(x, y)
 			val red = Color.red(pixel)
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
+			// Slightly more lenient threshold (200 instead of 220) to capture slightly darker bubbles
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 220 // Stricter threshold for "white" bubble background
+			return luminance >= 200 
 		} catch (e: Exception) {
 			return false
 		}

@@ -111,15 +111,17 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			if (refWidth <= 0 || refHeight <= 0) continue
 
-			val paddingX = refWidth * 0.12f
-			val paddingY = refHeight * 0.12f
+			// Adaptive padding: smaller percentage for smaller bubbles, with a hard cap
+			val paddingX = (refWidth * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
+			val paddingY = (refHeight * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
 			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			var textSize = 40f * REFERENCE_SCALE
-			val minTextSize = 8f * REFERENCE_SCALE
-			val step = 1f
+			// Start with a slightly larger size for better filling, but reduce more intelligently
+			var textSize = 44f * REFERENCE_SCALE
+			val minTextSize = 6f * REFERENCE_SCALE
+			val step = 1.5f
 			
 			var finalLayout: StaticLayout? = null
 			var finalYOffset = 0f
@@ -129,6 +131,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
+				// Check if any single word is too wide for the bubble
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
 					textSize -= step
@@ -140,7 +143,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					.setLineSpacing(0f, 1.0f)
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
-					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
+					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL)
 
 				val layout = builder.build()
 				if (layout.height <= availableHeight) {
