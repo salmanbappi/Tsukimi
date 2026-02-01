@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.ai
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.LruCache
@@ -176,7 +177,7 @@ class AiFeatureManager @Inject constructor(
 						val outline = generateOutline(bubbleResult.mask, ocrBitmap.width, bubbleRect)
 						
 						// Scale and translate outline points to source coordinates
-						val sourceOutline = outline.map { p ->
+						val sourceOutline = outline.map { p: PointF ->
 							PointF(
 								(p.x / ocrScale - vTranslateX) / viewScale,
 								(p.y / ocrScale - vTranslateY) / viewScale
