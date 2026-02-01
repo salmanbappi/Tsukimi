@@ -71,7 +71,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val paddingY: Float,
 		val yOffset: Float,
 		val backgroundColor: Int,
-		val customPath: android.graphics.Path? = null
+		val customPath: android.graphics.Path? = null,
+		val isActionBubble: Boolean = false
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
 
@@ -115,11 +116,16 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			// Adaptive padding: smaller percentage for smaller bubbles, with a hard cap
 			val paddingX = (refWidth * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
 			val paddingY = (refHeight * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
+			
+			// PRO DIAMOND TYPESETTING: Manga bubbles are typically oval/diamond.
+			// By slightly reducing the available width compared to a rectangle, we force the text into a diamond shape.
 			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
+			
+			// For diamond fitting, we start with a tighter width and expand only if needed
+			val diamondWidth = (availableWidth * 0.85f).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			// Start with a slightly larger size for better filling, but reduce more intelligently
 			var textSize = 44f * REFERENCE_SCALE
 			val minTextSize = 6f * REFERENCE_SCALE
 			val step = 1.5f
@@ -132,14 +138,17 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
-				// Check if any single word is too wide for the bubble
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
-				if (maxWordWidth > availableWidth && textSize > minTextSize) {
+				
+				// Try diamond width first, then fallback to full width
+				val currentWidth = if (maxWordWidth <= diamondWidth) diamondWidth else availableWidth
+				
+				if (maxWordWidth > currentWidth && textSize > minTextSize) {
 					textSize -= step
 					continue
 				}
 
-				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
+				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, currentWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
 					.setIncludePad(false)
@@ -178,97 +187,99 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			}
 
 			preparedBlocks.add(PreparedBlock(
-				sourceRect = block.boundingBox,
-				layout = finalLayout,
-				textSize = finalTextSize,
-				paddingX = paddingX / REFERENCE_SCALE,
-				paddingY = paddingY / REFERENCE_SCALE,
-				yOffset = finalYOffset / REFERENCE_SCALE,
-				backgroundColor = block.backgroundColor,
-				customPath = path
-			))
-		}
-	}
-
-	override fun onDraw(canvas: Canvas) {
-		super.onDraw(canvas)
-		val ssiv = this.ssiv ?: return
-		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
-
-		val currentScale = ssiv.scale
-
-		for (prep in preparedBlocks) {
-			val sourceRect = prep.sourceRect
-			
-			// Map source coordinates to current screen pixels accurately
-			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
-			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
-			
-			val viewLeft = tl.x
-			val viewTop = tl.y
-			val viewRight = br.x
-			val viewBottom = br.y
-			
-			val viewWidth = viewRight - viewLeft
-			val viewHeight = viewBottom - viewTop
-
-			// Draw background bubble
-			val paint = if (isSeamlessMode) seamlessPaint else backgroundPaint
-			paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
-			if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
-
-			if (prep.customPath != null) {
-				// We need to scale the source-coordinate path to view coordinates
-				canvas.save()
-				val matrix = android.graphics.Matrix()
-				// Map source points directly to view using SSIV's scale and translation
-				matrix.postScale(currentScale, currentScale)
-				matrix.postTranslate(ssiv.vTranslate.x, ssiv.vTranslate.y)
-				
-				val drawPath = android.graphics.Path(prep.customPath)
-				drawPath.transform(matrix)
-				canvas.drawPath(drawPath, paint)
-				canvas.restore()
-			} else {
-				// Fallback to rounded rect if no custom path available
-				val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
-				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, paint)
+					sourceRect = block.boundingBox,
+					layout = finalLayout,
+					textSize = finalTextSize,
+					paddingX = paddingX / REFERENCE_SCALE,
+					paddingY = paddingY / REFERENCE_SCALE,
+					yOffset = finalYOffset / REFERENCE_SCALE,
+					backgroundColor = block.backgroundColor,
+					customPath = path,
+					isActionBubble = block.isActionBubble
+				))
 			}
-
-			// Fast Scaling & Drawing
-			canvas.save()
-			// Move to the bubble's top-left (plus padding)
-			canvas.translate(viewLeft + prep.paddingX * currentScale, viewTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
-			// Scale the canvas to match the current zoom perfectly
-			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
+				}
 			
-			val workPaint = prep.layout.paint
-			workPaint.set(strokePaint)
-			workPaint.textSize = prep.textSize
-			// If seamless, stroke color should probably match background or be subtle?
-			// For now keep white stroke for legibility against colored background
-			workPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
-			// Actually, stroke is for text outline. If background is dark, white text.
-			// Let's stick to simple contrast. If bg is dark, text white.
+				override fun onDraw(canvas: Canvas) {
+					super.onDraw(canvas)
+					val ssiv = this.ssiv ?: return
+					if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 			
-			prep.layout.draw(canvas)
+					val currentScale = ssiv.scale
 			
-			workPaint.set(baseTextPaint)
-			workPaint.textSize = prep.textSize
-			// Simple luminance check for text color
-			if (isSeamlessMode) {
-				val bgLum = Color.luminance(prep.backgroundColor)
-				workPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
-			} else {
-				workPaint.color = Color.BLACK
-			}
+					for (prep in preparedBlocks) {
+						val sourceRect = prep.sourceRect
+						
+						// Map source coordinates to current screen pixels accurately
+						val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
+						val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
+						
+						val viewLeft = tl.x
+						val viewTop = tl.y
+						val viewRight = br.x
+						val viewBottom = br.y
+						
+						val viewWidth = viewRight - viewLeft
+						val viewHeight = viewBottom - viewTop
 			
-			prep.layout.draw(canvas)
+						// Draw background bubble
+						val paint = if (isSeamlessMode) seamlessPaint else backgroundPaint
+						paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+						if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
 			
-			canvas.restore()
-		}
-		
-		// Continuous tracking during zoom/pan
-		postInvalidateOnAnimation()
-	}
+						if (prep.customPath != null) {
+							// We need to scale the source-coordinate path to view coordinates
+							canvas.save()
+							val matrix = android.graphics.Matrix()
+							// Map source points directly to view using SSIV's scale and translation
+							matrix.postScale(currentScale, currentScale)
+							matrix.postTranslate(ssiv.vTranslate.x, ssiv.vTranslate.y)
+							
+							val drawPath = android.graphics.Path(prep.customPath)
+							drawPath.transform(matrix)
+							canvas.drawPath(drawPath, paint)
+							canvas.restore()
+						} else {
+							// Fallback to rounded rect if no custom path available
+							val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
+							canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, paint)
+						}
+			
+						// Fast Scaling & Drawing
+						canvas.save()
+						// Move to the bubble's top-left (plus padding)
+						canvas.translate(viewLeft + prep.paddingX * currentScale, viewTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
+						// Scale the canvas to match the current zoom perfectly
+						canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
+						
+						val workPaint = prep.layout.paint
+						workPaint.set(strokePaint)
+						workPaint.textSize = prep.textSize
+						// Thicker stroke for action bubbles
+						workPaint.strokeWidth = if (prep.isActionBubble) 5f * REFERENCE_SCALE else 3f * REFERENCE_SCALE
+						
+						workPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+						
+						prep.layout.draw(canvas)
+						
+						workPaint.set(baseTextPaint)
+						workPaint.textSize = prep.textSize
+						// Bolder typeface for action bubbles
+						workPaint.typeface = if (prep.isActionBubble) Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC) else Typeface.DEFAULT_BOLD
+						
+						// Simple luminance check for text color
+						if (isSeamlessMode) {
+							val bgLum = Color.luminance(prep.backgroundColor)
+							workPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
+						} else {
+							workPaint.color = Color.BLACK
+						}
+						
+						prep.layout.draw(canvas)
+						
+						canvas.restore()
+					}
+					
+					// Continuous tracking during zoom/pan
+					postInvalidateOnAnimation()	}
 }

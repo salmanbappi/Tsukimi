@@ -119,13 +119,19 @@ class AiFeatureManager @Inject constructor(
 				val textBlocks = visionText.textBlocks
 				val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
-				val translatedTexts = if (engine == TranslationEngine.GROQ && mergedBlocks.size > 1) {
-					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
+				// CONTEXTUAL BATCH TRANSLATION
+				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
+				val translatedTexts = if (cleanTexts.isNotEmpty()) {
+					when (engine) {
+						TranslationEngine.GROQ -> translateBatchWithGroq(cleanTexts, targetLanguage)
+						TranslationEngine.DEEPL -> translateBatchWithDeepL(cleanTexts, targetLanguage)
+						else -> null
+					}
 				} else null
 
 				val translationJobs = mergedBlocks.mapIndexed { index, it ->
 					async {
-						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
+						val cleanText = cleanTexts[index]
 						if (cleanText.isBlank()) return@async null
 
 						val translatedText = translatedTexts?.getOrNull(index) ?: try {
@@ -177,11 +183,15 @@ class AiFeatureManager @Inject constructor(
 							)
 						}
 
+						// Style detection: check if bubble is spiky (action bubble)
+						val isSpiky = detectIfSpiky(bubbleResult.mask, ocrBitmap.width, bubbleRect)
+
 						TranslatedBlock(
 							text = translatedText,
 							boundingBox = sourceRect,
 							backgroundColor = backgroundColor,
-							outline = sourceOutline
+							outline = sourceOutline,
+							isActionBubble = isSpiky
 						)
 					}
 				}
@@ -427,6 +437,66 @@ class AiFeatureManager @Inject constructor(
 		return outline
 	}
 
+	private fun detectIfSpiky(mask: java.util.BitSet, width: Int, bounds: Rect): Boolean {
+		val centerX = bounds.centerX()
+		val centerY = bounds.centerY()
+		val radii = mutableListOf<Double>()
+		
+		val step = 10
+		for (x in bounds.left..bounds.right step step) {
+			for (y in bounds.top..bounds.bottom step step) {
+				if (mask.get(y * width + x)) {
+					var isEdge = false
+					if (x + 1 >= width || x - 1 < 0 || y + 1 >= (mask.size() / width) || y - 1 < 0 ||
+						!mask.get(y * width + (x + 1)) || !mask.get(y * width + (x - 1)) ||
+						!mask.get((y + 1) * width + x) || !mask.get((y - 1) * width + x)) {
+						isEdge = true
+					}
+					if (isEdge) {
+						val dx = (x - centerX).toDouble()
+						val dy = (y - centerY).toDouble()
+						radii.add(Math.sqrt(dx * dx + dy * dy))
+					}
+				}
+			}
+		}
+		
+		if (radii.size < 10) return false
+		val avg = radii.average()
+		val variance = radii.map { Math.abs(it - avg) }.average()
+		return (variance / avg) > 0.18
+	}
+
+	private suspend fun translateBatchWithDeepL(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
+		val apiKey = settings.deeplApiKey ?: return@withContext null
+		val isFree = apiKey.endsWith(":fx")
+		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
+		
+		val body = buildJsonObject {
+			putJsonArray("text") { texts.forEach { add(it) } }
+			put("target_lang", targetLanguage.uppercase())
+			put("context", "This is text from a manga/comic page. Maintain natural dialogue flow.")
+		}
+		
+		val request = Request.Builder()
+			.url(url)
+			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType()))
+			.build()
+			
+			try {
+				client.newCall(request).execute().use { response ->
+					if (!response.isSuccessful) return@withContext null
+					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
+					jsonResult.jsonObject["translations"]?.jsonArray?.map { 
+						it.jsonObject["text"]?.jsonPrimitive?.content ?: "" 
+					}
+				}
+			} catch (e: Exception) {
+				null
+			}
+	}
+
 	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): BubbleResult {
 		try {
 			val width = bitmap.width
@@ -561,9 +631,9 @@ class AiFeatureManager @Inject constructor(
 			val red = Color.red(pixel)
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
-			// Slightly more lenient threshold (200 instead of 220) to capture slightly darker bubbles
+			// Slightly more restrictive threshold (210) for cleaner bubble boundaries
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 200 
+			return luminance >= 210 
 		} catch (e: Exception) {
 			return false
 		}
@@ -579,5 +649,6 @@ data class TranslatedBlock(
 	val text: String,
 	val boundingBox: RectF,
 	val backgroundColor: Int = Color.WHITE,
-	val outline: List<PointF>? = null
+	val outline: List<PointF>? = null,
+	val isActionBubble: Boolean = false
 )
