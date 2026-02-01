@@ -140,7 +140,8 @@ class AiFeatureManager @Inject constructor(
 
 						if (translatedText.isNullOrBlank()) return@async null
 
-						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
+						val bubbleResult = detectBubbleBounds(it.boundingBox, ocrBitmap)
+						val bubbleRect = bubbleResult.bounds
 						
 						// Map back to original captured bitmap coordinates
 						val rectInOriginalBitmap = RectF(
@@ -163,7 +164,7 @@ class AiFeatureManager @Inject constructor(
 						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
-						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
+						val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
 
 						TranslatedBlock(
 							text = translatedText,
@@ -314,10 +315,20 @@ class AiFeatureManager @Inject constructor(
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		val sorted = blocks.sortedWith(
-			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
-				.thenBy { it.boundingBox?.top ?: 0 }
-		)
+		// Sort by Manga reading order: Right-to-Left columns, Top-to-Bottom within columns
+		val sorted = blocks.sortedWith { b1, b2 ->
+			val r1 = b1.boundingBox ?: return@sortedWith 0
+			val r2 = b2.boundingBox ?: return@sortedWith 0
+			
+			// If blocks are in roughly the same vertical column (RTL), sort by Top
+			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 4) {
+				r1.top.compareTo(r2.top)
+			} else {
+				// Otherwise, Right-most column comes first
+				r2.centerX().compareTo(r1.centerX())
+			}
+		}
+		
 		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {
@@ -327,8 +338,12 @@ class AiFeatureManager @Inject constructor(
 			var isMerged = false
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
-				if (areBlocksClose(m.boundingBox, rect)) {
-					m.text.append("\n").append(text)
+				if (areBlocksInSameBubble(m.boundingBox, rect)) {
+					// Append text with space or newline
+					if (m.text.isNotEmpty() && !m.text.endsWith("\n")) {
+						m.text.append("\n")
+					}
+					m.text.append(text)
 					m.boundingBox.union(rect)
 					isMerged = true
 					break
@@ -342,119 +357,146 @@ class AiFeatureManager @Inject constructor(
 		return merged
 	}
 
-	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
+	private fun areBlocksInSameBubble(r1: Rect, r2: Rect): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
-		val threshold = (avgHeight * 0.5f).toInt().coerceAtLeast(10)
+		val avgWidth = (r1.width() + r2.width()) / 2f
+		
+		// More aggressive vertical merging for Japanese text
+		val horizontalThreshold = (avgWidth * 0.8f).toInt().coerceAtLeast(20)
+		val verticalThreshold = (avgHeight * 1.2f).toInt().coerceAtLeast(40)
+		
 		val expanded = Rect(r1)
-		expanded.inset(-threshold, -threshold)
+		expanded.inset(-horizontalThreshold, -verticalThreshold)
 		return Rect.intersects(expanded, r2)
 	}
 	
-	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): Rect {
+	private data class BubbleResult(val bounds: Rect, val mask: java.util.BitSet)
+
+	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): BubbleResult {
 		try {
 			val width = bitmap.width
 			val height = bitmap.height
 			
-			// If textRect is already out of bounds, return as is
-			if (textRect.left < 0 || textRect.top < 0 || textRect.right > width || textRect.bottom > height) return textRect
-
-			// Increased max expansion to allow for larger bubbles while still preventing extreme leaks
-			val maxExpandX = (textRect.width().toDouble() * 1.2).coerceAtMost((width * 0.25).toDouble()).coerceAtLeast(60.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 1.2).coerceAtMost((height * 0.25).toDouble()).coerceAtLeast(60.0).toInt()
-
-			var left = textRect.left
-			var dist = 0
-			while (left > 0 && dist < maxExpandX) {
-				// Check multiple points along the vertical edge to handle uneven bubbles
-				val p1 = isPixelLight(bitmap, left - 1, textRect.top + textRect.height() / 4)
-				val p2 = isPixelLight(bitmap, left - 1, textRect.centerY())
-				val p3 = isPixelLight(bitmap, left - 1, textRect.bottom - textRect.height() / 4)
-				if (p1 || p2 || p3) {
-					left--
-					dist++
-				} else break
+			if (textRect.left < 0 || textRect.top < 0 || textRect.right > width || textRect.bottom > height) {
+				return BubbleResult(textRect, java.util.BitSet())
 			}
 
-			var right = textRect.right
-			dist = 0
-			while (right < width - 1 && dist < maxExpandX) {
-				val p1 = isPixelLight(bitmap, right + 1, textRect.top + textRect.height() / 4)
-				val p2 = isPixelLight(bitmap, right + 1, textRect.centerY())
-				val p3 = isPixelLight(bitmap, right + 1, textRect.bottom - textRect.height() / 4)
-				if (p1 || p2 || p3) {
-					right++
-					dist++
-				} else break
+			val visited = java.util.BitSet(width * height)
+			val queue = java.util.ArrayDeque<Int>()
+			
+			var minX = textRect.left
+			var maxX = textRect.right
+			var minY = textRect.top
+			var maxY = textRect.bottom
+
+			val step = (textRect.width() / 15).coerceAtLeast(1)
+			for (x in textRect.left until textRect.right step step) {
+				for (y in textRect.top until textRect.bottom step step) {
+					val idx = y * width + x
+					if (!visited.get(idx)) {
+						visited.set(idx)
+						queue.add(idx)
+					}
+				}
 			}
 
-			var top = textRect.top
-			dist = 0
-			while (top > 0 && dist < maxExpandY) {
-				val p1 = isPixelLight(bitmap, textRect.left + textRect.width() / 4, top - 1)
-				val p2 = isPixelLight(bitmap, textRect.centerX(), top - 1)
-				val p3 = isPixelLight(bitmap, textRect.right - textRect.width() / 4, top - 1)
-				if (p1 || p2 || p3) {
-					top--
-					dist++
-				} else break
+			val maxPixels = (width * height * 0.20).toInt()
+			var processedPixels = 0
+			
+			val maxDistX = (textRect.width() * 1.8).toInt().coerceAtLeast(120).coerceAtMost(width / 2)
+			val maxDistY = (textRect.height() * 1.8).toInt().coerceAtLeast(120).coerceAtMost(height / 2)
+
+			val dx = intArrayOf(0, 0, 1, -1, 1, 1, -1, -1)
+			val dy = intArrayOf(1, -1, 0, 0, 1, -1, 1, -1)
+
+			while (queue.isNotEmpty() && processedPixels < maxPixels) {
+				val curr = queue.removeFirst()
+				processedPixels++
+				
+				val cx = curr % width
+				val cy = curr / width
+				
+				minX = Math.min(minX, cx)
+				maxX = Math.max(maxX, cx)
+				minY = Math.min(minY, cy)
+				maxY = Math.max(maxY, cy)
+
+				for (i in 0 until 8) {
+					val nx = cx + dx[i]
+					val ny = cy + dy[i]
+					
+					if (nx in 0 until width && ny in 0 until height) {
+						val nIdx = ny * width + nx
+						if (!visited.get(nIdx)) {
+							if (Math.abs(nx - textRect.centerX()) > maxDistX || 
+								Math.abs(ny - textRect.centerY()) > maxDistY) continue
+								
+							// Hole Plugging: If a pixel has multiple dark neighbors, it's likely part of a boundary line
+							var darkNeighbors = 0
+							for (j in 0 until 8) {
+								val nnx = nx + dx[j]
+								val nny = ny + dy[j]
+								if (nnx !in 0 until width || nny !in 0 until height || !isPixelLight(bitmap, nnx, nny)) {
+									darkNeighbors++
+								}
+							}
+							
+							if (darkNeighbors >= 3) continue
+
+							if (isPixelLight(bitmap, nx, ny)) {
+								visited.set(nIdx)
+								queue.add(nIdx)
+							}
+						}
+					}
+				}
 			}
 
-			var bottom = textRect.bottom
-			dist = 0
-			while (bottom < height - 1 && dist < maxExpandY) {
-				val p1 = isPixelLight(bitmap, textRect.left + textRect.width() / 4, bottom + 1)
-				val p2 = isPixelLight(bitmap, textRect.centerX(), bottom + 1)
-				val p3 = isPixelLight(bitmap, textRect.right - textRect.width() / 4, bottom + 1)
-				if (p1 || p2 || p3) {
-					bottom++
-					dist++
-				} else break
-			}
-
-			return Rect(left, top, right, bottom)
+			val padding = 2
+			return BubbleResult(
+				Rect(
+					(minX - padding).coerceAtLeast(0),
+					(minY - padding).coerceAtLeast(0),
+					(maxX + padding).coerceAtMost(width - 1),
+					(maxY + padding).coerceAtMost(height - 1)
+				),
+				visited
+			)
 		} catch (e: Exception) {
-			return textRect
+			return BubbleResult(textRect, java.util.BitSet())
 		}
 	}
 
-	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
-		// Sample pixels just inside the detected bounds to find the bubble color
-		val samples = mutableListOf<Int>()
-		val insetX = (rect.width() * 0.1).toInt().coerceAtLeast(1)
-		val insetY = (rect.height() * 0.1).toInt().coerceAtLeast(1)
+	private fun detectBackgroundColorFromMask(mask: java.util.BitSet, bitmap: Bitmap): Int {
+		if (mask.isEmpty) return Color.WHITE
 		
-		val startX = rect.left + insetX
-		val endX = rect.right - insetX
-		val startY = rect.top + insetY
-		val endY = rect.bottom - insetY
-		
-		try {
-			// Sample 5 points: center and 4 corners (inset)
-			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
-			if (startX < endX && startY < endY) {
-				samples.add(bitmap.getPixel(startX, startY))
-				samples.add(bitmap.getPixel(endX, startY))
-				samples.add(bitmap.getPixel(startX, endY))
-				samples.add(bitmap.getPixel(endX, endY))
-			}
-		} catch (e: Exception) {
-			return Color.WHITE
-		}
-
-		if (samples.isEmpty()) return Color.WHITE
-
-		// Calculate average luminance to decide if we should use white or the sampled color
+		val width = bitmap.width
 		var r = 0L; var g = 0L; var b = 0L
-		for (c in samples) {
-			r += Color.red(c)
-			g += Color.green(c)
-			b += Color.blue(c)
-		}
-		r /= samples.size
-		g /= samples.size
-		b /= samples.size
+		var count = 0
 		
-		return Color.rgb(r.toInt(), g.toInt(), b.toInt())
+		// Sample up to 500 pixels from the mask
+		val totalSet = mask.cardinality()
+		val sampleStep = (totalSet / 500).coerceAtLeast(1)
+		
+		var idx = mask.nextSetBit(0)
+		var sampled = 0
+		while (idx >= 0 && sampled < 500) {
+			val pixel = bitmap.getPixel(idx % width, idx / width)
+			r += Color.red(pixel)
+			g += Color.green(pixel)
+			b += Color.blue(pixel)
+			count++
+			sampled++
+			
+			var next = idx + 1
+			repeat(sampleStep - 1) {
+				if (next >= 0) next = mask.nextSetBit(next + 1)
+			}
+			idx = if (next >= 0) mask.nextSetBit(next) else -1
+		}
+
+		return if (count > 0) Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
+		else Color.WHITE
 	}
 
 	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {
