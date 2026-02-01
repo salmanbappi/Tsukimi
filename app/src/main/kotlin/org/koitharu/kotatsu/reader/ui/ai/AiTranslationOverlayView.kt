@@ -70,7 +70,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val paddingX: Float,
 		val paddingY: Float,
 		val yOffset: Float,
-		val backgroundColor: Int
+		val backgroundColor: Int,
+		val customPath: android.graphics.Path? = null
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
 
@@ -165,6 +166,17 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
+			val path = block.outline?.let { points ->
+				if (points.isEmpty()) return@let null
+				android.graphics.Path().apply {
+					moveTo(points[0].x, points[0].y)
+					for (i in 1 until points.size) {
+						lineTo(points[i].x, points[i].y)
+					}
+					close()
+				}
+			}
+
 			preparedBlocks.add(PreparedBlock(
 				sourceRect = block.boundingBox,
 				layout = finalLayout,
@@ -172,7 +184,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paddingX = paddingX / REFERENCE_SCALE,
 				paddingY = paddingY / REFERENCE_SCALE,
 				yOffset = finalYOffset / REFERENCE_SCALE,
-				backgroundColor = block.backgroundColor
+				backgroundColor = block.backgroundColor,
+				customPath = path
 			))
 		}
 	}
@@ -199,15 +212,27 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val viewWidth = viewRight - viewLeft
 			val viewHeight = viewBottom - viewTop
 
-			// Draw rounded background bubble
-			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
-			
-			if (isSeamlessMode) {
-				seamlessPaint.color = prep.backgroundColor
-				seamlessPaint.alpha = 255 // Fully opaque for seamless erase
-				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, seamlessPaint)
+			// Draw background bubble
+			val paint = if (isSeamlessMode) seamlessPaint else backgroundPaint
+			paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+			if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
+
+			if (prep.customPath != null) {
+				// We need to scale the source-coordinate path to view coordinates
+				canvas.save()
+				val matrix = android.graphics.Matrix()
+				// Map source points directly to view using SSIV's scale and translation
+				matrix.postScale(currentScale, currentScale)
+				matrix.postTranslate(ssiv.vTranslate.x, ssiv.vTranslate.y)
+				
+				val drawPath = android.graphics.Path(prep.customPath)
+				drawPath.transform(matrix)
+				canvas.drawPath(drawPath, paint)
+				canvas.restore()
 			} else {
-				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, backgroundPaint)
+				// Fallback to rounded rect if no custom path available
+				val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
+				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, paint)
 			}
 
 			// Fast Scaling & Drawing

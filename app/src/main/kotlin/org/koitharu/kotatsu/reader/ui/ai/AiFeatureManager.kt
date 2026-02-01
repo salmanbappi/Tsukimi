@@ -166,10 +166,22 @@ class AiFeatureManager @Inject constructor(
 
 						val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
 
+						// Generate a sampled outline from the BFS mask for custom shape rendering
+						val outline = generateOutline(bubbleResult.mask, ocrBitmap.width, bubbleRect)
+						
+						// Scale and translate outline points to source coordinates
+						val sourceOutline = outline.map { p ->
+							PointF(
+								(p.x / ocrScale - vTranslateX) / viewScale,
+								(p.y / ocrScale - vTranslateY) / viewScale
+							)
+						}
+
 						TranslatedBlock(
 							text = translatedText,
 							boundingBox = sourceRect,
-							backgroundColor = backgroundColor
+							backgroundColor = backgroundColor,
+							outline = sourceOutline
 						)
 					}
 				}
@@ -372,6 +384,49 @@ class AiFeatureManager @Inject constructor(
 	
 	private data class BubbleResult(val bounds: Rect, val mask: java.util.BitSet)
 
+	private fun generateOutline(mask: java.util.BitSet, width: Int, bounds: Rect): List<PointF> {
+		val outline = mutableListOf<PointF>()
+		val step = 4 // Sample every 4 pixels for performance and smoothness
+
+		// Top edge
+		for (x in bounds.left..bounds.right step step) {
+			for (y in bounds.top..bounds.bottom) {
+				if (mask.get(y * width + x)) {
+					outline.add(PointF(x.toFloat(), y.toFloat()))
+					break
+				}
+			}
+		}
+		// Right edge
+		for (y in bounds.top..bounds.bottom step step) {
+			for (x in bounds.right downTo bounds.left) {
+				if (mask.get(y * width + x)) {
+					outline.add(PointF(x.toFloat(), y.toFloat()))
+					break
+				}
+			}
+		}
+		// Bottom edge
+		for (x in bounds.right downTo bounds.left step step) {
+			for (y in bounds.bottom downTo bounds.top) {
+				if (mask.get(y * width + x)) {
+					outline.add(PointF(x.toFloat(), y.toFloat()))
+					break
+				}
+			}
+		}
+		// Left edge
+		for (y in bounds.bottom downTo bounds.top step step) {
+			for (x in bounds.left..bounds.right) {
+				if (mask.get(y * width + x)) {
+					outline.add(PointF(x.toFloat(), y.toFloat()))
+					break
+				}
+			}
+		}
+		return outline
+	}
+
 	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): BubbleResult {
 		try {
 			val width = bitmap.width
@@ -523,5 +578,6 @@ class AiFeatureManager @Inject constructor(
 data class TranslatedBlock(
 	val text: String,
 	val boundingBox: RectF,
-	val backgroundColor: Int = Color.WHITE
+	val backgroundColor: Int = Color.WHITE,
+	val outline: List<PointF>? = null
 )
