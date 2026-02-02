@@ -61,9 +61,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val paddingY: Float,
 		val yOffset: Float,
 		val backgroundColor: Int,
-		val customPath: Path? = null,
-		val isActionBubble: Boolean = false,
-		val inpaintedPatch: Bitmap? = null
+		val isActionBubble: Boolean = false
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
 
@@ -92,12 +90,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val refHeight = block.boundingBox.height() * REFERENCE_SCALE
 			if (refWidth <= 0 || refHeight <= 0) continue
 
-			val paddingX = (refWidth * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
-			val paddingY = (refHeight * 0.08f).coerceAtMost(40f * REFERENCE_SCALE).coerceAtLeast(4f * REFERENCE_SCALE)
+			// Professional adaptive padding
+			val paddingX = (refWidth * 0.10f).coerceAtMost(45f * REFERENCE_SCALE).coerceAtLeast(6f * REFERENCE_SCALE)
+			val paddingY = (refHeight * 0.10f).coerceAtMost(45f * REFERENCE_SCALE).coerceAtLeast(6f * REFERENCE_SCALE)
 			
 			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
-			val diamondWidth = (availableWidth * 0.85f).toInt().coerceAtLeast(1)
+			
+			// DIAMOND TYPESETTING: Better fit for manga ovals
+			val diamondWidth = (availableWidth * 0.88f).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
 			var textSize = 44f * REFERENCE_SCALE
@@ -114,11 +115,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				val currentWidth = if (maxWordWidth <= diamondWidth) diamondWidth else availableWidth
 				
-				if (maxWordWidth > currentWidth && textSize > minTextSize) {
-					textSize -= step
-					continue
-				}
-
+												if (maxWordWidth > currentWidth && textSize > minTextSize) {
+													textSize -= step
+													continue
+												}
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, currentWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 1.0f)
@@ -127,15 +127,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL)
 
 				val layout = builder.build()
-				if (layout.height <= availableHeight) {
-					finalLayout = layout
-					finalTextSize = textSize
-					finalYOffset = (availableHeight - layout.height) / 2f
-					break
-				}
-				textSize -= step
-			}
-
+												if (layout.height <= availableHeight) {
+													finalLayout = layout
+													finalTextSize = textSize
+													finalYOffset = (availableHeight - layout.height) / 2f
+													break
+												}
+												textSize -= step
+											}
 			if (finalLayout == null) {
 				paint.textSize = minTextSize
 				finalLayout = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
@@ -146,15 +145,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
-			val path = block.outline?.let { points ->
-				if (points.isEmpty()) return@let null
-				Path().apply {
-					moveTo(points[0].x, points[0].y)
-					for (i in 1 until points.size) lineTo(points[i].x, points[i].y)
-					close()
-				}
-			}
-
 			preparedBlocks.add(PreparedBlock(
 				sourceRect = block.boundingBox,
 				layout = finalLayout,
@@ -163,9 +153,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paddingY = paddingY / REFERENCE_SCALE,
 				yOffset = finalYOffset / REFERENCE_SCALE,
 				backgroundColor = block.backgroundColor,
-				customPath = path,
-				isActionBubble = block.isActionBubble,
-				inpaintedPatch = block.inpaintedPatch
+				isActionBubble = block.isActionBubble
 			))
 		}
 	}
@@ -176,7 +164,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
 		val currentScale = ssiv.scale
-		val vTrans = ssiv.sourceToViewCoord(0f, 0f) ?: PointF(0f, 0f)
 
 		for (prep in preparedBlocks) {
 			val sourceRect = prep.sourceRect
@@ -186,33 +173,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val viewWidth = br.x - tl.x
 			val viewHeight = br.y - tl.y
 
-			// Draw background (Inpainted Patch or Path)
-			if (isSeamlessMode && prep.inpaintedPatch != null) {
-				val matrix = Matrix()
-				matrix.postScale(currentScale, currentScale)
-				matrix.postTranslate(tl.x, tl.y)
-				canvas.drawBitmap(prep.inpaintedPatch, matrix, null)
-			} else {
-				val paint = if (isSeamlessMode) seamlessPaint else backgroundPaint
-				paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
-				if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
+			// Professional Rounded Rectangle Erasure (No Distortion)
+			val paint = if (isSeamlessMode) seamlessPaint else backgroundPaint
+			paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+			if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
 
-				if (prep.customPath != null) {
-					canvas.save()
-					val matrix = Matrix()
-					matrix.postScale(currentScale, currentScale)
-					matrix.postTranslate(vTrans.x, vTrans.y)
-					val drawPath = Path(prep.customPath)
-					drawPath.transform(matrix)
-					canvas.drawPath(drawPath, paint)
-					canvas.restore()
-				} else {
-					val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
-					canvas.drawRoundRect(tl.x, tl.y, br.x, br.y, cornerRadius, cornerRadius, paint)
-				}
-			}
+			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.45f).coerceAtMost(70f)
+			canvas.drawRoundRect(tl.x, tl.y, br.x, br.y, cornerRadius, cornerRadius, paint)
 
-			// Draw text
+			// Render Translation Text
 			canvas.save()
 			canvas.translate(tl.x + prep.paddingX * currentScale, tl.y + prep.paddingY * currentScale + prep.yOffset * currentScale)
 			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)

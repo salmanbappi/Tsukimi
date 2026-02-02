@@ -81,10 +81,9 @@ class AiFeatureManager @Inject constructor(
 		}
 
 		mutex.withLock {
-			// Double-check cache after acquiring lock
 			translationCache.get(pageKey)?.let { return@withLock it }
 
-			// PRO OCR OPTIMIZATION: Higher resolution for small/thin manga text
+			// High resolution for small text detection
 			val maxDim = 2048 
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
@@ -100,7 +99,7 @@ class AiFeatureManager @Inject constructor(
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 			val visionText = textRecognizer.process(inputImage).await()
 			
-			// PASS 2: High Contrast Recovery for missed bubbles (stylized/faint text)
+			// PASS 2: Recovery pass with High Contrast for faint/stylized text
 			val recoveryBitmap = enhanceForOcr(ocrBitmap)
 			val recoveryText = textRecognizer.process(InputImage.fromBitmap(recoveryBitmap, 0)).await()
 			
@@ -118,14 +117,15 @@ class AiFeatureManager @Inject constructor(
 
 			val result = mutableListOf<TranslatedBlock>()
 			
-			try {
-				// Combine and deduplicate detections from both passes
-				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks)
+try {
+				// Combine both passes and deduplicate by position
+				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks) // Combine both passes and deduplicate by position
+					.filter { (it.confidence ?: 0f) > 0.3f } // Filter noise
 					.distinctBy { "${it.boundingBox?.centerX()}_${it.boundingBox?.centerY()}" }
 				
 				val mergedBlocks = mergeNearbyBlocks(allBlocks, ocrBitmap)
 
-				// CONTEXTUAL BATCH TRANSLATION: Engines now understand whole-page flow
+				// Contextual batch translation
 				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
 				if (cleanTexts.isEmpty()) return@withLock emptyList<TranslatedBlock>()
 
@@ -158,52 +158,37 @@ class AiFeatureManager @Inject constructor(
 							null
 						}
 
+						
 							if (translatedText.isNullOrBlank()) return@async null
 
 							val bubbleResult = detectBubbleBounds(it.boundingBox!!, ocrBitmap)
 							val bubbleRect = bubbleResult.bounds
 							
-							// Map back to original captured bitmap coordinates
 							val rectInOriginalBitmap = RectF(
 								bubbleRect.left / ocrScale,
 								bubbleRect.top / ocrScale,
 								bubbleRect.right / ocrScale,
-							bubbleRect.bottom / ocrScale
-						)
+								bubbleRect.bottom / ocrScale
+							)
 
-							// ABSOLUTE IMAGE ANCHORING
 							val sourceRect = RectF(
 								(rectInOriginalBitmap.left - vTranslateX) / viewScale,
 								(rectInOriginalBitmap.top - vTranslateY) / viewScale,
 								(rectInOriginalBitmap.right - vTranslateX) / viewScale,
 								(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
-						)
+							)
 							
 							if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 								rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
 							val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
-							val outline = generateOutline(bubbleResult.mask, ocrBitmap.width, bubbleRect)
-							
-							// PRO AI ERASURE: Generate a diffusion-inpainted patch for seamless look
-							val patch = generateInpaintedPatch(ocrBitmap, bubbleResult.mask, ocrBitmap.width, bubbleRect)
-
-							val sourceOutline = outline.map { p: PointF ->
-								PointF(
-									(p.x / ocrScale - vTranslateX) / viewScale,
-									(p.y / ocrScale - vTranslateY) / viewScale
-								)
-							}
-
 							val isSpiky = detectIfSpiky(bubbleResult.mask, ocrBitmap.width, bubbleRect)
 
 							TranslatedBlock(
 								text = translatedText,
 								boundingBox = sourceRect,
 								backgroundColor = backgroundColor,
-							outline = sourceOutline,
-							isActionBubble = isSpiky,
-						inpaintedPatch = patch
+							isActionBubble = isSpiky
 						)
 					}
 				}
@@ -237,75 +222,12 @@ class AiFeatureManager @Inject constructor(
 			val p = pixels[i]
 			val r = Color.red(p); val g = Color.green(p); val b = Color.blue(p)
 			val lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-			// Boost contrast: make text darker, backgrounds whiter
-			if (lum > 160) pixels[i] = Color.WHITE
-			else if (lum < 120) pixels[i] = Color.BLACK
+			// High Contrast: Pure Black text on Pure White background
+			if (lum > 170) pixels[i] = Color.WHITE
+			else if (lum < 110) pixels[i] = Color.BLACK
 		}
 		output.setPixels(pixels, 0, width, 0, 0, width, height)
 		return output
-	}
-
-	private fun generateInpaintedPatch(bitmap: Bitmap, mask: BitSet, width: Int, bounds: Rect): Bitmap {
-		val patchW = bounds.width().coerceAtLeast(1)
-		val patchH = bounds.height().coerceAtLeast(1)
-		val patch = Bitmap.createBitmap(patchW, patchH, Bitmap.Config.ARGB_8888)
-		val canvas = Canvas(patch)
-		
-		canvas.drawBitmap(bitmap, Rect(bounds.left, bounds.top, bounds.right, bounds.bottom), Rect(0, 0, patchW, patchH), null)
-		
-		val pixels = IntArray(patchW * patchH)
-		patch.getPixels(pixels, 0, patchW, 0, 0, patchW, patchH)
-		
-		val isMasked = BooleanArray(patchW * patchH)
-		for (y in 0 until patchH) {
-			val my = y + bounds.top
-			for (x in 0 until patchW) {
-				val mx = x + bounds.left
-				if (mask.get(my * width + mx)) {
-					isMasked[y * patchW + x] = true
-				}
-			}
-		}
-		
-		// 2-Pass Diffusion (AI Eraser Simulation)
-		repeat(2) {
-			for (i in pixels.indices) {
-				if (isMasked[i]) {
-					val x = i % patchW; val y = i / patchW
-					var r = 0; var g = 0; var b = 0; var count = 0
-					val neighbors = intArrayOf(-1, 1, -patchW, patchW)
-					for (offset in neighbors) {
-						val ni = i + offset
-						if (ni in pixels.indices) {
-							val nx = ni % patchW; val ny = ni / patchW
-							if (Math.abs(nx - x) <= 1 && Math.abs(ny - y) <= 1) {
-								val p = pixels[ni]
-								r += Color.red(p); g += Color.green(p); b += Color.blue(p)
-								count++
-							}
-						}
-					}
-					if (count > 0) pixels[i] = Color.rgb(r/count, g/count, b/count)
-				}
-			}
-		}
-		
-		// Monochromatic noise for screentone/grain matching
-		val rnd = java.util.Random()
-		for (i in pixels.indices) {
-			if (isMasked[i]) {
-				val p = pixels[i]
-				val noise = rnd.nextInt(4) - 2
-				pixels[i] = Color.rgb(
-					(Color.red(p) + noise).coerceIn(0, 255),
-					(Color.green(p) + noise).coerceIn(0, 255),
-					(Color.blue(p) + noise).coerceIn(0, 255)
-				)
-			}
-		}
-		
-		patch.setPixels(pixels, 0, patchW, 0, 0, patchW, patchH)
-		return patch
 	}
 
 	private suspend fun translateBatchWithDeepL(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
@@ -316,7 +238,7 @@ class AiFeatureManager @Inject constructor(
 		val body = buildJsonObject {
 			putJsonArray("text") { texts.forEach { add(it) } }
 			put("target_lang", targetLanguage.uppercase())
-			put("context", "This is text from a manga/comic page. Maintain natural dialogue flow.")
+			put("context", "This is text from a manga page. Dialogue should be natural.")
 		}
 		
 		val request = Request.Builder()
@@ -354,7 +276,7 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain consistent tone across all texts as they appear on the same page. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
+					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain dialogue context across all texts.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -418,7 +340,7 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise and preserve the tone. Only return the translated text.")
+					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Concise dialogue only.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -459,14 +381,14 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>, bitmap: Bitmap? = null): List<IntermediateBlock> {
+	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>, bitmap: Bitmap): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		// Sort by Manga reading order: Right-to-Left columns, Top-to-Bottom within columns
-		val sorted = blocks.sortedWith { b1, b2 ->
+		val sorted = blocks.sortedWith {
+			b1,
+			b2 ->
 			val r1 = b1.boundingBox ?: return@sortedWith 0
 			val r2 = b2.boundingBox ?: return@sortedWith 0
-			
 			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 2) {
 				r1.top.compareTo(r2.top)
 			} else {
@@ -501,10 +423,9 @@ class AiFeatureManager @Inject constructor(
 		return merged
 	}
 
-	private fun areBlocksInSameBubble(r1: Rect, r2: Rect, bitmap: Bitmap? = null): Boolean {
+	private fun areBlocksInSameBubble(r1: Rect, r2: Rect, bitmap: Bitmap): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val avgWidth = (r1.width() + r2.width()) / 2f
-		
 		val horizontalThreshold = (avgWidth * 1.2f).toInt().coerceAtLeast(40)
 		val verticalThreshold = (avgHeight * 1.8f).toInt().coerceAtLeast(70)
 		
@@ -513,22 +434,16 @@ class AiFeatureManager @Inject constructor(
 		
 		if (Rect.intersects(expanded, r2)) {
 			// Ink Check: If there is a solid line between blocks, separate them
-			if (bitmap != null) {
-				val cx1 = r1.centerX()
-				val cy1 = r1.centerY()
-				val cx2 = r2.centerX()
-				val cy2 = r2.centerY()
-				val steps = 10
-				var darkCount = 0
-				for (i in 1 until steps) {
-					val sx = cx1 + (cx2 - cx1) * i / steps
-					val sy = cy1 + (cy2 - cy1) * i / steps
-					if (!isPixelLight(bitmap, sx, sy)) {
-						darkCount++
-					}
-				}
-				if (darkCount > steps * 0.3) return false
+			val cx1 = r1.centerX(); val cy1 = r1.centerY()
+			val cx2 = r2.centerX(); val cy2 = r2.centerY()
+			val steps = 10
+			var darkCount = 0
+			for (i in 1 until steps) {
+				val sx = cx1 + (cx2 - cx1) * i / steps
+				val sy = cy1 + (cy2 - cy1) * i / steps
+				if (!isPixelLight(bitmap, sx, sy)) darkCount++
 			}
+			if (darkCount > steps * 0.3) return false
 			return true
 		}
 		return false
@@ -536,47 +451,8 @@ class AiFeatureManager @Inject constructor(
 	
 	private data class BubbleResult(val bounds: Rect, val mask: BitSet)
 
-	private fun generateOutline(mask: BitSet, width: Int, bounds: Rect): List<PointF> {
-		val outline = mutableListOf<PointF>()
-		val step = 4 
-		for (x in bounds.left..bounds.right step step) {
-			for (y in bounds.top..bounds.bottom) {
-				if (mask.get(y * width + x)) {
-					outline.add(PointF(x.toFloat(), y.toFloat()))
-					break
-				}
-			}
-		}
-		for (y in bounds.top..bounds.bottom step step) {
-			for (x in bounds.right downTo bounds.left) {
-				if (mask.get(y * width + x)) {
-					outline.add(PointF(x.toFloat(), y.toFloat()))
-					break
-				}
-			}
-		}
-		for (x in bounds.right downTo bounds.left step step) {
-			for (y in bounds.bottom downTo bounds.top) {
-				if (mask.get(y * width + x)) {
-					outline.add(PointF(x.toFloat(), y.toFloat()))
-					break
-				}
-			}
-		}
-		for (y in bounds.bottom downTo bounds.top step step) {
-			for (x in bounds.left..bounds.right) {
-				if (mask.get(y * width + x)) {
-					outline.add(PointF(x.toFloat(), y.toFloat()))
-					break
-				}
-			}
-		}
-		return outline
-	}
-
 	private fun detectIfSpiky(mask: BitSet, width: Int, bounds: Rect): Boolean {
-		val centerX = bounds.centerX()
-		val centerY = bounds.centerY()
+		val centerX = bounds.centerX(); val centerY = bounds.centerY()
 		val radii = mutableListOf<Double>()
 		val step = 10
 		for (x in bounds.left..bounds.right step step) {
@@ -589,8 +465,7 @@ class AiFeatureManager @Inject constructor(
 						isEdge = true
 					}
 					if (isEdge) {
-						val dx = (x - centerX).toDouble()
-						val dy = (y - centerY).toDouble()
+						val dx = (x - centerX).toDouble(); val dy = (y - centerY).toDouble()
 						radii.add(Math.sqrt(dx * dx + dy * dy))
 					}
 				}
@@ -668,7 +543,7 @@ class AiFeatureManager @Inject constructor(
 								Math.abs(ny - textRect.centerY()) > maxDistY) continue
 							visited.set(nIdx); queue.add(nIdx)
 						}
-					}
+						}
 				}
 			}
 			return BubbleResult(Rect(minX, minY, maxX, maxY), visited)
@@ -719,7 +594,5 @@ data class TranslatedBlock(
 	val text: String,
 	val boundingBox: RectF,
 	val backgroundColor: Int = Color.WHITE,
-	val outline: List<PointF>? = null,
-	val isActionBubble: Boolean = false,
-	val inpaintedPatch: Bitmap? = null
+	val isActionBubble: Boolean = false
 )
