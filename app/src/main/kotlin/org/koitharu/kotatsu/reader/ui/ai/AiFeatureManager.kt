@@ -117,14 +117,11 @@ class AiFeatureManager @Inject constructor(
 
 			val result = mutableListOf<TranslatedBlock>()
 			
-try {
-				// Combine both passes and deduplicate by position
-				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks) // Combine both passes and deduplicate by position
-					.filter { (it.confidence ?: 0f) > 0.3f } // Filter noise
+    try {
+				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks)
 					.distinctBy { "${it.boundingBox?.centerX()}_${it.boundingBox?.centerY()}" }
 				
 				val mergedBlocks = mergeNearbyBlocks(allBlocks, ocrBitmap)
-
 				// Contextual batch translation
 				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
 				if (cleanTexts.isEmpty()) return@withLock emptyList<TranslatedBlock>()
