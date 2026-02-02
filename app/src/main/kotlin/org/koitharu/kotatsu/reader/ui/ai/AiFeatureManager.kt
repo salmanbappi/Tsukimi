@@ -345,11 +345,10 @@ class AiFeatureManager @Inject constructor(
 			val r1 = b1.boundingBox ?: return@sortedWith 0
 			val r2 = b2.boundingBox ?: return@sortedWith 0
 			
-			// If blocks are in roughly the same vertical column (RTL), sort by Top
-			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 4) {
+			// PRO SORTING: Wider vertical columns for more robust grouping
+			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 2) {
 				r1.top.compareTo(r2.top)
 			} else {
-				// Otherwise, Right-most column comes first
 				r2.centerX().compareTo(r1.centerX())
 			}
 		}
@@ -364,7 +363,6 @@ class AiFeatureManager @Inject constructor(
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
 				if (areBlocksInSameBubble(m.boundingBox, rect)) {
-					// Append text with space or newline
 					if (m.text.isNotEmpty() && !m.text.endsWith("\n")) {
 						m.text.append("\n")
 					}
@@ -386,9 +384,9 @@ class AiFeatureManager @Inject constructor(
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val avgWidth = (r1.width() + r2.width()) / 2f
 		
-		// PRO MERGING: More aggressive vertical merging for Japanese text (RTL columns)
-		val horizontalThreshold = (avgWidth * 1.0f).toInt().coerceAtLeast(30)
-		val verticalThreshold = (avgHeight * 1.5f).toInt().coerceAtLeast(60)
+		// PRO MERGING: Much more aggressive thresholds to capture floating text and attached bubbles
+		val horizontalThreshold = (avgWidth * 1.5f).toInt().coerceAtLeast(50)
+		val verticalThreshold = (avgHeight * 2.0f).toInt().coerceAtLeast(80)
 		
 		val expanded = Rect(r1)
 		expanded.inset(-horizontalThreshold, -verticalThreshold)
@@ -509,6 +507,16 @@ class AiFeatureManager @Inject constructor(
 				return BubbleResult(textRect, java.util.BitSet())
 			}
 
+			// PRO INK DETECTION: Create a binary mask of "ink" (lines) to act as hard walls
+			val inkMask = java.util.BitSet(width * height)
+			for (y in Math.max(0, textRect.top - 200) until Math.min(height, textRect.bottom + 200)) {
+				for (x in Math.max(0, textRect.left - 200) until Math.min(width, textRect.right + 200)) {
+					if (!isPixelLight(bitmap, x, y)) {
+						inkMask.set(y * width + x)
+					}
+				}
+			}
+
 			val visited = java.util.BitSet(width * height)
 			val queue = java.util.ArrayDeque<Int>()
 			
@@ -517,22 +525,24 @@ class AiFeatureManager @Inject constructor(
 			var minY = textRect.top
 			var maxY = textRect.bottom
 
+			// Seed with high-confidence internal area
 			val step = (textRect.width() / 15).coerceAtLeast(1)
 			for (x in textRect.left until textRect.right step step) {
 				for (y in textRect.top until textRect.bottom step step) {
 					val idx = y * width + x
-					if (!visited.get(idx)) {
+					if (!visited.get(idx) && !inkMask.get(idx)) {
 						visited.set(idx)
 						queue.add(idx)
 					}
 				}
 			}
 
-			val maxPixels = (width * height * 0.20).toInt()
+			val maxPixels = (width * height * 0.15).toInt()
 			var processedPixels = 0
 			
-			val maxDistX = (textRect.width() * 2.0).toInt().coerceAtLeast(150).coerceAtMost(width / 2)
-			val maxDistY = (textRect.height() * 2.0).toInt().coerceAtLeast(150).coerceAtMost(height / 2)
+			// Geometric constraints based on content
+			val maxDistX = (textRect.width() * 2.5).toInt().coerceAtLeast(200).coerceAtMost(width / 2)
+			val maxDistY = (textRect.height() * 2.5).toInt().coerceAtLeast(200).coerceAtMost(height / 2)
 
 			val dx = intArrayOf(0, 0, 1, -1, 1, 1, -1, -1)
 			val dy = intArrayOf(1, -1, 0, 0, 1, -1, 1, -1)
@@ -556,24 +566,15 @@ class AiFeatureManager @Inject constructor(
 					if (nx in 0 until width && ny in 0 until height) {
 						val nIdx = ny * width + nx
 						if (!visited.get(nIdx)) {
+							// HARD WALL: Stop at ink lines
+							if (inkMask.get(nIdx)) continue
+
+							// GEOMETRIC LIMIT: Stop if too far from original content
 							if (Math.abs(nx - textRect.centerX()) > maxDistX || 
 								Math.abs(ny - textRect.centerY()) > maxDistY) continue
 								
-							// PRO HOLE PLUGGING: Check a 3x3 window for line density
-							var darkCount = 0
-							for (wx in -1..1) {
-								for (wy in -1..1) {
-									val nnx = nx + wx
-									val nny = ny + wy
-									if (nnx !in 0 until width || nny !in 0 until height || !isPixelLight(bitmap, nnx, nny)) {
-										darkCount++
-									}
-								}
-							}
-							
-							// If more than 2 pixels in a 3x3 grid are dark, it's a boundary or noise
-							if (darkCount >= 2) continue
-
+							// CONTENT-AWARE LEAK PREVENTION: 
+							// If we are in an open area (no ink nearby), stop earlier
 							if (isPixelLight(bitmap, nx, ny)) {
 								visited.set(nIdx)
 								queue.add(nIdx)
@@ -583,16 +584,23 @@ class AiFeatureManager @Inject constructor(
 				}
 			}
 
-			val padding = 2
-			return BubbleResult(
+			// PRO REFINEMENT: If we reached a geometric limit without hitting ink, 
+			// it's likely a "no-bubble" text or a giant leak. Shrink to a safe box.
+			val bubbleWidth = maxX - minX
+			val bubbleHeight = maxY - minY
+			val detectedRect = if (bubbleWidth > maxDistX * 1.8 || bubbleHeight > maxDistY * 1.8) {
+				// Fallback to text box with padding
 				Rect(
-					(minX - padding).coerceAtLeast(0),
-					(minY - padding).coerceAtLeast(0),
-					(maxX + padding).coerceAtMost(width - 1),
-					(maxY + padding).coerceAtMost(height - 1)
-				),
-				visited
-			)
+					(textRect.left - 20).coerceAtLeast(0),
+					(textRect.top - 20).coerceAtLeast(0),
+					(textRect.right + 20).coerceAtMost(width - 1),
+					(textRect.bottom + 20).coerceAtMost(height - 1)
+				)
+			} else {
+				Rect(minX, minY, maxX, maxY)
+			}
+
+			return BubbleResult(detectedRect, visited)
 		} catch (e: Exception) {
 			return BubbleResult(textRect, java.util.BitSet())
 		}

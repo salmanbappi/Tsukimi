@@ -229,20 +229,41 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 						paint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
 						if (isSeamlessMode) paint.alpha = 255 else paint.alpha = 240
 			
-									if (prep.customPath != null) {
-										// We need to scale the source-coordinate path to view coordinates
-										canvas.save()
-										val matrix = Matrix()
-										// Map source points directly to view using SSIV's scale and translation
-										val vTrans = ssiv.sourceToViewCoord(0f, 0f) ?: PointF(0f, 0f)
-										matrix.postScale(currentScale, currentScale)
-										matrix.postTranslate(vTrans.x, vTrans.y)
-										
-										val drawPath = Path(prep.customPath)
-										drawPath.transform(matrix)
-										canvas.drawPath(drawPath, paint)
-										canvas.restore()
-									} else {							// Fallback to rounded rect if no custom path available
+												if (prep.customPath != null) {
+			
+													// We need to scale the source-coordinate path to view coordinates
+			
+													canvas.save()
+			
+													val matrix = Matrix()
+			
+													// Map source points directly to view using SSIV's scale and translation
+			
+													val vTrans = ssiv.sourceToViewCoord(0f, 0f) ?: PointF(0f, 0f)
+			
+													matrix.postScale(currentScale, currentScale)
+			
+													matrix.postTranslate(vTrans.x, vTrans.y)
+			
+													
+			
+													val drawPath = Path(prep.customPath)
+			
+													drawPath.transform(matrix)
+			
+													
+			
+													// PRO INK PRESERVATION: We already have the bubble shape.
+			
+													// To avoid breaking borders, we draw the path but we could also use PorterDuff to mask.
+			
+													// For now, drawing the exact Path from BFS is already much safer than a rectangle.
+			
+													canvas.drawPath(drawPath, paint)
+			
+													canvas.restore()
+			
+												} else {							// Fallback to rounded rect if no custom path available
 							val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
 							canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, paint)
 						}
