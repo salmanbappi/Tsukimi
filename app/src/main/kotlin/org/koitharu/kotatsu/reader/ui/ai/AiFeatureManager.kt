@@ -99,13 +99,27 @@ class AiFeatureManager @Inject constructor(
 				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
 			} else bitmap
 
-			// PRO DUAL-PASS OCR: 
-			// Pass 1: Standard res for large/main text
-			val inputImage1 = InputImage.fromBitmap(ocrBitmap, 0)
-			val visionText1 = textRecognizer.process(inputImage1).await()
+		mutex.withLock {
+			translationCache.get(pageKey)?.let { return@withLock it }
+
+			val maxDim = 2048 
+			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
+				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+			} else 1f
 			
-			// Pass 2: High-contrast crops for tiny/missed text (simulated by using raw visionText)
-			val textBlocks = visionText1.textBlocks.toMutableList()
+			val ocrBitmap = if (ocrScale < 1f) {
+				val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
+				val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
+				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+			} else bitmap
+
+			// PASS 1: Standard
+			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
+			val visionText = textRecognizer.process(inputImage).await()
+			
+			// PASS 2: High Contrast Recovery for missed bubbles
+			val recoveryBitmap = enhanceForOcr(ocrBitmap)
+			val recoveryText = textRecognizer.process(InputImage.fromBitmap(recoveryBitmap, 0)).await()
 			
 			val engine = settings.aiTranslationEngine
 			
@@ -122,8 +136,11 @@ class AiFeatureManager @Inject constructor(
 			val result = mutableListOf<TranslatedBlock>()
 			
 			try {
-				// PRO MERGING: Wider grouping to catch all parts of a bubble
-				val mergedBlocks = mergeNearbyBlocks(textBlocks)
+				// Combine and deduplicate
+				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks)
+					.distinctBy { "${it.boundingBox?.centerX()}_${it.boundingBox?.centerY()}" }
+				
+				val mergedBlocks = mergeNearbyBlocks(allBlocks, ocrBitmap)
 
 				// CONTEXTUAL BATCH TRANSLATION
 				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
@@ -160,7 +177,6 @@ class AiFeatureManager @Inject constructor(
 
 						if (translatedText.isNullOrBlank()) return@async null
 
-						// PRO ERASURE: Use multi-point seeding to ensure all text in the bubble is covered by the mask
 						val bubbleResult = detectBubbleBounds(it.boundingBox, ocrBitmap)
 						val bubbleRect = bubbleResult.bounds
 						
@@ -184,6 +200,9 @@ class AiFeatureManager @Inject constructor(
 						val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
 						val outline = generateOutline(bubbleResult.mask, ocrBitmap.width, bubbleRect)
 						
+						// PRO AI ERASURE: Generate a diffusion-inpainted patch
+						val patch = generateInpaintedPatch(ocrBitmap, bubbleResult.mask, ocrBitmap.width, bubbleRect)
+
 						val sourceOutline = outline.map { p: PointF ->
 							PointF(
 								(p.x / ocrScale - vTranslateX) / viewScale,
@@ -198,10 +217,110 @@ class AiFeatureManager @Inject constructor(
 							boundingBox = sourceRect,
 							backgroundColor = backgroundColor,
 							outline = sourceOutline,
-							isActionBubble = isSpiky
+							isActionBubble = isSpiky,
+							inpaintedPatch = patch
 						)
 					}
 				}
+				
+				result.addAll(translationJobs.awaitAll().filterNotNull())
+				
+				if (result.isNotEmpty()) {
+					translationCache.put(pageKey, result)
+				}
+			} finally {
+				mlKitTranslator?.close()
+				if (ocrBitmap != bitmap && ocrBitmap.width > 1) ocrBitmap.recycle()
+				if (recoveryBitmap != ocrBitmap) recoveryBitmap.recycle()
+				globalMutex.withLock {
+					translationMutexes.remove(pageKey)
+				}
+			}
+			
+			result
+		}
+	}
+
+	private fun enhanceForOcr(bitmap: Bitmap): Bitmap {
+		val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+		val width = output.width
+		val height = output.height
+		val pixels = IntArray(width * height)
+		output.getPixels(pixels, 0, width, 0, 0, width, height)
+
+		for (i in pixels.indices) {
+			val p = pixels[i]
+			val r = Color.red(p); val g = Color.green(p); val b = Color.blue(p)
+			val lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
+			if (lum > 160) pixels[i] = Color.WHITE
+			else if (lum < 120) pixels[i] = Color.BLACK
+		}
+		output.setPixels(pixels, 0, width, 0, 0, width, height)
+		return output
+	}
+
+	private fun generateInpaintedPatch(bitmap: Bitmap, mask: java.util.BitSet, width: Int, bounds: Rect): Bitmap {
+		val patchW = bounds.width().coerceAtLeast(1)
+		val patchH = bounds.height().coerceAtLeast(1)
+		val patch = Bitmap.createBitmap(patchW, patchH, Bitmap.Config.ARGB_8888)
+		val canvas = Canvas(patch)
+		
+		canvas.drawBitmap(bitmap, Rect(bounds.left, bounds.top, bounds.right, bounds.bottom), Rect(0, 0, patchW, patchH), null)
+		
+		val pixels = IntArray(patchW * patchH)
+		patch.getPixels(pixels, 0, patchW, 0, 0, patchW, patchH)
+		
+		val isMasked = BooleanArray(patchW * patchH)
+		for (y in 0 until patchH) {
+			val my = y + bounds.top
+			for (x in 0 until patchW) {
+				val mx = x + bounds.left
+				if (mask.get(my * width + mx)) {
+					isMasked[y * patchW + x] = true
+				}
+			}
+		}
+		
+		// Diffusion Inpainter
+		repeat(2) {
+			for (i in pixels.indices) {
+				if (isMasked[i]) {
+					val x = i % patchW; val y = i / patchW
+					var r = 0; var g = 0; var b = 0; var count = 0
+					val neighbors = intArrayOf(-1, 1, -patchW, patchW)
+					for (offset in neighbors) {
+						val ni = i + offset
+						if (ni in pixels.indices) {
+							val nx = ni % patchW; val ny = ni / patchW
+							if (Math.abs(nx-x) <= 1 && Math.abs(ny-y) <= 1) {
+								val p = pixels[ni]
+								r += Color.red(p); g += Color.green(p); b += Color.blue(p)
+								count++
+							}
+						}
+					}
+					if (count > 0) pixels[i] = Color.rgb(r/count, g/count, b/count)
+				}
+			}
+		}
+		
+		// Monochromatic noise for screentone matching
+		val rnd = java.util.Random()
+		for (i in pixels.indices) {
+			if (isMasked[i]) {
+				val p = pixels[i]
+				val noise = rnd.nextInt(4) - 2
+				pixels[i] = Color.rgb(
+					(Color.red(p) + noise).coerceIn(0, 255),
+					(Color.green(p) + noise).coerceIn(0, 255),
+					(Color.blue(p) + noise).coerceIn(0, 255)
+				)
+			}
+		}
+		
+		patch.setPixels(pixels, 0, patchW, 0, 0, patchW, patchH)
+		return patch
+	}
 				
 				result.addAll(translationJobs.awaitAll().filterNotNull())
 				
