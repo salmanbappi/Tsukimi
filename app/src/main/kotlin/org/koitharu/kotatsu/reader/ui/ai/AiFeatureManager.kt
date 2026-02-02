@@ -34,7 +34,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.BitSet
 
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -83,8 +82,8 @@ class AiFeatureManager @Inject constructor(
 		mutex.withLock {
 			translationCache.get(pageKey)?.let { return@withLock it }
 
-			// High resolution for small text detection
-			val maxDim = 2048 
+			// SPEED: Single pass high-res OCR
+			val maxDim = 1600
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -95,16 +94,10 @@ class AiFeatureManager @Inject constructor(
 				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
 			} else bitmap
 
-			// PASS 1: Standard OCR
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 			val visionText = textRecognizer.process(inputImage).await()
 			
-			// PASS 2: Recovery pass with High Contrast for faint/stylized text
-			val recoveryBitmap = enhanceForOcr(ocrBitmap)
-			val recoveryText = textRecognizer.process(InputImage.fromBitmap(recoveryBitmap, 0)).await()
-			
 			val engine = settings.aiTranslationEngine
-			
 			val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
 				val options = TranslatorOptions.Builder()
 					.setSourceLanguage(TranslateLanguage.JAPANESE)
@@ -117,55 +110,48 @@ class AiFeatureManager @Inject constructor(
 
 			val result = mutableListOf<TranslatedBlock>()
 			
-    try {
-				val allBlocks = (visionText.textBlocks + recoveryText.textBlocks)
-					.distinctBy { "${it.boundingBox?.centerX()}_${it.boundingBox?.centerY()}" }
-				
-				val mergedBlocks = mergeNearbyBlocks(allBlocks, ocrBitmap)
-				// Contextual batch translation
+			try {
+				val textBlocks = visionText.textBlocks
+				// SPEED: Smart ink-aware merging
+				val mergedBlocks = mergeNearbyBlocks(textBlocks, ocrBitmap)
+
 				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
-				if (cleanTexts.isEmpty()) return@withLock emptyList<TranslatedBlock>()
-
-				val translatedTexts = try {
-					when (engine) {
-						TranslationEngine.GROQ -> translateBatchWithGroq(cleanTexts, targetLanguage)
-						TranslationEngine.DEEPL -> translateBatchWithDeepL(cleanTexts, targetLanguage)
-						else -> null
-					}
-				} catch (e: Exception) {
-					null
-				}
-
-				val translationJobs = mergedBlocks.mapIndexed { index, it ->
-					async {
-						val cleanText = cleanTexts[index]
-						if (cleanText.isBlank()) return@async null
-
-						val translatedText = translatedTexts?.getOrNull(index) ?: try {
-							if (engine == TranslationEngine.ML_KIT) {
-								mlKitTranslator?.translate(cleanText)?.await()
-							} else {
-								when (engine) {
-									TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-									TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
-									else -> null
-								}
-							}
-						} catch (e: Exception) {
-							null
+				if (cleanTexts.isNotEmpty()) {
+					val translatedTexts = try {
+						when (engine) {
+							TranslationEngine.GROQ -> translateBatchWithGroq(cleanTexts, targetLanguage)
+							TranslationEngine.DEEPL -> translateBatchWithDeepL(cleanTexts, targetLanguage)
+							else -> null
 						}
+					} catch (e: Exception) { null }
 
-						
-							if (translatedText.isNullOrBlank()) return@async null
+					val translationJobs = mergedBlocks.mapIndexed { index, it ->
+						async {
+							val cleanText = cleanTexts[index]
+							if (cleanText.isBlank()) return@async null
 
-							val bubbleResult = detectBubbleBounds(it.boundingBox!!, ocrBitmap)
-							val bubbleRect = bubbleResult.bounds
+							val translatedText = translatedTexts?.getOrNull(index) ?: try {
+								if (engine == TranslationEngine.ML_KIT) {
+									mlKitTranslator?.translate(cleanText)?.await()
+								} else {
+									when (engine) {
+										TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+										TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
+										else -> null
+									}
+								}
+							} catch (e: Exception) { null }
+
+								if (translatedText.isNullOrBlank()) return@async null
+
+							// STABILITY: Use refined box expansion that stops at ink barriers
+							val finalBox = expandToBubble(it.boundingBox!!, ocrBitmap)
 							
 							val rectInOriginalBitmap = RectF(
-								bubbleRect.left / ocrScale,
-								bubbleRect.top / ocrScale,
-								bubbleRect.right / ocrScale,
-								bubbleRect.bottom / ocrScale
+								finalBox.left / ocrScale,
+								finalBox.top / ocrScale,
+								finalBox.right / ocrScale,
+								finalBox.bottom / ocrScale
 							)
 
 							val sourceRect = RectF(
@@ -173,24 +159,22 @@ class AiFeatureManager @Inject constructor(
 								(rectInOriginalBitmap.top - vTranslateY) / viewScale,
 								(rectInOriginalBitmap.right - vTranslateX) / viewScale,
 								(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
-							)
+						)
 							
 							if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 								rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
-							val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
-							val isSpiky = detectIfSpiky(bubbleResult.mask, ocrBitmap.width, bubbleRect)
+							val backgroundColor = detectBackgroundColor(finalBox, ocrBitmap)
 
 							TranslatedBlock(
 								text = translatedText,
 								boundingBox = sourceRect,
-								backgroundColor = backgroundColor,
-							isActionBubble = isSpiky
+								backgroundColor = backgroundColor
 						)
+						}
 					}
+					result.addAll(translationJobs.awaitAll().filterNotNull())
 				}
-				
-				result.addAll(translationJobs.awaitAll().filterNotNull())
 				
 				if (result.isNotEmpty()) {
 					translationCache.put(pageKey, result)
@@ -198,398 +182,174 @@ class AiFeatureManager @Inject constructor(
 			} finally {
 				mlKitTranslator?.close()
 				if (ocrBitmap != bitmap && ocrBitmap.width > 1) ocrBitmap.recycle()
-				if (recoveryBitmap != ocrBitmap) recoveryBitmap.recycle()
 				globalMutex.withLock {
 					translationMutexes.remove(pageKey)
 				}
 			}
-			
 			result
 		}
 	}
 
-	private fun enhanceForOcr(bitmap: Bitmap): Bitmap {
-		val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-		val width = output.width
-		val height = output.height
-		val pixels = IntArray(width * height)
-		output.getPixels(pixels, 0, width, 0, 0, width, height)
+	private fun expandToBubble(textRect: Rect, bitmap: Bitmap): Rect {
+		val width = bitmap.width
+		val height = bitmap.height
+		var left = textRect.left; var right = textRect.right
+		var top = textRect.top; var bottom = textRect.bottom
+		
+		// Stop at ink lines or max 15% expansion
+		val limitX = (width * 0.15f).toInt()
+		val limitY = (height * 0.15f).toInt()
+		
+		while (left > 0 && (textRect.left - left) < limitX && isPixelLight(bitmap, left - 1, textRect.centerY())) left--
+		while (right < width - 1 && (right - textRect.right) < limitX && isPixelLight(bitmap, right + 1, textRect.centerY())) right++
+		while (top > 0 && (textRect.top - top) < limitY && isPixelLight(bitmap, textRect.centerX(), top - 1)) top--
+		while (bottom < height - 1 && (bottom - textRect.bottom) < limitY && isPixelLight(bitmap, textRect.centerX(), bottom + 1)) bottom++
+		
+		return Rect(left, top, right, bottom)
+	}
 
-		for (i in pixels.indices) {
-			val p = pixels[i]
-			val r = Color.red(p); val g = Color.green(p); val b = Color.blue(p)
-			val lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-			// High Contrast: Pure Black text on Pure White background
-			if (lum > 170) pixels[i] = Color.WHITE
-			else if (lum < 110) pixels[i] = Color.BLACK
-		}
-		output.setPixels(pixels, 0, width, 0, 0, width, height)
-		return output
+	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
+		val cx = rect.centerX(); val cy = rect.centerY()
+		// Sample a few points inside the expanded box but away from text
+		val sampleX = (rect.left + 5).coerceAtMost(bitmap.width - 1)
+		val sampleY = (rect.top + 5).coerceAtMost(bitmap.height - 1)
+		return bitmap.getPixel(sampleX, sampleY)
 	}
 
 	private suspend fun translateBatchWithDeepL(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
 		val apiKey = settings.deeplApiKey ?: return@withContext null
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
-		
 		val body = buildJsonObject {
 			putJsonArray("text") { texts.forEach { add(it) } }
 			put("target_lang", targetLanguage.uppercase())
-			put("context", "This is text from a manga page. Dialogue should be natural.")
 		}
-		
-		val request = Request.Builder()
-			.url(url)
-			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
-			.build()
-			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext null
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					jsonResult.jsonObject["translations"]?.jsonArray?.map { 
-						it.jsonObject["text"]?.jsonPrimitive?.content ?: "" 
-					}
+		val request = Request.Builder().url(url).addHeader("Authorization", "DeepL-Auth-Key $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType())).build()
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext null
+				json.parseToJsonElement(response.body?.string() ?: "").jsonObject["translations"]?.jsonArray?.map { 
+					it.jsonObject["text"]?.jsonPrimitive?.content ?: "" 
 				}
-			} catch (e: Exception) {
-				null
 			}
+		} catch (e: Exception) { null }
 	}
 
 	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
-		
-		val input = buildJsonObject {
-			putJsonArray("texts") {
-				texts.forEach { add(it) }
-			}
-		}
-
+		val input = buildJsonObject { putJsonArray("texts") { texts.forEach { add(it) } } }
 		val body = buildJsonObject {
 			put("model", "llama-3.1-8b-instant")
 			put("response_format", buildJsonObject { put("type", "json_object") })
 			putJsonArray("messages") {
-				add(buildJsonObject {
-					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain dialogue context across all texts.")
-				})
-				add(buildJsonObject {
-					put("role", "user")
-					put("content", input.toString())
-				})
+				add(buildJsonObject { put("role", "system"); put("content", "Professional manga translator.") })
+				add(buildJsonObject { put("role", "user"); put("content", input.toString()) })
 			}
 		}
-		
-		val request = Request.Builder()
-			.url("https://api.groq.com/openai/v1/chat/completions")
-			.addHeader("Authorization", "Bearer $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
-			.build()
-			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext null
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					val content = jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content ?: return@withContext null
-					val batchResult = json.parseToJsonElement(content).jsonObject["translations"]?.jsonArray
-					batchResult?.map { it.jsonPrimitive.content }
-				}
-			} catch (e: Exception) {
-				null
+		val request = Request.Builder().url("https://api.groq.com/openai/v1/chat/completions").addHeader("Authorization", "Bearer $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType())).build()
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext null
+				val content = json.parseToJsonElement(response.body?.string() ?: "").jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content ?: return@withContext null
+				json.parseToJsonElement(content).jsonObject["translations"]?.jsonArray?.map { it.jsonPrimitive.content }
 			}
+		} catch (e: Exception) { null }
 	}
 
 	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.deeplApiKey ?: return@withContext null
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
-		
-		val body = buildJsonObject {
-			putJsonArray("text") { add(text) }
-			put("target_lang", targetLanguage.uppercase())
-		}
-		
-		val request = Request.Builder()
-			.url(url)
-			.addHeader("Authorization", "DeepL-Auth-Key $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
-			.build()
-			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext null
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					jsonResult.jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content
-				}
-			} catch (e: Exception) {
-				null
+		val body = buildJsonObject { putJsonArray("text") { add(text) }; put("target_lang", targetLanguage.uppercase()) }
+		val request = Request.Builder().url(url).addHeader("Authorization", "DeepL-Auth-Key $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType())).build()
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext null
+				json.parseToJsonElement(response.body?.string() ?: "").jsonObject["translations"]?.jsonArray?.get(0)?.jsonObject?.get("text")?.jsonPrimitive?.content
 			}
+		} catch (e: Exception) { null }
 	}
 
 	private suspend fun translateWithGroq(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
-		
 		val body = buildJsonObject {
 			put("model", "llama-3.1-8b-instant")
 			putJsonArray("messages") {
-				add(buildJsonObject {
-					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Concise dialogue only.")
-				})
-				add(buildJsonObject {
-					put("role", "user")
-					put("content", text)
-				})
+				add(buildJsonObject { put("role", "system"); put("content", "Professional manga translator.") })
+				add(buildJsonObject { put("role", "user"); put("content", text) })
 			}
 		}
-		
-		val request = Request.Builder()
-			.url("https://api.groq.com/openai/v1/chat/completions")
-			.addHeader("Authorization", "Bearer $apiKey")
-			.post(body.toString().toRequestBody("application/json".toMediaType()))
-			.build()
-			
-			try {
-				client.newCall(request).execute().use { response ->
-					if (!response.isSuccessful) return@withContext null
-					val jsonResult = json.parseToJsonElement(response.body?.string() ?: "")
-					jsonResult.jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim()
-				}
-			} catch (e: Exception) {
-				null
+		val request = Request.Builder().url("https://api.groq.com/openai/v1/chat/completions").addHeader("Authorization", "Bearer $apiKey")
+			.post(body.toString().toRequestBody("application/json".toMediaType())).build()
+		try {
+			client.newCall(request).execute().use { response ->
+				if (!response.isSuccessful) return@withContext null
+				json.parseToJsonElement(response.body?.string() ?: "").jsonObject["choices"]?.jsonArray?.get(0)?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content?.trim()
 			}
+		} catch (e: Exception) { null }
 	}
 
-	private fun getLanguageName(code: String): String {
-		return when (code.lowercase()) {
-			"en" -> "English"
-			"ru" -> "Russian"
-			"es" -> "Spanish"
-			"fr" -> "French"
-			"de" -> "German"
-			"it" -> "Italian"
-			"ja" -> "Japanese"
-			"ko" -> "Korean"
-			"zh" -> "Chinese"
-			else -> code
-		}
+	private fun getLanguageName(code: String): String = when (code.lowercase()) {
+		"en" -> "English"; "ja" -> "Japanese"; else -> code
 	}
 
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>, bitmap: Bitmap): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
-
-		val sorted = blocks.sortedWith {
-			b1,
-			b2 ->
-			val r1 = b1.boundingBox ?: return@sortedWith 0
-			val r2 = b2.boundingBox ?: return@sortedWith 0
-			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 2) {
-				r1.top.compareTo(r2.top)
-			} else {
-				r2.centerX().compareTo(r1.centerX())
-			}
+		val sorted = blocks.sortedWith { b1, b2 ->
+			val r1 = b1.boundingBox ?: return@sortedWith 0; val r2 = b2.boundingBox ?: return@sortedWith 0
+			if (Math.abs(r1.centerX() - r2.centerX()) < (r1.width() + r2.width()) / 2) r1.top.compareTo(r2.top)
+			else r2.centerX().compareTo(r1.centerX())
 		}
-		
 		val merged = mutableListOf<IntermediateBlock>()
-
 		for (block in sorted) {
 			val rect = block.boundingBox ?: continue
-			val text = block.text
-
 			var isMerged = false
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
 				if (areBlocksInSameBubble(m.boundingBox, rect, bitmap)) {
-					if (m.text.isNotEmpty() && !m.text.endsWith("\n")) {
-						m.text.append("\n")
-					}
-					m.text.append(text)
-					m.boundingBox.union(rect)
-					isMerged = true
-					break
+					if (m.text.isNotEmpty() && !m.text.endsWith("\n")) m.text.append("\n")
+					m.text.append(block.text); m.boundingBox.union(rect); isMerged = true; break
 				}
 			}
-
-			if (!isMerged) {
-				merged.add(IntermediateBlock(StringBuilder(text), Rect(rect)))
-			}
+			if (!isMerged) merged.add(IntermediateBlock(StringBuilder(block.text), Rect(rect)))
 		}
 		return merged
 	}
 
 	private fun areBlocksInSameBubble(r1: Rect, r2: Rect, bitmap: Bitmap): Boolean {
-		val avgHeight = (r1.height() + r2.height()) / 2f
-		val avgWidth = (r1.width() + r2.width()) / 2f
-		val horizontalThreshold = (avgWidth * 1.2f).toInt().coerceAtLeast(40)
-		val verticalThreshold = (avgHeight * 1.8f).toInt().coerceAtLeast(70)
-		
-		val expanded = Rect(r1)
-		expanded.inset(-horizontalThreshold, -verticalThreshold)
-		
+		val avgHeight = (r1.height() + r2.height()) / 2f; val avgWidth = (r1.width() + r2.width()) / 2f
+		val hT = (avgWidth * 1.0f).toInt().coerceAtLeast(30); val vT = (avgHeight * 1.5f).toInt().coerceAtLeast(50)
+		val expanded = Rect(r1); expanded.inset(-hT, -vT)
 		if (Rect.intersects(expanded, r2)) {
-			// Ink Check: If there is a solid line between blocks, separate them
-			val cx1 = r1.centerX(); val cy1 = r1.centerY()
-			val cx2 = r2.centerX(); val cy2 = r2.centerY()
-			val steps = 10
-			var darkCount = 0
+			val cx1 = r1.centerX(); val cy1 = r1.centerY(); val cx2 = r2.centerX(); val cy2 = r2.centerY()
+			val steps = 10; var darkCount = 0
 			for (i in 1 until steps) {
-				val sx = cx1 + (cx2 - cx1) * i / steps
-				val sy = cy1 + (cy2 - cy1) * i / steps
-				if (!isPixelLight(bitmap, sx, sy)) darkCount++
+				if (!isPixelLight(bitmap, cx1 + (cx2 - cx1) * i / steps, cy1 + (cy2 - cy1) * i / steps)) darkCount++
 			}
-			if (darkCount > steps * 0.3) return false
-			return true
+			return darkCount <= steps * 0.3
 		}
 		return false
-	}
-	
-	private data class BubbleResult(val bounds: Rect, val mask: BitSet)
-
-	private fun detectIfSpiky(mask: BitSet, width: Int, bounds: Rect): Boolean {
-		val centerX = bounds.centerX(); val centerY = bounds.centerY()
-		val radii = mutableListOf<Double>()
-		val step = 10
-		for (x in bounds.left..bounds.right step step) {
-			for (y in bounds.top..bounds.bottom step step) {
-				if (mask.get(y * width + x)) {
-					var isEdge = false
-					if (x + 1 >= width || x - 1 < 0 || y + 1 >= (mask.size() / width) || y - 1 < 0 ||
-						!mask.get(y * width + (x + 1)) || !mask.get(y * width + (x - 1)) ||
-						!mask.get((y + 1) * width + x) || !mask.get((y - 1) * width + x)) {
-						isEdge = true
-					}
-					if (isEdge) {
-						val dx = (x - centerX).toDouble(); val dy = (y - centerY).toDouble()
-						radii.add(Math.sqrt(dx * dx + dy * dy))
-					}
-				}
-			}
-		}
-		if (radii.size < 10) return false
-		val avg = radii.average()
-		val variance = radii.map { Math.abs(it - avg) }.average()
-		return (variance / avg) > 0.18
-	}
-
-	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): BubbleResult {
-		try {
-			val width = bitmap.width
-			val height = bitmap.height
-			if (textRect.left < 0 || textRect.top < 0 || textRect.right > width || textRect.bottom > height) {
-				return BubbleResult(textRect, BitSet())
-			}
-			val inkMask = BitSet(width * height)
-			val searchArea = Rect(
-				(textRect.left - 400).coerceAtLeast(0),
-				(textRect.top - 400).coerceAtLeast(0),
-				(textRect.right + 400).coerceAtMost(width - 1),
-				(textRect.bottom + 400).coerceAtMost(height - 1)
-			)
-			for (y in searchArea.top..searchArea.bottom) {
-				for (x in searchArea.left..searchArea.right) {
-					if (!isPixelLight(bitmap, x, y)) {
-						inkMask.set(y * width + x)
-						if (x + 1 < width) inkMask.set(y * width + (x + 1))
-						if (x - 1 >= 0) inkMask.set(y * width + (x - 1))
-						if (y + 1 < height) inkMask.set((y + 1) * width + x)
-						if (y - 1 >= 0) inkMask.set((y - 1) * width + x)
-					}
-				}
-			}
-			val visited = BitSet(width * height)
-			val queue = java.util.ArrayDeque<Int>()
-			var minX = textRect.left; var maxX = textRect.right
-			var minY = textRect.top; var maxY = textRect.bottom
-			val stepX = (textRect.width() / 8).coerceAtLeast(1)
-			val stepY = (textRect.height() / 8).coerceAtLeast(1)
-			for (x in textRect.left..textRect.right step stepX) {
-				for (y in textRect.top..textRect.bottom step stepY) {
-					val idx = y * width + x
-					if (!visited.get(idx)) {
-						visited.set(idx); queue.add(idx)
-					}
-				}
-			}
-			val maxPixels = (width * height * 0.20).toInt()
-			var processedPixels = 0
-			val maxDistX = (textRect.width() * 2.5).toInt().coerceAtLeast(300).coerceAtMost(width / 2)
-			val maxDistY = (textRect.height() * 2.5).toInt().coerceAtLeast(300).coerceAtMost(height / 2)
-			val dx = intArrayOf(0, 0, 1, -1, 1, 1, -1, -1)
-			val dy = intArrayOf(1, -1, 0, 0, 1, -1, 1, -1)
-			while (queue.isNotEmpty() && processedPixels < maxPixels) {
-				val curr = queue.removeFirst()
-				processedPixels++
-				val cx = curr % width; val cy = curr / width
-				minX = Math.min(minX, cx); maxX = Math.max(maxX, cx)
-				minY = Math.min(minY, cy); maxY = Math.max(maxY, cy)
-				for (i in 0 until 8) {
-					val nx = cx + dx[i]; val ny = cy + dy[i]
-					if (nx in 0 until width && ny in 0 until height) {
-						val nIdx = ny * width + nx
-						if (!visited.get(nIdx)) {
-							if (inkMask.get(nIdx)) {
-								if (Math.abs(nx - textRect.centerX()) > textRect.width() / 2 ||
-									Math.abs(ny - textRect.centerY()) > textRect.height() / 2) {
-									continue
-								}
-							}
-							if (Math.abs(nx - textRect.centerX()) > maxDistX || 
-								Math.abs(ny - textRect.centerY()) > maxDistY) continue
-							visited.set(nIdx); queue.add(nIdx)
-						}
-						}
-				}
-			}
-			return BubbleResult(Rect(minX, minY, maxX, maxY), visited)
-		} catch (e: Exception) {
-			return BubbleResult(textRect, BitSet())
-		}
-	}
-
-	private fun detectBackgroundColorFromMask(mask: BitSet, bitmap: Bitmap): Int {
-		if (mask.isEmpty) return Color.WHITE
-		val width = bitmap.width
-		var r = 0L; var g = 0L; var b = 0L; var count = 0
-		val totalSet = mask.cardinality()
-		val sampleStep = (totalSet / 500).coerceAtLeast(1)
-		var idx = mask.nextSetBit(0)
-		var sampled = 0
-		while (idx >= 0 && sampled < 500) {
-			val pixel = bitmap.getPixel(idx % width, idx / width)
-			r += Color.red(pixel); g += Color.green(pixel); b += Color.blue(pixel)
-			count++; sampled++
-			var next = idx + 1
-			repeat(sampleStep - 1) { if (next >= 0) next = mask.nextSetBit(next + 1) }
-			idx = if (next >= 0) mask.nextSetBit(next) else -1
-		}
-		return if (count > 0) Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
-		else Color.WHITE
 	}
 
 	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {
 		if (x !in 0 until bitmap.width || y !in 0 until bitmap.height) return false
 		try {
 			val pixel = bitmap.getPixel(x, y)
-			val red = Color.red(pixel); val green = Color.green(pixel); val blue = Color.blue(pixel)
-			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+			val luminance = 0.299 * Color.red(pixel) + 0.587 * Color.green(pixel) + 0.114 * Color.blue(pixel)
 			return luminance >= 220 
-		} catch (e: Exception) {
-			return false
-		}
+		} catch (e: Exception) { return false }
 	}
 
-	private data class IntermediateBlock(
-		val text: StringBuilder,
-		val boundingBox: Rect
-	)
+	private data class IntermediateBlock(val text: StringBuilder, val boundingBox: Rect)
 }
 
 data class TranslatedBlock(
 	val text: String,
 	val boundingBox: RectF,
-	val backgroundColor: Int = Color.WHITE,
-	val isActionBubble: Boolean = false
+	val backgroundColor: Int = Color.WHITE
 )
