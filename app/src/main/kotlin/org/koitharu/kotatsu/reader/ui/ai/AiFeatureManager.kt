@@ -384,17 +384,41 @@ class AiFeatureManager @Inject constructor(
 		return merged
 	}
 
-	private fun areBlocksInSameBubble(r1: Rect, r2: Rect): Boolean {
+	private fun areBlocksInSameBubble(r1: Rect, r2: Rect, bitmap: Bitmap? = null): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val avgWidth = (r1.width() + r2.width()) / 2f
 		
-		// PRO MERGING: Much more aggressive thresholds to capture floating text and attached bubbles
-		val horizontalThreshold = (avgWidth * 1.5f).toInt().coerceAtLeast(50)
-		val verticalThreshold = (avgHeight * 2.0f).toInt().coerceAtLeast(80)
+		// PRO MERGING: Adaptive thresholds based on content
+		val horizontalThreshold = (avgWidth * 1.2f).toInt().coerceAtLeast(40)
+		val verticalThreshold = (avgHeight * 1.8f).toInt().coerceAtLeast(70)
 		
 		val expanded = Rect(r1)
 		expanded.inset(-horizontalThreshold, -verticalThreshold)
-		return Rect.intersects(expanded, r2)
+		
+		if (Rect.intersects(expanded, r2)) {
+			// PRO INK CHECK: If there is a solid ink line between blocks, DO NOT MERGE
+			if (bitmap != null) {
+				val cx1 = r1.centerX()
+				val cy1 = r1.centerY()
+				val cx2 = r2.centerX()
+				val cy2 = r2.centerY()
+				
+				// Sample points along the line between centers
+				val steps = 10
+				var darkCount = 0
+				for (i in 1 until steps) {
+					val sx = cx1 + (cx2 - cx1) * i / steps
+					val sy = cy1 + (cy2 - cy1) * i / steps
+					if (!isPixelLight(bitmap, sx, sy)) {
+						darkCount++
+					}
+				}
+				// If 30% of sampled path is dark ink, it's likely a bubble wall separating them
+				if (darkCount > steps * 0.3) return false
+			}
+			return true
+		}
+		return false
 	}
 	
 	private data class BubbleResult(val bounds: Rect, val mask: java.util.BitSet)
@@ -511,18 +535,23 @@ class AiFeatureManager @Inject constructor(
 				return BubbleResult(textRect, java.util.BitSet())
 			}
 
-			// PRO INK DETECTION: Pre-calculate ink boundaries
+			// PRO INK DETECTION: Pre-calculate ink boundaries with dilation to plug gaps
 			val inkMask = java.util.BitSet(width * height)
 			val searchArea = Rect(
-				(textRect.left - 300).coerceAtLeast(0),
-				(textRect.top - 300).coerceAtLeast(0),
-				(textRect.right + 300).coerceAtMost(width - 1),
-				(textRect.bottom + 300).coerceAtMost(height - 1)
+				(textRect.left - 400).coerceAtLeast(0),
+				(textRect.top - 400).coerceAtLeast(0),
+				(textRect.right + 400).coerceAtMost(width - 1),
+				(textRect.bottom + 400).coerceAtMost(height - 1)
 			)
 			for (y in searchArea.top..searchArea.bottom) {
 				for (x in searchArea.left..searchArea.right) {
 					if (!isPixelLight(bitmap, x, y)) {
+						// Set center and cross-neighbors to plug tiny gaps in lines
 						inkMask.set(y * width + x)
+						if (x + 1 < width) inkMask.set(y * width + (x + 1))
+						if (x - 1 >= 0) inkMask.set(y * width + (x - 1))
+						if (y + 1 < height) inkMask.set((y + 1) * width + x)
+						if (y - 1 >= 0) inkMask.set((y - 1) * width + x)
 					}
 				}
 			}
@@ -535,16 +564,12 @@ class AiFeatureManager @Inject constructor(
 			var minY = textRect.top
 			var maxY = textRect.bottom
 
-			// PRO MULTI-SEED: Seed from many points inside the text area to ensure full coverage
-			// This fixes the "text not erasing properly" issue by making sure the fill starts
-			// from multiple locations within the original Japanese characters.
+			// Seed from points inside text area
 			val stepX = (textRect.width() / 8).coerceAtLeast(1)
 			val stepY = (textRect.height() / 8).coerceAtLeast(1)
 			for (x in textRect.left..textRect.right step stepX) {
 				for (y in textRect.top..textRect.bottom step stepY) {
 					val idx = y * width + x
-					// Start fill even if the seed is dark (part of text), 
-					// but stop when we hit the bubble BORDER ink.
 					if (!visited.get(idx)) {
 						visited.set(idx)
 						queue.add(idx)
@@ -555,8 +580,8 @@ class AiFeatureManager @Inject constructor(
 			val maxPixels = (width * height * 0.20).toInt()
 			var processedPixels = 0
 			
-			val maxDistX = (textRect.width() * 2.5).toInt().coerceAtLeast(200).coerceAtMost(width / 2)
-			val maxDistY = (textRect.height() * 2.5).toInt().coerceAtLeast(200).coerceAtMost(height / 2)
+			val maxDistX = (textRect.width() * 2.5).toInt().coerceAtLeast(300).coerceAtMost(width / 2)
+			val maxDistY = (textRect.height() * 2.5).toInt().coerceAtLeast(300).coerceAtMost(height / 2)
 
 			val dx = intArrayOf(0, 0, 1, -1, 1, 1, -1, -1)
 			val dy = intArrayOf(1, -1, 0, 0, 1, -1, 1, -1)
@@ -580,10 +605,12 @@ class AiFeatureManager @Inject constructor(
 					if (nx in 0 until width && ny in 0 until height) {
 						val nIdx = ny * width + nx
 						if (!visited.get(nIdx)) {
-							// PRO BORDER DETECTION: Stop if we hit ink AND we are outside the initial text area
+							// HARD STOP: Hit the thickened ink wall
 							if (inkMask.get(nIdx)) {
-								if (nx < textRect.left || nx > textRect.right || ny < textRect.top || ny > textRect.bottom) {
-									continue 
+								// Only stop if we are outside the immediate text center
+								if (Math.abs(nx - textRect.centerX()) > textRect.width() / 2 ||
+									Math.abs(ny - textRect.centerY()) > textRect.height() / 2) {
+									continue
 								}
 							}
 
@@ -643,9 +670,9 @@ class AiFeatureManager @Inject constructor(
 			val red = Color.red(pixel)
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
-			// Slightly more restrictive threshold (210) for cleaner bubble boundaries
+			// PRO THRESHOLD: Stricter for bubble walls, lenient for dirty scans
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 210 
+			return luminance >= 220 
 		} catch (e: Exception) {
 			return false
 		}
