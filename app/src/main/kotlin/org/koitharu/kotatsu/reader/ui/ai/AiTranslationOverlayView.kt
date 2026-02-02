@@ -99,7 +99,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 			val diamondWidth = (availableWidth * 0.85f).toInt().coerceAtLeast(1)
 
-			val words = text.split(Regex("\s+"))
+			val words = text.split(Regex("\\s+"))
 			var textSize = 44f * REFERENCE_SCALE
 			val minTextSize = 6f * REFERENCE_SCALE
 			val step = 1.5f
