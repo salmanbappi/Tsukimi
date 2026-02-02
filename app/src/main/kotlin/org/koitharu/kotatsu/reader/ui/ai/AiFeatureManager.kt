@@ -87,8 +87,8 @@ class AiFeatureManager @Inject constructor(
 			// Double-check cache after acquiring lock
 			translationCache.get(pageKey)?.let { return@withLock it }
 
-			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1440
+			// PRO OCR OPTIMIZATION: Higher resolution for small/thin manga text
+			val maxDim = 2048 
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -122,13 +122,17 @@ class AiFeatureManager @Inject constructor(
 
 				// CONTEXTUAL BATCH TRANSLATION
 				val cleanTexts = mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), " ").trim() }
-				val translatedTexts = if (cleanTexts.isNotEmpty()) {
+				if (cleanTexts.isEmpty()) return@withLock emptyList<TranslatedBlock>()
+
+				val translatedTexts = try {
 					when (engine) {
 						TranslationEngine.GROQ -> translateBatchWithGroq(cleanTexts, targetLanguage)
 						TranslationEngine.DEEPL -> translateBatchWithDeepL(cleanTexts, targetLanguage)
 						else -> null
 					}
-				} else null
+				} catch (e: Exception) {
+					null
+				}
 
 				val translationJobs = mergedBlocks.mapIndexed { index, it ->
 					async {
@@ -136,10 +140,14 @@ class AiFeatureManager @Inject constructor(
 						if (cleanText.isBlank()) return@async null
 
 						val translatedText = translatedTexts?.getOrNull(index) ?: try {
-							when (engine) {
-								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
-								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-								TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
+							if (engine == TranslationEngine.ML_KIT) {
+								mlKitTranslator?.translate(cleanText)?.await()
+							} else {
+								when (engine) {
+									TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+									TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
+									else -> null
+								}
 							}
 						} catch (e: Exception) {
 							null
@@ -158,8 +166,7 @@ class AiFeatureManager @Inject constructor(
 							bubbleRect.bottom / ocrScale
 						)
 
-						// ABSOLUTE IMAGE ANCHORING:
-						// Convert bitmap coordinates to actual source image coordinates
+						// ABSOLUTE IMAGE ANCHORING
 						val sourceRect = RectF(
 							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
 							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
@@ -167,16 +174,12 @@ class AiFeatureManager @Inject constructor(
 							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 						)
 						
-						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
 						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
 						val backgroundColor = detectBackgroundColorFromMask(bubbleResult.mask, ocrBitmap)
-
-						// Generate a sampled outline from the BFS mask for custom shape rendering
 						val outline = generateOutline(bubbleResult.mask, ocrBitmap.width, bubbleRect)
 						
-						// Scale and translate outline points to source coordinates
 						val sourceOutline = outline.map { p: PointF ->
 							PointF(
 								(p.x / ocrScale - vTranslateX) / viewScale,
@@ -184,7 +187,6 @@ class AiFeatureManager @Inject constructor(
 							)
 						}
 
-						// Style detection: check if bubble is spiky (action bubble)
 						val isSpiky = detectIfSpiky(bubbleResult.mask, ocrBitmap.width, bubbleRect)
 
 						TranslatedBlock(
@@ -384,9 +386,9 @@ class AiFeatureManager @Inject constructor(
 		val avgHeight = (r1.height() + r2.height()) / 2f
 		val avgWidth = (r1.width() + r2.width()) / 2f
 		
-		// More aggressive vertical merging for Japanese text
-		val horizontalThreshold = (avgWidth * 0.8f).toInt().coerceAtLeast(20)
-		val verticalThreshold = (avgHeight * 1.2f).toInt().coerceAtLeast(40)
+		// PRO MERGING: More aggressive vertical merging for Japanese text (RTL columns)
+		val horizontalThreshold = (avgWidth * 1.0f).toInt().coerceAtLeast(30)
+		val verticalThreshold = (avgHeight * 1.5f).toInt().coerceAtLeast(60)
 		
 		val expanded = Rect(r1)
 		expanded.inset(-horizontalThreshold, -verticalThreshold)
@@ -529,8 +531,8 @@ class AiFeatureManager @Inject constructor(
 			val maxPixels = (width * height * 0.20).toInt()
 			var processedPixels = 0
 			
-			val maxDistX = (textRect.width() * 1.8).toInt().coerceAtLeast(120).coerceAtMost(width / 2)
-			val maxDistY = (textRect.height() * 1.8).toInt().coerceAtLeast(120).coerceAtMost(height / 2)
+			val maxDistX = (textRect.width() * 2.0).toInt().coerceAtLeast(150).coerceAtMost(width / 2)
+			val maxDistY = (textRect.height() * 2.0).toInt().coerceAtLeast(150).coerceAtMost(height / 2)
 
 			val dx = intArrayOf(0, 0, 1, -1, 1, 1, -1, -1)
 			val dy = intArrayOf(1, -1, 0, 0, 1, -1, 1, -1)
@@ -557,17 +559,20 @@ class AiFeatureManager @Inject constructor(
 							if (Math.abs(nx - textRect.centerX()) > maxDistX || 
 								Math.abs(ny - textRect.centerY()) > maxDistY) continue
 								
-							// Hole Plugging: If a pixel has multiple dark neighbors, it's likely part of a boundary line
-							var darkNeighbors = 0
-							for (j in 0 until 8) {
-								val nnx = nx + dx[j]
-								val nny = ny + dy[j]
-								if (nnx !in 0 until width || nny !in 0 until height || !isPixelLight(bitmap, nnx, nny)) {
-									darkNeighbors++
+							// PRO HOLE PLUGGING: Check a 3x3 window for line density
+							var darkCount = 0
+							for (wx in -1..1) {
+								for (wy in -1..1) {
+									val nnx = nx + wx
+									val nny = ny + wy
+									if (nnx !in 0 until width || nny !in 0 until height || !isPixelLight(bitmap, nnx, nny)) {
+										darkCount++
+									}
 								}
 							}
 							
-							if (darkNeighbors >= 3) continue
+							// If more than 2 pixels in a 3x3 grid are dark, it's a boundary or noise
+							if (darkCount >= 2) continue
 
 							if (isPixelLight(bitmap, nx, ny)) {
 								visited.set(nIdx)
