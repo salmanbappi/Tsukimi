@@ -35,8 +35,8 @@ class CloudFlareClient(
 		webView.evaluateJavascript(
 			"""
 			(function() {
-				const MIN_DELAY = 1500;
-				const MAX_DELAY = 3500;
+				const MIN_DELAY = 1000;
+				const MAX_DELAY = 2500;
 				
 				function getRandomDelay() {
 					return Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
@@ -45,13 +45,27 @@ class CloudFlareClient(
 				function findCheckbox(root) {
 					return root.querySelector('#challenge-stage input[type="checkbox"]') ||
 						   root.querySelector('input[name="cf-turnstile-response"]') ||
-						   root.querySelector('.ctp-checkbox-container input');
+						   root.querySelector('.ctp-checkbox-container input') ||
+						   root.querySelector('.cf-turnstile-wrapper iframe') ||
+						   root.querySelector('#turnstile-wrapper iframe');
 				}
 
 				function attemptClick() {
-					const checkbox = findCheckbox(document);
-					if (checkbox) {
-						setTimeout(() => checkbox.click(), getRandomDelay());
+					const element = findCheckbox(document);
+					if (element) {
+						if (element.tagName === 'IFRAME') {
+							// If it's an iframe, we can't click inside easily due to cross-origin
+							// But we can try to focus it or wait for automatic resolution
+							element.focus();
+							return true;
+						}
+						setTimeout(() => {
+							element.click();
+							// Also try to dispatch events for better simulation
+							element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+							element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+							element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+						}, getRandomDelay());
 						return true;
 					}
 					
@@ -73,24 +87,21 @@ class CloudFlareClient(
 				// MutationObserver to watch for dynamic injection of the challenge
 				const observer = new MutationObserver((mutations) => {
 					if (attemptClick()) {
-						observer.disconnect();
+						// Don't disconnect immediately, might need multiple attempts
 					}
 				});
 				
 				observer.observe(document.body, { childList: true, subtree: true });
 				
 				// Initial attempt
-				if (attemptClick()) {
-					observer.disconnect();
-				}
+				attemptClick();
 				
 				// Failsafe interval
 				const interval = setInterval(() => {
 					if (attemptClick()) {
-						clearInterval(interval);
-						observer.disconnect();
+						// Keep observing
 					}
-				}, 4000);
+				}, 3000);
 			})();
 			""".trimIndent(),
 			null

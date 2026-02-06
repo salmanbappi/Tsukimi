@@ -525,14 +525,15 @@ class ReaderActivity :
                 val pageKey = "${page.chapterId}_${page.index}"
 
                 // Capture mapping state accurately on Main thread
-                val isReady = withContext(Dispatchers.Main) { ssiv.isReady }
-                val scale = withContext(Dispatchers.Main) { ssiv.scale }
-                val vOrigin = withContext(Dispatchers.Main) { ssiv.viewToSourceCoord(0f, 0f) }
-                val vTranslateX = if (vOrigin != null) -vOrigin.x * scale else 0f
-                val vTranslateY = if (vOrigin != null) -vOrigin.y * scale else 0f
+                val (isReady, scale, vTranslateX, vTranslateY) = withContext(Dispatchers.Main) {
+                    val origin = ssiv.viewToSourceCoord(0f, 0f)
+                    val tx = if (origin != null) -origin.x * ssiv.scale else 0f
+                    val ty = if (origin != null) -origin.y * ssiv.scale else 0f
+                    Quadruple(ssiv.isReady, ssiv.scale, tx, ty)
+                }
 
                 if (aiFeatureManager.isCached(pageKey)) {
-                    val blocks = aiFeatureManager.translatePage(pageKey, Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8), scale, vTranslateX, vTranslateY)
+                    val blocks = aiFeatureManager.getFromCache(pageKey) ?: emptyList()
                     withContext(Dispatchers.Main) {
                         overlay.setupWithSSIV(ssiv)
                         overlay.setSettings(settings)
@@ -548,9 +549,23 @@ class ReaderActivity :
                     viewBinding.toastView.show(R.string.processing_)
                 }
                 
+                // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
                 val bitmap = try {
                     withContext(Dispatchers.Main) {
-                        ssiv.drawToBitmap()
+                        // Use a smaller scale for the capture itself if the image is huge
+                        // but drawToBitmap draws the whole view. 
+                        // To optimize, we can draw to a scaled canvas.
+                        val width = ssiv.width
+                        val height = ssiv.height
+                        if (width <= 0 || height <= 0) return@withContext null
+                        
+                        // Scale down the capture for OCR - 720p is usually enough
+                        val captureScale = if (Math.max(width, height) > 1280) 1280f / Math.max(width, height) else 1f
+                        val b = Bitmap.createBitmap((width * captureScale).toInt(), (height * captureScale).toInt(), Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(b)
+                        canvas.scale(captureScale, captureScale)
+                        ssiv.draw(canvas)
+                        b
                     }
                 } catch (e: Exception) {
                     null
@@ -563,6 +578,7 @@ class ReaderActivity :
                     continue
                 }
                 
+                // Adjust scale and translation for the scaled capture
                 val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
                 
                 withContext(Dispatchers.Main) {
@@ -575,6 +591,8 @@ class ReaderActivity :
             }
         }
     }
+
+    private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
     override fun onSavePageClick() {
         viewModel.saveCurrentPage(pageSaveHelper)

@@ -6,12 +6,16 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.LruCache
+import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -56,11 +60,23 @@ class AiFeatureManager @Inject constructor(
 ) {
 
 	private val json = Json { ignoreUnknownKeys = true }
-	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+	private val recognizers = mutableMapOf<String, com.google.mlkit.vision.text.TextRecognizer>()
+	private val langIdentifier = LanguageIdentification.getClient()
 	
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
 	private val translationMutexes = mutableMapOf<String, Mutex>()
 	private val globalMutex = Mutex()
+
+	private fun getRecognizer(lang: String): com.google.mlkit.vision.text.TextRecognizer {
+		return recognizers.getOrPut(lang) {
+			when (lang) {
+				TranslateLanguage.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+				TranslateLanguage.CHINESE -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+				TranslateLanguage.KOREAN -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+				else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+			}
+		}
+	}
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
 	
@@ -72,7 +88,7 @@ class AiFeatureManager @Inject constructor(
 		viewScale: Float,
 		vTranslateX: Float,
 		vTranslateY: Float,
-		targetLanguage: String = TranslateLanguage.ENGLISH
+		targetLanguage: String? = null
 	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
 
@@ -87,7 +103,7 @@ class AiFeatureManager @Inject constructor(
 			translationCache.get(pageKey)?.let { return@withLock it }
 
 			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1440
+			val maxDim = 1200 // Slightly smaller for better performance
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -99,14 +115,27 @@ class AiFeatureManager @Inject constructor(
 			} else bitmap
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
-			val visionText = textRecognizer.process(inputImage).await()
 			
+			// Detect language if set to auto
+			val preferredSource = settings.aiTranslationSourceLanguage
+			val targetLang = targetLanguage ?: settings.aiTranslationTargetLanguage
+			
+			// Initial OCR with Japanese as it's most common for this app
+			// If auto-detect says otherwise, we might re-run with different recognizer
+			val initialRecognizer = if (preferredSource == "auto") getRecognizer(TranslateLanguage.JAPANESE) else getRecognizer(preferredSource)
+			val visionText = initialRecognizer.process(inputImage).await()
+			
+			val sourceLang = if (preferredSource == "auto") {
+				val detected = langIdentifier.identifyLanguage(visionText.text).await()
+				if (detected == "und") TranslateLanguage.JAPANESE else detected
+			} else preferredSource
+
 			val engine = settings.aiTranslationEngine
 			
 			val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
 				val options = TranslatorOptions.Builder()
-					.setSourceLanguage(TranslateLanguage.JAPANESE)
-					.setTargetLanguage(targetLanguage)
+					.setSourceLanguage(sourceLang)
+					.setTargetLanguage(targetLang)
 					.build()
 				val mlKit = Translation.getClient(options)
 				mlKit.downloadModelIfNeeded().await()
@@ -117,10 +146,10 @@ class AiFeatureManager @Inject constructor(
 			
 			try {
 				val textBlocks = visionText.textBlocks
-				val mergedBlocks = mergeNearbyBlocks(textBlocks)
+				val mergedBlocks = mergeNearbyBlocks(textBlocks, sourceLang == TranslateLanguage.JAPANESE)
 
 				val translatedTexts = if (engine == TranslationEngine.GROQ && mergedBlocks.size > 1) {
-					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
+					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, sourceLang, targetLang)
 				} else null
 
 				val translationJobs = mergedBlocks.mapIndexed { index, it ->
@@ -131,8 +160,8 @@ class AiFeatureManager @Inject constructor(
 						val translatedText = translatedTexts?.getOrNull(index) ?: try {
 							when (engine) {
 								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
-								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
-								TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
+								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, sourceLang, targetLang)
+								TranslationEngine.GROQ -> translateWithGroq(cleanText, sourceLang, targetLang)
 							}
 						} catch (e: Exception) {
 							null
@@ -151,7 +180,6 @@ class AiFeatureManager @Inject constructor(
 						)
 
 						// ABSOLUTE IMAGE ANCHORING:
-						// Convert bitmap coordinates to actual source image coordinates
 						val sourceRect = RectF(
 							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
 							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
@@ -159,7 +187,6 @@ class AiFeatureManager @Inject constructor(
 							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 						)
 						
-						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
 						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
@@ -190,9 +217,10 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
+	private suspend fun translateBatchWithGroq(texts: List<String>, sourceLanguage: String, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
-		val langName = getLanguageName(targetLanguage)
+		val srcName = getLanguageName(sourceLanguage)
+		val targetName = getLanguageName(targetLanguage)
 		
 		val input = buildJsonObject {
 			putJsonArray("texts") {
@@ -206,7 +234,7 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
+					put("content", "You are a professional manga translator. Translate the following $srcName texts into natural $targetName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -234,13 +262,14 @@ class AiFeatureManager @Inject constructor(
 			}
 	}
 
-	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+	private suspend fun translateWithDeepL(text: String, sourceLanguage: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.deeplApiKey ?: return@withContext null
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
 		
 		val body = buildJsonObject {
 			putJsonArray("text") { add(text) }
+			put("source_lang", sourceLanguage.uppercase())
 			put("target_lang", targetLanguage.uppercase())
 		}
 		
@@ -261,16 +290,17 @@ class AiFeatureManager @Inject constructor(
 			}
 	}
 
-	private suspend fun translateWithGroq(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+	private suspend fun translateWithGroq(text: String, sourceLanguage: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
-		val langName = getLanguageName(targetLanguage)
+		val srcName = getLanguageName(sourceLanguage)
+		val targetName = getLanguageName(targetLanguage)
 		
 		val body = buildJsonObject {
 			put("model", "llama-3.1-8b-instant")
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise and preserve the tone. Only return the translated text.")
+					put("content", "You are a professional manga translator. Translate the following $srcName text to natural $targetName. Keep it concise and preserve the tone. Only return the translated text.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -311,13 +341,43 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
+	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>, isJapanese: Boolean): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		val sorted = blocks.sortedWith(
-			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
-				.thenBy { it.boundingBox?.top ?: 0 }
-		)
+		val sorted = if (isJapanese) {
+			blocks.sortedWith(
+				compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
+					.thenBy { it.boundingBox?.top ?: 0 }
+			)
+		} else {
+			blocks.sortedWith(
+				compareBy<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.top ?: 0 }
+					.thenBy { it.boundingBox?.left ?: 0 }
+			)
+		}
+		val merged = mutableListOf<IntermediateBlock>()
+
+		for (block in sorted) {
+			val rect = block.boundingBox ?: continue
+			val text = block.text
+
+			var isMerged = false
+			for (i in merged.indices.reversed()) {
+				val m = merged[i]
+				if (areBlocksClose(m.boundingBox, rect)) {
+					m.text.append("\n").append(text)
+					m.boundingBox.union(rect)
+					isMerged = true
+					break
+				}
+			}
+
+			if (!isMerged) {
+				merged.add(IntermediateBlock(StringBuilder(text), Rect(rect)))
+			}
+		}
+		return merged
+	}
 		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {

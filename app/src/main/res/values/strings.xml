@@ -829,6 +829,9 @@
     <string name="ai_translation_seamless_summary">Replace the original text background with the bubble color instead of a white box (Beta)</string>
     <string name="auto_ai_translation">Auto translation</string>
     <string name="auto_ai_translation_summary">Automatically translate pages as they become visible</string>
+    <string name="auto_detect">Auto-detect</string>
+    <string name="ai_translation_source">Source language</string>
+    <string name="ai_translation_target">Target language</string>
     <string name="ai_translation_engine">Translation engine</string>
     <string name="deepl_api_key">DeepL API key</string>
     <string name="deepl_api_key_summary">Supports both Free and Pro keys. Free keys end with :fx</string>

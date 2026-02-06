@@ -27,8 +27,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var ssiv: SubsamplingScaleImageView? = null
 	private var isSeamlessMode = false
 	
-	// Not using @Inject here because Views are not automatically injected by Hilt.
-	// We rely on setSettings() being called from the Fragment/Activity.
 	private var settings: AppSettings? = null
 	
 	companion object {
@@ -37,7 +35,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
-		alpha = 240 // 94% opaque for a premium feel
+		alpha = 240 
 		style = Paint.Style.FILL
 		isAntiAlias = true
 	}
@@ -62,7 +60,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		strokeJoin = Paint.Join.ROUND
 	}
 
-	// Cache layouts to eliminate lag in onDraw
 	private data class PreparedBlock(
 		val sourceRect: RectF,
 		val layout: StaticLayout,
@@ -74,21 +71,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
 
-	init {
-		// Manual dependency injection since View is not Hilt-injected by default
-		// Assuming context is Activity/Hilt context or we can get it via EntryPoint if needed.
-		// For now, we'll try to get it if the context is right, or fallback.
-		// Actually, let's inject it via setter from Fragment to be safe.
-	}
-	
 	fun setSettings(appSettings: AppSettings) {
 		this.settings = appSettings
 		isSeamlessMode = appSettings.isAiSeamlessTranslationEnabled
 	}
 
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
-		// Sort by area descending so larger bubbles (backgrounds) are drawn first,
-		// allowing smaller nested bubbles to appear on top.
 		blocks = newBlocks.sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
 		prepareLayouts()
 		invalidate()
@@ -96,6 +84,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
+		ssiv.setOnStateChangeListener(object : SubsamplingScaleImageView.OnStateChangeListener {
+			override fun onScaleChanged(newScale: Float, origin: Int) {
+				invalidate()
+			}
+
+			override fun onCenterChanged(newCenter: PointF?, origin: Int) {
+				invalidate()
+			}
+		})
 	}
 
 	private fun prepareLayouts() {
@@ -105,7 +102,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val text = block.text
 			if (text.isBlank()) continue
 			
-			// Reference width for typesetting in source pixels
 			val refWidth = block.boundingBox.width() * REFERENCE_SCALE
 			val refHeight = block.boundingBox.height() * REFERENCE_SCALE
 			
@@ -131,7 +127,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					tsizeSize -= step
 					continue
 				}
 
@@ -149,7 +145,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				textSize -= step
+				tsizeSize -= step
 			}
 
 			if (finalLayout == null) {
@@ -183,8 +179,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 		for (prep in preparedBlocks) {
 			val sourceRect = prep.sourceRect
-			
-			// Map source coordinates to current screen pixels accurately
 			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
 			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
 			
@@ -195,52 +189,36 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			val viewWidth = viewRight - viewLeft
 			val viewHeight = viewBottom - viewTop
-
-			// Draw rounded background bubble
 			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
 			
 			if (isSeamlessMode) {
 				seamlessPaint.color = prep.backgroundColor
-				seamlessPaint.alpha = 255 // Fully opaque for seamless erase
+				seamlessPaint.alpha = 255 
 				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, seamlessPaint)
 			} else {
 				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, backgroundPaint)
 			}
 
-			// Fast Scaling & Drawing
 			canvas.save()
-			// Move to the bubble's top-left (plus padding)
 			canvas.translate(viewLeft + prep.paddingX * currentScale, viewTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
-			// Scale the canvas to match the current zoom perfectly
 			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
 			
 			val workPaint = prep.layout.paint
 			workPaint.set(strokePaint)
 			workPaint.textSize = prep.textSize
-			// If seamless, stroke color should probably match background or be subtle?
-			// For now keep white stroke for legibility against colored background
 			workPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
-			// Actually, stroke is for text outline. If background is dark, white text.
-			// Let's stick to simple contrast. If bg is dark, text white.
-			
 			prep.layout.draw(canvas)
 			
 			workPaint.set(baseTextPaint)
 			workPaint.textSize = prep.textSize
-			// Simple luminance check for text color
 			if (isSeamlessMode) {
 				val bgLum = Color.luminance(prep.backgroundColor)
 				workPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
 			} else {
 				workPaint.color = Color.BLACK
 			}
-			
 			prep.layout.draw(canvas)
-			
 			canvas.restore()
 		}
-		
-		// Continuous tracking during zoom/pan
-		postInvalidateOnAnimation()
 	}
 }
