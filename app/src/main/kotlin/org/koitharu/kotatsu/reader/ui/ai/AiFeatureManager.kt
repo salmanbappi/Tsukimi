@@ -103,7 +103,7 @@ class AiFeatureManager @Inject constructor(
 			translationCache.get(pageKey)?.let { return@withLock it }
 
 			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1200 // Slightly smaller for better performance
+			val maxDim = 1200 
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -116,12 +116,9 @@ class AiFeatureManager @Inject constructor(
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 			
-			// Detect language if set to auto
 			val preferredSource = settings.aiTranslationSourceLanguage
 			val targetLang = targetLanguage ?: settings.aiTranslationTargetLanguage
 			
-			// Initial OCR with Japanese as it's most common for this app
-			// If auto-detect says otherwise, we might re-run with different recognizer
 			val initialRecognizer = if (preferredSource == "auto") getRecognizer(TranslateLanguage.JAPANESE) else getRecognizer(preferredSource)
 			val visionText = initialRecognizer.process(inputImage).await()
 			
@@ -152,7 +149,8 @@ class AiFeatureManager @Inject constructor(
 					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, sourceLang, targetLang)
 				} else null
 
-				val translationJobs = mergedBlocks.mapIndexed { index, it ->
+				val translationJobs = mergedBlocks.mapIndexed {
+					index, it ->
 					async {
 						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 						if (cleanText.isBlank()) return@async null
@@ -171,7 +169,6 @@ class AiFeatureManager @Inject constructor(
 
 						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
 						
-						// Map back to original captured bitmap coordinates
 						val rectInOriginalBitmap = RectF(
 							bubbleRect.left / ocrScale,
 							bubbleRect.top / ocrScale,
@@ -179,7 +176,6 @@ class AiFeatureManager @Inject constructor(
 							bubbleRect.bottom / ocrScale
 						)
 
-						// ABSOLUTE IMAGE ANCHORING:
 						val sourceRect = RectF(
 							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
 							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
@@ -378,29 +374,6 @@ class AiFeatureManager @Inject constructor(
 		}
 		return merged
 	}
-		val merged = mutableListOf<IntermediateBlock>()
-
-		for (block in sorted) {
-			val rect = block.boundingBox ?: continue
-			val text = block.text
-
-			var isMerged = false
-			for (i in merged.indices.reversed()) {
-				val m = merged[i]
-				if (areBlocksClose(m.boundingBox, rect)) {
-					m.text.append("\n").append(text)
-					m.boundingBox.union(rect)
-					isMerged = true
-					break
-				}
-			}
-
-			if (!isMerged) {
-				merged.add(IntermediateBlock(StringBuilder(text), Rect(rect)))
-			}
-		}
-		return merged
-	}
 
 	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
@@ -419,7 +392,6 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Reduced max expansion to prevent merging separate bubbles
 			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
 			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
 
@@ -458,7 +430,6 @@ class AiFeatureManager @Inject constructor(
 	}
 
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
-		// Sample pixels just inside the detected bounds to find the bubble color
 		val samples = mutableListOf<Int>()
 		val startX = (rect.left + rect.width() * 0.1).toInt()
 		val endX = (rect.right - rect.width() * 0.1).toInt()
@@ -466,7 +437,6 @@ class AiFeatureManager @Inject constructor(
 		val endY = (rect.bottom - rect.height() * 0.1).toInt()
 		
 		try {
-			// Sample 5 points: center and 4 corners (inset)
 			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
 			samples.add(bitmap.getPixel(startX, startY))
 			samples.add(bitmap.getPixel(endX, startY))
@@ -476,9 +446,6 @@ class AiFeatureManager @Inject constructor(
 			return Color.WHITE
 		}
 
-		// Calculate average luminance to decide if we should use white or the sampled color
-		// Most manga bubbles are white or very light grey.
-		// If distinct colors found, average them.
 		var r = 0; var g = 0; var b = 0
 		for (c in samples) {
 			r += Color.red(c)
@@ -499,7 +466,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 220 // Stricter threshold for "white" bubble background
+			return luminance >= 220 
 		} catch (e: Exception) {
 			return false
 		}
