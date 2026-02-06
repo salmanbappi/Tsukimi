@@ -99,7 +99,6 @@ class ReaderConfigSheet :
         binding.adjustSensitivitySlider(withAnimation = false)
         
         binding.switchAiTranslation.isChecked = settings.isAiTranslationEnabled
-        binding.adjustAiOptions(withAnimation = false)
 
         binding.checkableGroup.addOnButtonCheckedListener(this)
         binding.buttonSavePage.setOnClickListener(this)
@@ -109,15 +108,11 @@ class ReaderConfigSheet :
         binding.buttonColorFilter.setOnClickListener(this)
         binding.buttonScrollTimer.setOnClickListener(this)
         binding.buttonBookmark.setOnClickListener(this)
-        binding.buttonAiSource.setOnClickListener(this)
-        binding.buttonAiTarget.setOnClickListener(this)
         binding.switchDoubleReader.setOnCheckedChangeListener(this)
         binding.switchDoubleFoldable.setOnCheckedChangeListener(this)
         binding.switchZenMode.setOnCheckedChangeListener(this)
         binding.switchAiTranslation.setOnCheckedChangeListener(this)
         binding.sliderDoubleSensitivity.addOnChangeListener(this)
-
-        updateAiLangButtons()
 
         viewModel.isBookmarkAdded.observe(viewLifecycleOwner) {
             binding.buttonBookmark.setText(if (it) R.string.bookmark_remove else R.string.bookmark_add)
@@ -174,9 +169,6 @@ class ReaderConfigSheet :
                 router.openColorFilterConfig(manga, page)
             }
 
-            R.id.button_ai_source -> showAiSourceDialog()
-            R.id.button_ai_target -> showAiTargetDialog()
-
             R.id.button_image_server -> viewLifecycleScope.launch {
                 if (imageServerDelegate.showDialog(v.context)) {
                     bindImageServerTitle()
@@ -216,65 +208,9 @@ class ReaderConfigSheet :
 
             R.id.switch_ai_translation -> {
                 settings.isAiTranslationEnabled = isChecked
-                viewBinding?.adjustAiOptions(withAnimation = true)
             }
 
         }
-    }
-
-    private fun updateAiLangButtons() {
-        val binding = viewBinding ?: return
-        binding.buttonAiSource.text = getString(
-            R.string.inline_preference_pattern,
-            getString(R.string.ai_translation_source),
-            if (settings.aiTranslationSourceLanguage == "auto") getString(R.string.auto_detect) else settings.aiTranslationSourceLanguage.uppercase(),
-        )
-        binding.buttonAiTarget.text = getString(
-            R.string.inline_preference_pattern,
-            getString(R.string.ai_translation_target),
-            settings.aiTranslationTargetLanguage.uppercase(),
-        )
-    }
-
-    private fun showAiSourceDialog() {
-        val langs = listOf("auto", "ja", "zh", "ko", "en")
-        val names = langs.map { if (it == "auto") getString(R.string.auto_detect) else it.uppercase() }.toTypedArray()
-        val checked = langs.indexOf(settings.aiTranslationSourceLanguage).coerceAtLeast(0)
-        
-        org.koitharu.kotatsu.core.ui.dialog.buildAlertDialog(requireContext()) {
-            setTitle(R.string.ai_translation_source)
-            setSingleChoiceItems(names, checked) { dialog, which ->
-                settings.aiTranslationSourceLanguage = langs[which]
-                updateAiLangButtons()
-                dialog.dismiss()
-            }
-            setNegativeButton(android.R.string.cancel, null)
-        }.show()
-    }
-
-    private fun showAiTargetDialog() {
-        val langs = listOf("en", "ru", "es", "fr", "de", "it", "ja", "ko", "zh")
-        val names = langs.map { it.uppercase() }.toTypedArray()
-        val checked = langs.indexOf(settings.aiTranslationTargetLanguage).coerceAtLeast(0)
-        
-        org.koitharu.kotatsu.core.ui.dialog.buildAlertDialog(requireContext()) {
-            setTitle(R.string.ai_translation_target)
-            setSingleChoiceItems(names, checked) { dialog, which ->
-                settings.aiTranslationTargetLanguage = langs[which]
-                updateAiLangButtons()
-                dialog.dismiss()
-            }
-            setNegativeButton(android.R.string.cancel, null)
-        }.show()
-    }
-
-    private fun SheetReaderConfigBinding.adjustAiOptions(withAnimation: Boolean) {
-        val isSubOptionsVisible = switchAiTranslation.isChecked
-        if (withAnimation) {
-            TransitionManager.beginDelayedTransition(layoutMain)
-        }
-        buttonAiSource.isVisible = isSubOptionsVisible
-        buttonAiTarget.isVisible = isSubOptionsVisible
     }
 
     override fun onValueChange(slider: Slider, value: Float, fromUser: Boolean) {

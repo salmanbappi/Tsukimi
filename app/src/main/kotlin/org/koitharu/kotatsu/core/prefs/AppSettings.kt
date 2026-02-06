@@ -275,14 +275,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getEnumValue(KEY_AI_TRANSLATION_ENGINE, TranslationEngine.DEFAULT)
 		set(value) = prefs.edit { putEnumValue(KEY_AI_TRANSLATION_ENGINE, value) }
 
-	var aiTranslationSourceLanguage: String
-		get() = prefs.getString(KEY_AI_SOURCE_LANG, "ja") ?: "ja"
-		set(value) = prefs.edit { putString(KEY_AI_SOURCE_LANG, value) }
-
-	var aiTranslationTargetLanguage: String
-		get() = prefs.getString(KEY_AI_TARGET_LANG, "en") ?: "en"
-		set(value) = prefs.edit { putString(KEY_AI_TARGET_LANG, value) }
-
 	var deeplApiKey: String?
 		get() = prefs.getString(KEY_AI_TRANSLATION_DEEPL_KEY, null)?.nullIfEmpty()
 		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_DEEPL_KEY, value?.nullIfEmpty()) }
@@ -826,8 +818,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_AI_AUTO_TRANSLATION = "ai_auto_translation"
 		const val KEY_AI_SEAMLESS_TRANSLATION = "ai_seamless_translation"
 		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
-		const val KEY_AI_SOURCE_LANG = "ai_source_lang"
-		const val KEY_AI_TARGET_LANG = "ai_target_lang"
 		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
 		const val KEY_AI_TRANSLATION_GROQ_KEY = "ai_translation_groq_key"
 

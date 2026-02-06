@@ -121,7 +121,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					thesize -= step
 					continue
 				}
 
@@ -139,7 +139,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				textSize -= step
+				thesize -= step
 			}
 
 			if (finalLayout == null) {
@@ -177,7 +177,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val sourceRect = prep.sourceRect
 			
 			// Use standard 3-arg sourceToViewCoord with pre-allocated PointF
-			// Handles padding and rotation internally while ensuring zero allocation.
 			ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top, vPoint)
 			val vLeft = vPoint.x
 			val vTop = vPoint.y
@@ -201,14 +200,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			val layoutPaint = prep.layout.paint
 			
-			// Toggle Paint properties without changing TextSize to avoid Skia font cache lookups
 			layoutPaint.style = Paint.Style.STROKE
 			layoutPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
 			prep.layout.draw(canvas)
 			
 			layoutPaint.style = Paint.Style.FILL
 			if (isSeamlessMode) {
-				// Manual luminance check for minSdk 23 compatibility
 				val r = Color.red(prep.backgroundColor)
 				val g = Color.green(prep.backgroundColor)
 				val b = Color.blue(prep.backgroundColor)

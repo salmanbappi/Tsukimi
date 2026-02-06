@@ -46,8 +46,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.exceptions.resolve.DialogErrorObserver
@@ -561,16 +559,17 @@ class ReaderActivity :
                             val height = ssiv.height
                             if (width <= 0 || height <= 0) return@withContext null
                             
-                            val captureScale = if (Math.max(width, height) > 1280) 1280f / Math.max(width, height) else 1f
+                            // MAINTAIN QUALITY: Use 1440px threshold and ARGB_8888 to ensure good translation results
+                            val captureScale = if (Math.max(width, height) > 1440) 1440f / Math.max(width, height) else 1f
                             val targetW = (width * captureScale).toInt()
                             val targetH = (height * captureScale).toInt()
-                            val requiredBytes = targetW * targetH * 2 // RGB_565
+                            val requiredBytes = targetW * targetH * 4 // ARGB_8888
 
                             val b = ocrBuffer?.takeIf { 
                                 !it.isRecycled && it.allocationByteCount >= requiredBytes 
                             }?.also {
-                                it.reconfigure(targetW, targetH, Bitmap.Config.RGB_565)
-                            } ?: Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565).also { 
+                                it.reconfigure(targetW, targetH, Bitmap.Config.ARGB_8888)
+                            } ?: Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888).also { 
                                 ocrBuffer?.recycle()
                                 ocrBuffer = it 
                             }

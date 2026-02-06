@@ -6,16 +6,12 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.LruCache
-import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
-import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -60,23 +56,11 @@ class AiFeatureManager @Inject constructor(
 ) {
 
 	private val json = Json { ignoreUnknownKeys = true }
-	private val recognizers = mutableMapOf<String, com.google.mlkit.vision.text.TextRecognizer>()
-	private val langIdentifier = LanguageIdentification.getClient()
+	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
 	
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
 	private val translationMutexes = mutableMapOf<String, Mutex>()
 	private val globalMutex = Mutex()
-
-	private fun getRecognizer(lang: String): com.google.mlkit.vision.text.TextRecognizer {
-		return recognizers.getOrPut(lang) {
-			when (lang) {
-				TranslateLanguage.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-				TranslateLanguage.CHINESE -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-				TranslateLanguage.KOREAN -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-				else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-			}
-		}
-	}
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
 	
@@ -88,7 +72,7 @@ class AiFeatureManager @Inject constructor(
 		viewScale: Float,
 		vTranslateX: Float,
 		vTranslateY: Float,
-		targetLanguage: String? = null
+		targetLanguage: String = TranslateLanguage.ENGLISH
 	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
 
@@ -103,7 +87,7 @@ class AiFeatureManager @Inject constructor(
 			translationCache.get(pageKey)?.let { return@withLock it }
 
 			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1440 
+			val maxDim = 1440
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -115,22 +99,14 @@ class AiFeatureManager @Inject constructor(
 			} else bitmap
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
-			
-			val preferredSource = settings.aiTranslationSourceLanguage
-			val targetLang = targetLanguage ?: settings.aiTranslationTargetLanguage
-			
-			// Always use Japanese recognizer by default for manga, or use user's explicit choice.
-			// No auto-detection here as it's unreliable on noisy OCR text.
-			val sourceLang = if (preferredSource == "auto") TranslateLanguage.JAPANESE else preferredSource
-			val initialRecognizer = getRecognizer(sourceLang)
-			val visionText = initialRecognizer.process(inputImage).await()
+			val visionText = textRecognizer.process(inputImage).await()
 			
 			val engine = settings.aiTranslationEngine
 			
 			val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {
 				val options = TranslatorOptions.Builder()
-					.setSourceLanguage(sourceLang)
-					.setTargetLanguage(targetLang)
+					.setSourceLanguage(TranslateLanguage.JAPANESE)
+					.setTargetLanguage(targetLanguage)
 					.build()
 				val mlKit = Translation.getClient(options)
 				mlKit.downloadModelIfNeeded().await()
@@ -141,14 +117,13 @@ class AiFeatureManager @Inject constructor(
 			
 			try {
 				val textBlocks = visionText.textBlocks
-				val mergedBlocks = mergeNearbyBlocks(textBlocks, sourceLang == TranslateLanguage.JAPANESE)
+				val mergedBlocks = mergeNearbyBlocks(textBlocks)
 
 				val translatedTexts = if (engine == TranslationEngine.GROQ && mergedBlocks.size > 1) {
-					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, sourceLang, targetLang)
+					translateBatchWithGroq(mergedBlocks.map { it.text.toString().replace(Regex("[\\n\\s]+"), "") }, targetLanguage)
 				} else null
 
-				val translationJobs = mergedBlocks.mapIndexed {
-					index, it ->
+				val translationJobs = mergedBlocks.mapIndexed { index, it ->
 					async {
 						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 						if (cleanText.isBlank()) return@async null
@@ -156,8 +131,8 @@ class AiFeatureManager @Inject constructor(
 						val translatedText = translatedTexts?.getOrNull(index) ?: try {
 							when (engine) {
 								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
-								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, sourceLang, targetLang)
-								TranslationEngine.GROQ -> translateWithGroq(cleanText, sourceLang, targetLang)
+								TranslationEngine.DEEPL -> translateWithDeepL(cleanText, targetLanguage)
+								TranslationEngine.GROQ -> translateWithGroq(cleanText, targetLanguage)
 							}
 						} catch (e: Exception) {
 							null
@@ -167,6 +142,7 @@ class AiFeatureManager @Inject constructor(
 
 						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
 						
+						// Map back to original captured bitmap coordinates
 						val rectInOriginalBitmap = RectF(
 							bubbleRect.left / ocrScale,
 							bubbleRect.top / ocrScale,
@@ -174,6 +150,8 @@ class AiFeatureManager @Inject constructor(
 							bubbleRect.bottom / ocrScale
 						)
 
+						// ABSOLUTE IMAGE ANCHORING:
+						// Convert bitmap coordinates to actual source image coordinates
 						val sourceRect = RectF(
 							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
 							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
@@ -181,6 +159,7 @@ class AiFeatureManager @Inject constructor(
 							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
 						)
 						
+						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
 						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
 							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
 
@@ -211,10 +190,9 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private suspend fun translateBatchWithGroq(texts: List<String>, sourceLanguage: String, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
+	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
-		val srcName = getLanguageName(sourceLanguage)
-		val targetName = getLanguageName(targetLanguage)
+		val langName = getLanguageName(targetLanguage)
 		
 		val input = buildJsonObject {
 			putJsonArray("texts") {
@@ -228,7 +206,7 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following $srcName texts into natural $targetName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
+					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -256,14 +234,13 @@ class AiFeatureManager @Inject constructor(
 			}
 	}
 
-	private suspend fun translateWithDeepL(text: String, sourceLanguage: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+	private suspend fun translateWithDeepL(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.deeplApiKey ?: return@withContext null
 		val isFree = apiKey.endsWith(":fx")
 		val url = if (isFree) "https://api-free.deepl.com/v2/translate" else "https://api.deepl.com/v2/translate"
 		
 		val body = buildJsonObject {
 			putJsonArray("text") { add(text) }
-			put("source_lang", sourceLanguage.uppercase())
 			put("target_lang", targetLanguage.uppercase())
 		}
 		
@@ -284,17 +261,16 @@ class AiFeatureManager @Inject constructor(
 			}
 	}
 
-	private suspend fun translateWithGroq(text: String, sourceLanguage: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
+	private suspend fun translateWithGroq(text: String, targetLanguage: String): String? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
-		val srcName = getLanguageName(sourceLanguage)
-		val targetName = getLanguageName(targetLanguage)
+		val langName = getLanguageName(targetLanguage)
 		
 		val body = buildJsonObject {
 			put("model", "llama-3.1-8b-instant")
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following $srcName text to natural $targetName. Keep it concise and preserve the tone. Only return the translated text.")
+					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise and preserve the tone. Only return the translated text.")
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -335,20 +311,13 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
-	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>, isJapanese: Boolean): List<IntermediateBlock> {
+	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		val sorted = if (isJapanese) {
-			blocks.sortedWith(
-				compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
-					.thenBy { it.boundingBox?.top ?: 0 }
-			)
-		} else {
-			blocks.sortedWith(
-				compareBy<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.top ?: 0 }
-					.thenBy { it.boundingBox?.left ?: 0 }
-			)
-		}
+		val sorted = blocks.sortedWith(
+			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
+				.thenBy { it.boundingBox?.top ?: 0 }
+		)
 		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {
@@ -390,6 +359,7 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
+			// Reduced max expansion to prevent merging separate bubbles
 			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
 			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
 
@@ -428,6 +398,7 @@ class AiFeatureManager @Inject constructor(
 	}
 
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
+		// Sample pixels just inside the detected bounds to find the bubble color
 		val samples = mutableListOf<Int>()
 		val startX = (rect.left + rect.width() * 0.1).toInt()
 		val endX = (rect.right - rect.width() * 0.1).toInt()
@@ -435,6 +406,7 @@ class AiFeatureManager @Inject constructor(
 		val endY = (rect.bottom - rect.height() * 0.1).toInt()
 		
 		try {
+			// Sample 5 points: center and 4 corners (inset)
 			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
 			samples.add(bitmap.getPixel(startX, startY))
 			samples.add(bitmap.getPixel(endX, startY))
@@ -444,6 +416,9 @@ class AiFeatureManager @Inject constructor(
 			return Color.WHITE
 		}
 
+		// Calculate average luminance to decide if we should use white or the sampled color
+		// Most manga bubbles are white or very light grey.
+		// If distinct colors found, average them.
 		var r = 0; var g = 0; var b = 0
 		for (c in samples) {
 			r += Color.red(c)
@@ -464,7 +439,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 220 
+			return luminance >= 220 // Stricter threshold for "white" bubble background
 		} catch (e: Exception) {
 			return false
 		}

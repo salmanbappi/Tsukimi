@@ -226,24 +226,6 @@
                 android:textColor="?colorOnSurfaceVariant"
                 app:drawableStartCompat="@drawable/ic_translate" />
 
-            <org.koitharu.kotatsu.core.ui.widgets.ListItemTextView
-                android:id="@+id/button_ai_source"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/ai_translation_source"
-                android:visibility="gone"
-                app:drawableStartCompat="@drawable/ic_language"
-                tools:visibility="visible" />
-
-            <org.koitharu.kotatsu.core.ui.widgets.ListItemTextView
-                android:id="@+id/button_ai_target"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/ai_translation_target"
-                android:visibility="gone"
-                app:drawableStartCompat="@drawable/ic_translate"
-                tools:visibility="visible" />
-
 
 
 
