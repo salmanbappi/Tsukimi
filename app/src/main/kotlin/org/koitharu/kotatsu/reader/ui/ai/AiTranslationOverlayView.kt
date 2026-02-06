@@ -84,23 +84,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
-		try {
-			val listenerClass = Class.forName("com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView\\$OnStateChangedListener")
-			val setListenerMethod = ssiv.javaClass.getMethod("setOnStateChangedListener", listenerClass)
-			
-			val proxy = java.lang.reflect.Proxy.newProxyInstance(
-				listenerClass.classLoader,
-				arrayOf(listenerClass)
-			) { _, method, _ ->
-				if (method.name == "onScaleChanged" || method.name == "onCenterChanged") {
-					postInvalidateOnAnimation()
-				}
-				null
-			}
-			setListenerMethod.invoke(ssiv, proxy)
-		} catch (e: Exception) {
-			// Fallback: invalidate via ReaderActivity if needed, or just let user trigger it
-		}
 	}
 
 	private fun prepareLayouts() {
@@ -135,7 +118,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					thesize -= step
+					textSize -= step
 					continue
 				}
 
@@ -153,7 +136,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				thesize -= step
+				textSize -= step
 			}
 
 			if (finalLayout == null) {
@@ -226,5 +209,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			canvas.restore()
 		}
+		
+		// Invalidate while ready to ensure smooth tracking during pan/zoom
+		postInvalidateOnAnimation()
 	}
 }
