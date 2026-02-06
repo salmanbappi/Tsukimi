@@ -103,7 +103,7 @@ class AiFeatureManager @Inject constructor(
 			translationCache.get(pageKey)?.let { return@withLock it }
 
 			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1200 
+			val maxDim = 1440 
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -119,14 +119,12 @@ class AiFeatureManager @Inject constructor(
 			val preferredSource = settings.aiTranslationSourceLanguage
 			val targetLang = targetLanguage ?: settings.aiTranslationTargetLanguage
 			
-			val initialRecognizer = if (preferredSource == "auto") getRecognizer(TranslateLanguage.JAPANESE) else getRecognizer(preferredSource)
+			// Always use Japanese recognizer by default for manga, or use user's explicit choice.
+			// No auto-detection here as it's unreliable on noisy OCR text.
+			val sourceLang = if (preferredSource == "auto") TranslateLanguage.JAPANESE else preferredSource
+			val initialRecognizer = getRecognizer(sourceLang)
 			val visionText = initialRecognizer.process(inputImage).await()
 			
-			val sourceLang = if (preferredSource == "auto") {
-				val detected = langIdentifier.identifyLanguage(visionText.text).await()
-				if (detected == "und") TranslateLanguage.JAPANESE else detected
-			} else preferredSource
-
 			val engine = settings.aiTranslationEngine
 			
 			val mlKitTranslator = if (engine == TranslationEngine.ML_KIT) {

@@ -276,7 +276,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		set(value) = prefs.edit { putEnumValue(KEY_AI_TRANSLATION_ENGINE, value) }
 
 	var aiTranslationSourceLanguage: String
-		get() = prefs.getString(KEY_AI_SOURCE_LANG, "auto") ?: "auto"
+		get() = prefs.getString(KEY_AI_SOURCE_LANG, "ja") ?: "ja"
 		set(value) = prefs.edit { putString(KEY_AI_SOURCE_LANG, value) }
 
 	var aiTranslationTargetLanguage: String

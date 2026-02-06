@@ -35,8 +35,8 @@ class CloudFlareClient(
 		webView.evaluateJavascript(
 			"""
 			(function() {
-				const MIN_DELAY = 1000;
-				const MAX_DELAY = 2500;
+				const MIN_DELAY = 1500;
+				const MAX_DELAY = 3000;
 				
 				function getRandomDelay() {
 					return Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
@@ -54,22 +54,16 @@ class CloudFlareClient(
 					const element = findCheckbox(document);
 					if (element) {
 						if (element.tagName === 'IFRAME') {
-							// If it's an iframe, we can't click inside easily due to cross-origin
-							// But we can try to focus it or wait for automatic resolution
 							element.focus();
 							return true;
 						}
 						setTimeout(() => {
 							element.click();
-							// Also try to dispatch events for better simulation
-							element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-							element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 							element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 						}, getRandomDelay());
 						return true;
 					}
 					
-					// Look in shadow roots
 					const all = document.querySelectorAll('*');
 					for (let i = 0; i < all.length; i++) {
 						const el = all[i];
@@ -84,24 +78,24 @@ class CloudFlareClient(
 					return false;
 				}
 
-				// MutationObserver to watch for dynamic injection of the challenge
 				const observer = new MutationObserver((mutations) => {
 					if (attemptClick()) {
-						// Don't disconnect immediately, might need multiple attempts
+						observer.disconnect();
 					}
 				});
 				
 				observer.observe(document.body, { childList: true, subtree: true });
 				
-				// Initial attempt
-				attemptClick();
+				if (attemptClick()) {
+					observer.disconnect();
+				}
 				
-				// Failsafe interval
 				const interval = setInterval(() => {
 					if (attemptClick()) {
-						// Keep observing
+						clearInterval(interval);
+						observer.disconnect();
 					}
-				}, 3000);
+				}, 4000);
 			})();
 			""".trimIndent(),
 			null
