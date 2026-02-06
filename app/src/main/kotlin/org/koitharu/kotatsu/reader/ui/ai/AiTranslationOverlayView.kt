@@ -29,6 +29,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	private var settings: AppSettings? = null
 	
+	// Pre-allocated PointF to ensure zero object creation in onDraw loop
+	private val vPoint = PointF()
+	
 	companion object {
 		private const val REFERENCE_SCALE = 1.5f
 	}
@@ -167,16 +170,21 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
 		val currentScale = ssiv.scale
-
-		for (prep in preparedBlocks) {
+		
+		val count = preparedBlocks.size
+		for (i in 0 until count) {
+			val prep = preparedBlocks[i]
 			val sourceRect = prep.sourceRect
-			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
-			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
 			
-			val vLeft = tl.x
-			val vTop = tl.y
-			val vRight = br.x
-			val vBottom = br.y
+			// Use standard 3-arg sourceToViewCoord with pre-allocated PointF
+			// Handles padding and rotation internally while ensuring zero allocation.
+			ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top, vPoint)
+			val vLeft = vPoint.x
+			val vTop = vPoint.y
+			
+			ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom, vPoint)
+			val vRight = vPoint.x
+			val vBottom = vPoint.y
 			
 			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.4f).coerceAtMost(60f)
 			
@@ -193,15 +201,19 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			val layoutPaint = prep.layout.paint
 			
-			layoutPaint.set(strokePaint)
-			layoutPaint.textSize = prep.textSize
+			// Toggle Paint properties without changing TextSize to avoid Skia font cache lookups
+			layoutPaint.style = Paint.Style.STROKE
+			layoutPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
 			prep.layout.draw(canvas)
 			
-			layoutPaint.set(baseTextPaint)
-			layoutPaint.textSize = prep.textSize
+			layoutPaint.style = Paint.Style.FILL
 			if (isSeamlessMode) {
-				val bgLum = Color.luminance(prep.backgroundColor)
-				layoutPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
+				// Manual luminance check for minSdk 23 compatibility
+				val r = Color.red(prep.backgroundColor)
+				val g = Color.green(prep.backgroundColor)
+				val b = Color.blue(prep.backgroundColor)
+				val lum = 0.299 * r + 0.587 * g + 0.114 * b
+				layoutPaint.color = if (lum > 128) Color.BLACK else Color.WHITE
 			} else {
 				layoutPaint.color = Color.BLACK
 			}
@@ -210,7 +222,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
-		// Invalidate while ready to ensure smooth tracking during pan/zoom
 		postInvalidateOnAnimation()
 	}
 }

@@ -114,6 +114,7 @@ class ReaderActivity :
     lateinit var screenOrientationHelper: ScreenOrientationHelper
 
     private val idlingDetector = IdlingDetector(TimeUnit.SECONDS.toMillis(10), this)
+    private val ocrMutex = Mutex()
 
     private val viewModel: ReaderViewModel by viewModels()
 
@@ -550,45 +551,53 @@ class ReaderActivity :
                     viewBinding.toastView.show(R.string.processing_)
                 }
                 
-                // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
-                val bitmap = try {
-                    withContext(Dispatchers.Main) {
-                        val width = ssiv.width
-                        val height = ssiv.height
-                        if (width <= 0 || height <= 0) return@withContext null
-                        
-                        val captureScale = if (Math.max(width, height) > 1280) 1280f / Math.max(width, height) else 1f
-                        val targetW = (width * captureScale).toInt()
-                        val targetH = (height * captureScale).toInt()
+                ocrMutex.withLock {
+                    // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
+                    val bitmap = try {
+                        withContext(Dispatchers.Main) {
+                            val width = ssiv.width
+                            val height = ssiv.height
+                            if (width <= 0 || height <= 0) return@withContext null
+                            
+                            val captureScale = if (Math.max(width, height) > 1280) 1280f / Math.max(width, height) else 1f
+                            val targetW = (width * captureScale).toInt()
+                            val targetH = (height * captureScale).toInt()
+                            val requiredBytes = targetW * targetH * 2 // RGB_565
 
-                        val b = ocrBuffer?.takeIf { it.width == targetW && it.height == targetH && !it.isRecycled } 
-                                ?: Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565).also { ocrBuffer = it }
-                        
-                        val canvas = android.graphics.Canvas(b)
-                        canvas.scale(captureScale, captureScale)
-                        ssiv.draw(canvas)
-                        b
+                            val b = ocrBuffer?.takeIf { 
+                                !it.isRecycled && it.allocationByteCount >= requiredBytes 
+                            }?.also {
+                                it.reconfigure(targetW, targetH, Bitmap.Config.RGB_565)
+                            } ?: Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565).also { 
+                                ocrBuffer?.recycle()
+                                ocrBuffer = it 
+                            }
+                            
+                            val canvas = android.graphics.Canvas(b)
+                            canvas.scale(captureScale, captureScale)
+                            ssiv.draw(canvas)
+                            b
+                        }
+                    } catch (e: Exception) {
+                        null
                     }
-                } catch (e: Exception) {
-                    null
-                }
-                
-                if (bitmap == null) {
+                    
+                    if (bitmap == null) {
+                        withContext(Dispatchers.Main) {
+                            viewBinding.toastView.hide()
+                        }
+                        return@withLock
+                    }
+                    
+                    val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
+                    
                     withContext(Dispatchers.Main) {
+                        overlay.setupWithSSIV(ssiv)
+                        overlay.setSettings(settings)
+                        overlay.isVisible = true
+                        overlay.setTranslatedBlocks(blocks)
                         viewBinding.toastView.hide()
                     }
-                    continue
-                }
-                
-                // Adjust scale and translation for the scaled capture
-                val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
-                
-                withContext(Dispatchers.Main) {
-                    overlay.setupWithSSIV(ssiv)
-                    overlay.setSettings(settings)
-                    overlay.isVisible = true
-                    overlay.setTranslatedBlocks(blocks)
-                    viewBinding.toastView.hide()
                 }
             }
         }
