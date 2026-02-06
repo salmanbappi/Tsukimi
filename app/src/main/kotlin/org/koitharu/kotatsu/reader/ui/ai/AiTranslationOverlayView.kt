@@ -121,7 +121,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					thesize -= step
+					textSize -= step
 					continue
 				}
 
@@ -139,7 +139,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				thesize -= step
+				textSize -= step
 			}
 
 			if (finalLayout == null) {
