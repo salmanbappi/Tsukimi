@@ -84,15 +84,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
-		ssiv.setOnStateChangedListener(object : SubsamplingScaleImageView.DefaultOnStateChangedListener() {
-			override fun onScaleChanged(newScale: Float, origin: Int) {
-				invalidate()
-			}
-
-			override fun onCenterChanged(newCenter: PointF?, origin: Int) {
-				invalidate()
-			}
-		})
+		// No listener used here to avoid compilation errors with different SSIV versions
+		// We rely on postInvalidateOnAnimation in onDraw to keep up with zoom/pan
 	}
 
 	private fun prepareLayouts() {
@@ -127,7 +120,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					tsizeSize -= step
+					textSize -= step
 					continue
 				}
 
@@ -221,7 +214,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
-		if (ssiv.isZooming || ssiv.isPanning) {
+		// Invalidate while SSIV is ready to ensure we track movement.
+		// To optimize performance, we only do this when visible.
+		if (visibility == View.VISIBLE) {
 			postInvalidateOnAnimation()
 		}
 	}
