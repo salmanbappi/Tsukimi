@@ -84,8 +84,23 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
-		// No listener used here to avoid compilation errors with different SSIV versions
-		// We rely on postInvalidateOnAnimation in onDraw to keep up with zoom/pan
+		try {
+			val listenerClass = Class.forName("com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView\\$OnStateChangedListener")
+			val setListenerMethod = ssiv.javaClass.getMethod("setOnStateChangedListener", listenerClass)
+			
+			val proxy = java.lang.reflect.Proxy.newProxyInstance(
+				listenerClass.classLoader,
+				arrayOf(listenerClass)
+			) { _, method, _ ->
+				if (method.name == "onScaleChanged" || method.name == "onCenterChanged") {
+					postInvalidateOnAnimation()
+				}
+				null
+			}
+			setListenerMethod.invoke(ssiv, proxy)
+		} catch (e: Exception) {
+			// Fallback: invalidate via ReaderActivity if needed, or just let user trigger it
+		}
 	}
 
 	private fun prepareLayouts() {
@@ -120,7 +135,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				if (maxWordWidth > availableWidth && textSize > minTextSize) {
-					textSize -= step
+					thesize -= step
 					continue
 				}
 
@@ -138,7 +153,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				textSize -= step
+				thesize -= step
 			}
 
 			if (finalLayout == null) {
@@ -195,12 +210,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			val layoutPaint = prep.layout.paint
 			
-			// Outline
 			layoutPaint.set(strokePaint)
 			layoutPaint.textSize = prep.textSize
 			prep.layout.draw(canvas)
 			
-			// Fill
 			layoutPaint.set(baseTextPaint)
 			layoutPaint.textSize = prep.textSize
 			if (isSeamlessMode) {
@@ -212,10 +225,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			prep.layout.draw(canvas)
 			
 			canvas.restore()
-		}
-		
-		if (ssiv.isZooming || ssiv.isPanning) {
-			postInvalidateOnAnimation()
 		}
 	}
 }
