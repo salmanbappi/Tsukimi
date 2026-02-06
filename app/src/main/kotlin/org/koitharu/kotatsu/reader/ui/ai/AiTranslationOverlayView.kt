@@ -175,48 +175,46 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val tl = ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top) ?: continue
 			val br = ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom) ?: continue
 			
-			val viewLeft = tl.x
-			val viewTop = tl.y
-			val viewRight = br.x
-			val viewBottom = br.y
+			val vLeft = tl.x
+			val vTop = tl.y
+			val vRight = br.x
+			val vBottom = br.y
 			
-			val viewWidth = viewRight - viewLeft
-			val viewHeight = viewBottom - viewTop
-			val cornerRadius = (viewWidth.coerceAtMost(viewHeight) * 0.4f).coerceAtMost(60f)
+			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.4f).coerceAtMost(60f)
 			
 			if (isSeamlessMode) {
 				seamlessPaint.color = prep.backgroundColor
-				seamlessPaint.alpha = 255 
-				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, seamlessPaint)
+				canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, seamlessPaint)
 			} else {
-				canvas.drawRoundRect(viewLeft, viewTop, viewRight, viewBottom, cornerRadius, cornerRadius, backgroundPaint)
+				canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, backgroundPaint)
 			}
 
 			canvas.save()
-			canvas.translate(viewLeft + prep.paddingX * currentScale, viewTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
+			canvas.translate(vLeft + prep.paddingX * currentScale, vTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
 			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
 			
-			val workPaint = prep.layout.paint
-			workPaint.set(strokePaint)
-			workPaint.textSize = prep.textSize
-			workPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
+			val layoutPaint = prep.layout.paint
+			
+			// Outline
+			layoutPaint.set(strokePaint)
+			layoutPaint.textSize = prep.textSize
 			prep.layout.draw(canvas)
 			
-			workPaint.set(baseTextPaint)
-			workPaint.textSize = prep.textSize
+			// Fill
+			layoutPaint.set(baseTextPaint)
+			layoutPaint.textSize = prep.textSize
 			if (isSeamlessMode) {
 				val bgLum = Color.luminance(prep.backgroundColor)
-				workPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
+				layoutPaint.color = if (bgLum > 0.5) Color.BLACK else Color.WHITE
 			} else {
-				workPaint.color = Color.BLACK
+				layoutPaint.color = Color.BLACK
 			}
 			prep.layout.draw(canvas)
+			
 			canvas.restore()
 		}
 		
-		// Invalidate while SSIV is ready to ensure we track movement.
-		// To optimize performance, we only do this when visible.
-		if (visibility == View.VISIBLE) {
+		if (ssiv.isZooming || ssiv.isPanning) {
 			postInvalidateOnAnimation()
 		}
 	}

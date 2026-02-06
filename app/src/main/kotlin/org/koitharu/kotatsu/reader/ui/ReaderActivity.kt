@@ -130,6 +130,7 @@ class ReaderActivity :
 
     private var isFoldUnfolded: Boolean = false
     private var autoTranslateJob: Job? = null
+    private var ocrBuffer: Bitmap? = null
 
     companion object {
         private const val TOAST_DURATION = 2000L
@@ -552,16 +553,17 @@ class ReaderActivity :
                 // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
                 val bitmap = try {
                     withContext(Dispatchers.Main) {
-                        // Use a smaller scale for the capture itself if the image is huge
-                        // but drawToBitmap draws the whole view. 
-                        // To optimize, we can draw to a scaled canvas.
                         val width = ssiv.width
                         val height = ssiv.height
                         if (width <= 0 || height <= 0) return@withContext null
                         
-                        // Scale down the capture for OCR - 720p is usually enough
                         val captureScale = if (Math.max(width, height) > 1280) 1280f / Math.max(width, height) else 1f
-                        val b = Bitmap.createBitmap((width * captureScale).toInt(), (height * captureScale).toInt(), Bitmap.Config.ARGB_8888)
+                        val targetW = (width * captureScale).toInt()
+                        val targetH = (height * captureScale).toInt()
+
+                        val b = ocrBuffer?.takeIf { it.width == targetW && it.height == targetH && !it.isRecycled } 
+                                ?: Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565).also { ocrBuffer = it }
+                        
                         val canvas = android.graphics.Canvas(b)
                         canvas.scale(captureScale, captureScale)
                         ssiv.draw(canvas)

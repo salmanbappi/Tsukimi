@@ -34,3 +34,18 @@
 -keep class org.tensorflow.lite.** { *; }
 -dontwarn org.tensorflow.lite.**
 -dontwarn org.tensorflow.lite.gpu.**
+
+# ML Kit - Protect internals from R8 Full Mode stripping
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text.** { *; }
+-keep class com.google.android.gms.internal.mlkit_language_id.** { *; }
+-dontwarn com.google.mlkit.**
+
+# Kotlinx Serialization - Protect translation models
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable *;
+}
+-keep class org.koitharu.kotatsu.reader.ui.ai.TranslatedBlock { *; }
+-keep class org.koitharu.kotatsu.core.model.TranslationEngine { *; }
+-keep class org.koitharu.kotatsu.core.prefs.AppSettings { *; }
