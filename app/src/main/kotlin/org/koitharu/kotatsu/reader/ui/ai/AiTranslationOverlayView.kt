@@ -138,7 +138,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
-				tsizeSize -= step
+				textSize -= step
 			}
 
 			if (finalLayout == null) {
