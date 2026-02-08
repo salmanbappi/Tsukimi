@@ -35,45 +35,50 @@ class CloudFlareClient(
 		webView.evaluateJavascript(
 			"""
 			(function() {
-				const MIN_DELAY = 1500;
+				const MIN_DELAY = 1000;
 				const MAX_DELAY = 3000;
+				const CHECK_INTERVAL = 2000;
 				
 				function getRandomDelay() {
 					return Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
 				}
 
-				function findCheckbox(root) {
-					return root.querySelector('#challenge-stage input[type="checkbox"]') ||
+				function findWidget(root) {
+					// Direct check in current root
+					const widget = root.querySelector('#challenge-stage input[type="checkbox"]') ||
 						   root.querySelector('input[name="cf-turnstile-response"]') ||
 						   root.querySelector('.ctp-checkbox-container input') ||
 						   root.querySelector('.cf-turnstile-wrapper iframe') ||
 						   root.querySelector('#turnstile-wrapper iframe');
+					
+					if (widget) return widget;
+
+					// Deep check in Shadow DOMs
+					const all = root.querySelectorAll('*');
+					for (let i = 0; i < all.length; i++) {
+						if (all[i].shadowRoot) {
+							const found = findWidget(all[i].shadowRoot);
+							if (found) return found;
+						}
+					}
+					return null;
 				}
 
 				function attemptClick() {
-					const element = findCheckbox(document);
+					const element = findWidget(document);
 					if (element) {
-						if (element.tagName === 'IFRAME') {
-							element.focus();
-							return true;
-						}
 						setTimeout(() => {
-							element.click();
-							element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+							if (element.tagName === 'IFRAME') {
+								element.focus();
+							} else {
+								element.focus();
+								element.click();
+								element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+								element.dispatchEvent(new Event('change', { bubbles: true }));
+								element.dispatchEvent(new Event('input', { bubbles: true }));
+							}
 						}, getRandomDelay());
 						return true;
-					}
-					
-					const all = document.querySelectorAll('*');
-					for (let i = 0; i < all.length; i++) {
-						const el = all[i];
-						if (el.shadowRoot) {
-							const cb = findCheckbox(el.shadowRoot);
-							if (cb) {
-								setTimeout(() => cb.click(), getRandomDelay());
-								return true;
-							}
-						}
 					}
 					return false;
 				}
@@ -95,7 +100,7 @@ class CloudFlareClient(
 						clearInterval(interval);
 						observer.disconnect();
 					}
-				}, 4000);
+				}, CHECK_INTERVAL);
 			})();
 			""".trimIndent(),
 			null
