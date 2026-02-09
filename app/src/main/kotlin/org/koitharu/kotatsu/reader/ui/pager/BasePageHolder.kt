@@ -238,8 +238,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 					val currentCenter = ssiv.getCenter()
 					ssiv.setImage(state.source)
 					if (currentCenter != null) {
-						// UpscaleFactor is 4x (Real-ESRGAN x4)
-						ssiv.setScaleAndCenter(currentScale / 4f, android.graphics.PointF(currentCenter.x * 4f, currentCenter.y * 4f))
+						// UpscaleFactor is 2x
+						ssiv.setScaleAndCenter(currentScale / 2f, android.graphics.PointF(currentCenter.x * 2f, currentCenter.y * 2f))
 					}
 				}
 				upscaleBadge?.isVisible = state.isUpscaled

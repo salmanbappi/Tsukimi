@@ -13,6 +13,7 @@
 
 #define TAG "NcnnUpscaler"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 class BitmapLock {
@@ -36,7 +37,6 @@ private:
 
 static ncnn::Net net;
 static bool g_initialized = false;
-static int g_scale = 4; // Real-ESRGAN x4
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_org_koitharu_kotatsu_reader_domain_NcnnUpscaler_nativeInit(
@@ -60,14 +60,23 @@ Java_org_koitharu_kotatsu_reader_domain_NcnnUpscaler_nativeInit(
     net.opt.use_fp16_packed = true;
     net.opt.use_fp16_storage = true;
     net.opt.use_fp16_arithmetic = true;
+    net.opt.lightmode = true;
     net.opt.num_threads = 4;
 
+    // Check if GPU is available
+    int gpu_count = ncnn::get_gpu_count();
+    if (gpu_count <= 0) {
+        LOGW("No GPU detected, falling back to CPU");
+        net.opt.use_vulkan_compute = false;
+    }
+
     if (net.load_param(mgr, paramPath.c_str()) != 0 || net.load_model(mgr, binPath.c_str()) != 0) {
-        LOGE("Failed to load model %s", modelName);
+        LOGE("Failed to load model %s from assets", modelName);
         env->ReleaseStringUTFChars(modelName_, modelName);
         return JNI_FALSE;
     }
 
+    LOGD("NCNN model %s loaded successfully. GPU: %s", modelName, net.opt.use_vulkan_compute ? "ON" : "OFF");
     env->ReleaseStringUTFChars(modelName_, modelName);
     g_initialized = true;
     return JNI_TRUE;
@@ -82,15 +91,24 @@ Java_org_koitharu_kotatsu_reader_domain_NcnnUpscaler_nativeUpscale(
         jint tileSize,
         jint denoise) {
 
-    if (!g_initialized) return nullptr;
+    if (!g_initialized) {
+        LOGE("nativeUpscale: NCNN not initialized");
+        return nullptr;
+    }
 
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return nullptr;
     
     int w = info.width;
     int h = info.height;
+    // Note: The model Real-ESRGAN x4 ALWAYS scales by 4 internally.
+    const int model_scale = 4;
+    
+    // Output size as requested by user (usually 2x)
     int out_w = w * scale;
     int out_h = h * scale;
+
+    LOGD("Upscaling %dx%d -> %dx%d (Model internal: x%d)", w, h, out_w, out_h, model_scale);
 
     jclass bitmapCls = env->FindClass("android/graphics/Bitmap");
     jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapCls, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
@@ -99,20 +117,26 @@ Java_org_koitharu_kotatsu_reader_domain_NcnnUpscaler_nativeUpscale(
     jobject config = env->CallStaticObjectMethod(configCls, valueOfMethod, env->NewStringUTF("ARGB_8888"));
     jobject newBitmap = env->CallStaticObjectMethod(bitmapCls, createBitmapMethod, out_w, out_h, config);
 
-    if (!newBitmap) return nullptr;
+    if (!newBitmap) {
+        LOGE("Failed to create output bitmap %dx%d", out_w, out_h);
+        return nullptr;
+    }
 
     BitmapLock srcLock(env, bitmap);
     BitmapLock dstLock(env, newBitmap);
 
-    if (!srcLock.pixels() || !dstLock.pixels()) return nullptr;
+    if (!srcLock.pixels() || !dstLock.pixels()) {
+        LOGE("Failed to lock pixels");
+        return nullptr;
+    }
 
     ncnn::Mat in = ncnn::Mat::from_pixels((const unsigned char*)srcLock.pixels(), ncnn::Mat::PIXEL_RGBA2RGB, w, h);
     
     const int prepad = 10;
-    ncnn::Mat out(out_w, out_h, sizeof(float) * 3, 3);
-
     int xtiles = (w + tileSize - 1) / tileSize;
     int ytiles = (h + tileSize - 1) / tileSize;
+
+    LOGD("Processing %dx%d tiles", xtiles, ytiles);
 
     for (int y = 0; y < ytiles; y++) {
         for (int x = 0; x < xtiles; x++) {
@@ -134,22 +158,26 @@ Java_org_koitharu_kotatsu_reader_domain_NcnnUpscaler_nativeUpscale(
             ex.input("data", tile_in);
             ex.extract("output", tile_out);
 
-            int out_x0 = x0 * scale;
-            int out_y0 = y0 * scale;
-            int out_x1 = x1 * scale;
-            int out_y1 = y1 * scale;
-
-            int out_tile_x0 = (x0 - x0p) * scale;
-            int out_tile_y0 = (y0 - y0p) * scale;
-            int out_tile_x1 = out_tile_x0 + (x1 - x0) * scale;
-            int out_tile_y1 = out_tile_y0 + (y1 - y0) * scale;
+            // Coordinates in the 4x upscaled space
+            int out_tile_x0 = (x0 - x0p) * model_scale;
+            int out_tile_y0 = (y0 - y0p) * model_scale;
+            int out_tile_x1 = out_tile_x0 + (x1 - x0) * model_scale;
+            int out_tile_y1 = out_tile_y0 + (y1 - y0) * model_scale;
 
             ncnn::Mat tile_out_cut;
             copy_cut_border(tile_out, tile_out_cut, out_tile_y0, tile_out.h - out_tile_y1, out_tile_x0, tile_out.w - out_tile_x1);
 
-            tile_out_cut.to_pixels_resize((unsigned char*)dstLock.pixels() + (out_y0 * out_w + out_x0) * 4, ncnn::Mat::PIXEL_RGB2RGBA, out_x1 - out_x0, out_y1 - out_y0, out_w * 4);
+            // Final coordinates in the target (e.g. 2x) space
+            int final_x0 = x0 * scale;
+            int final_y0 = y0 * scale;
+            int final_w = (x1 - x0) * scale;
+            int final_h = (y1 - y0) * scale;
+
+            // Resize and copy to destination pixels
+            tile_out_cut.to_pixels_resize((unsigned char*)dstLock.pixels() + (final_y0 * out_w + final_x0) * 4, ncnn::Mat::PIXEL_RGB2RGBA, final_w, final_h, out_w * 4);
         }
     }
 
+    LOGD("Upscale complete");
     return newBitmap;
 }

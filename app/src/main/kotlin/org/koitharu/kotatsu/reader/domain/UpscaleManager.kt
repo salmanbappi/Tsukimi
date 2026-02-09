@@ -25,8 +25,8 @@ interface UpscaleManager {
     suspend fun upscale(input: Bitmap, model: String, param: UpscaleParams): Bitmap?
 
     data class UpscaleParams(
-        val scale: Int = 4,
-        val tileSize: Int = 256, // Smaller tiles = less RAM usage
+        val scale: Int = 2,
+        val tileSize: Int = 512, // Larger tiles = fewer passes, slightly more RAM
         val denoise: Int = -1 // -1: None, 0: Low, 3: High
     )
 }

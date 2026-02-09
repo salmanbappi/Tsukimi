@@ -28,6 +28,10 @@ import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.reader.domain.PageLoader
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
 
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.delay
+
 class PageViewModel(
 	private val loader: PageLoader,
 	val settingsProducer: ReaderSettings.Producer,
@@ -35,6 +39,11 @@ class PageViewModel(
 	private val exceptionResolver: ExceptionResolver,
 	private val isWebtoon: Boolean,
 ) : DefaultOnImageEventListener {
+
+	companion object {
+		// Global limit: only upscale 1 image at a time across the entire app
+		private val upscaleSemaphore = Semaphore(1)
+	}
 
 	private val scope = loader.loaderScope + Dispatchers.Main.immediate
 	private var job: Job? = null
@@ -50,8 +59,8 @@ class PageViewModel(
 				if (settings.isAiUpscaleEnabled && loader.isUpscaleReady()) {
 					val currentState = state.value
 					val uri = when (currentState) {
-						is PageState.Shown -> (currentState.source as? ImageSource.Uri)?.uri
-						is PageState.Loaded -> (currentState.source as? ImageSource.Uri)?.uri
+						is PageState.Shown -> if (!currentState.isUpscaled) (currentState.source as? ImageSource.Uri)?.uri else null
+						is PageState.Loaded -> if (!currentState.isUpscaled) (currentState.source as? ImageSource.Uri)?.uri else null
 						else -> null
 					}
 					if (uri != null) {
@@ -109,6 +118,13 @@ class PageViewModel(
 			} else {
 				currentState
 			}
+		}
+		// If just shown and upscaling is enabled, trigger it
+		val uri = (state.value as? PageState.Shown)?.let { 
+			if (!it.isUpscaled) (it.source as? ImageSource.Uri)?.uri else null 
+		}
+		if (uri != null && settingsProducer.value.isAiUpscaleEnabled) {
+			startUpscaling(uri)
 		}
 	}
 
@@ -183,9 +199,7 @@ class PageViewModel(
 			}
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
 			
-			if (settingsProducer.value.isAiUpscaleEnabled && loader.isUpscaleReady()) {
-				startUpscaling(uri)
-			}
+			// startUpscaling(uri) // Don't start automatically here to save memory
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Throwable) {
@@ -199,17 +213,21 @@ class PageViewModel(
 	}
 
 	private fun startUpscaling(originalUri: Uri) {
-		upscaleJob?.cancel()
+		if (upscaleJob?.isActive == true) return
 		upscaleJob = scope.launch(Dispatchers.Default) {
-			try {
-				val upscaledUri = loader.upscalePage(originalUri)
-				if (upscaledUri != originalUri) {
-					withContext(Dispatchers.Main) {
-						state.value = PageState.Loaded(upscaledUri.toImageSource(cachedBounds), isConverted = false, isUpscaled = true)
+			upscaleSemaphore.withPermit {
+				try {
+					// Wait a bit to ensure UI thread is free and user isn't scrolling rapidly
+					delay(500) 
+					val upscaledUri = loader.upscalePage(originalUri)
+					if (upscaledUri != originalUri) {
+						withContext(Dispatchers.Main) {
+							state.value = PageState.Loaded(upscaledUri.toImageSource(cachedBounds), isConverted = false, isUpscaled = true)
+						}
 					}
+				} catch (e: Throwable) {
+					e.printStackTraceDebug()
 				}
-			} catch (e: Throwable) {
-				e.printStackTraceDebug()
 			}
 		}
 	}
