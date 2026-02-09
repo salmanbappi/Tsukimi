@@ -39,6 +39,7 @@ data class ReaderSettings(
 	val isPagesCropEnabledStandard: Boolean,
 	val isPagesCropEnabledWebtoon: Boolean,
 	val isAiTranslationEnabled: Boolean,
+	val isAiUpscaleEnabled: Boolean,
 	val sharpening: Float,
 	val denoising: Float,
 ) {
@@ -57,6 +58,7 @@ data class ReaderSettings(
 		isPagesCropEnabledStandard = settings.isPagesCropEnabled(ReaderMode.STANDARD),
 		isPagesCropEnabledWebtoon = settings.isPagesCropEnabled(ReaderMode.WEBTOON),
 		isAiTranslationEnabled = settings.isAiTranslationEnabled,
+		isAiUpscaleEnabled = settings.isAiUpscaleEnabled,
 		sharpening = colorFilterOverride?.sharpening ?: settings.readerColorFilter?.sharpening ?: 0f,
 		denoising = colorFilterOverride?.denoising ?: settings.readerColorFilter?.denoising ?: 0f,
 	)
@@ -110,6 +112,7 @@ data class ReaderSettings(
 			AppSettings.KEY_CF_GRAYSCALE,
 			AppSettings.KEY_READER_CROP,
 			AppSettings.KEY_AI_TRANSLATION,
+			AppSettings.KEY_AI_UPSCALE,
 			AppSettings.KEY_CF_SHARPENING,
 			AppSettings.KEY_CF_DENOISING,
 		)

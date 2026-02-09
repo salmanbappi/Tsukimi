@@ -77,6 +77,7 @@ import org.koitharu.kotatsu.parsers.model.MangaSource
 import org.koitharu.kotatsu.parsers.util.requireBody
 import org.koitharu.kotatsu.parsers.util.runCatchingCancellable
 import org.koitharu.kotatsu.reader.ui.pager.ReaderPage
+import org.koitharu.kotatsu.reader.domain.UpscaleManager
 import java.io.File
 import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicInteger
@@ -99,6 +100,7 @@ class PageLoader @Inject constructor(
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
+	private val upscaleManager: UpscaleManager,
 ) {
 
 	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
@@ -114,6 +116,8 @@ class PageLoader @Inject constructor(
 	private val counter = AtomicInteger(0)
 	private var prefetchQueueLimit = PREFETCH_LIMIT_DEFAULT // TODO adaptive
 	private val edgeDetector = EdgeDetector(context)
+
+	fun isUpscaleReady(): Boolean = upscaleManager.isReady()
 
 	fun isPrefetchApplicable(): Boolean {
 		return repository is CachingMangaRepository
@@ -251,6 +255,27 @@ class PageLoader @Inject constructor(
 		processedCache.get(cacheKey)?.toUri() ?: uri
 	}
 
+	suspend fun upscalePage(uri: Uri): Uri = convertLock.withLock {
+		if (uri.isZipUri()) return@withLock uri
+		
+		val rawFile = uri.toFile()
+		val cacheKey = "upscale_${rawFile.absolutePath}".md5()
+		
+		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+		withContext(Dispatchers.IO) {
+			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+			val upscaled = upscaleManager.upscale(bitmap, "realesrgan-x4plus-anime", UpscaleManager.UpscaleParams())
+			if (upscaled != null) {
+				processedCache.set(cacheKey, upscaled)
+				upscaled.recycle()
+			}
+			bitmap.recycle()
+		}
+		
+		processedCache.get(cacheKey)?.toUri() ?: uri
+	}
+
 	suspend fun invalidate(clearCache: Boolean) {
 		tasks.clear()
 		loaderScope.cancelChildrenAndJoin()
@@ -312,9 +337,20 @@ class PageLoader @Inject constructor(
 	): Uri = semaphore.withPermit {
 		val pageUrl = getPageUrl(page)
 		check(pageUrl.isNotBlank()) { "Cannot obtain full image url for $page" }
+
+		// 1. Check if upscaled version exists in cache (pseudo-code, implement proper keying)
+		// val upscaledKey = "upscale_${pageUrl.md5()}"
+		// cache.get(upscaledKey)?.let { return it.toUri() }
+
 		if (!skipCache) {
-			cache.get(pageUrl)?.let { return it.toUri() }
+			cache.get(pageUrl)?.let { 
+				// Optional: Trigger background upscale here if not ready
+				return it.toUri() 
+			}
 		}
+		
+		// ... (standard load logic) ...
+
 		val uri = pageUrl.toUri()
 		return when {
 			uri.isZipUri() -> if (uri.scheme == URI_SCHEME_ZIP) {
@@ -323,7 +359,14 @@ class PageLoader @Inject constructor(
 				uri.buildUpon().scheme(URI_SCHEME_ZIP).build()
 			}
 
-			uri.isFileUri() -> uri
+			uri.isFileUri() -> {
+				// Hook for Upscaling
+				if (upscaleManager.isReady() && settings.isAiUpscaleEnabled) {
+					// This should ideally be a separate background job to not block initial load
+					// For now, we return original and let a separate flow handle swapping
+				}
+				uri
+			}
 			else -> {
 				if (isPrefetch) {
 					downloadSlowdownDispatcher.delay(page.source)

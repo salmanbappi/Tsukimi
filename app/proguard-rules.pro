@@ -41,6 +41,11 @@
 -keep class com.google.android.gms.internal.mlkit_vision_text.zz* { *; }
 -dontwarn com.google.mlkit.**
 
+# AI Upscaler
+-keepclassmembers class org.koitharu.kotatsu.reader.domain.NcnnUpscaler {
+    native <methods>;
+}
+
 # Data models - strictly keep serialized fields
 -keepattributes *Annotation*, InnerClasses
 -keepclassmembers class * {

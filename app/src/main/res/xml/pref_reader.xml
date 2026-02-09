@@ -162,6 +162,12 @@
 
 		<SwitchPreferenceCompat
 			android:defaultValue="false"
+			android:key="ai_upscale"
+			android:summary="@string/ai_upscaling_summary"
+			android:title="@string/ai_upscaling" />
+
+		<SwitchPreferenceCompat
+			android:defaultValue="false"
 			android:key="ai_translation"
 			android:summary="@string/ai_translation_summary"
 			android:title="@string/ai_translation" />

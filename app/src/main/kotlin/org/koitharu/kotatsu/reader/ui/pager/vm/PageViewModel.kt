@@ -44,6 +44,24 @@ class PageViewModel(
 
 	val state = MutableStateFlow<PageState>(PageState.Empty)
 
+	init {
+		settingsProducer
+			.onEach { settings ->
+				if (settings.isAiUpscaleEnabled && loader.isUpscaleReady()) {
+					val currentState = state.value
+					val uri = when (currentState) {
+						is PageState.Shown -> (currentState.source as? ImageSource.Uri)?.uri
+						is PageState.Loaded -> (currentState.source as? ImageSource.Uri)?.uri
+						else -> null
+					}
+					if (uri != null) {
+						startUpscaling(uri)
+					}
+				}
+			}
+			.launchIn(scope)
+	}
+
 	fun isLoading() = job?.isActive == true
 
 	fun onBind(page: MangaPage) {
@@ -87,7 +105,7 @@ class PageViewModel(
 	override fun onImageLoaded() {
 		state.update { currentState ->
 			if (currentState is PageState.Loaded) {
-				PageState.Shown(currentState.source, currentState.isConverted)
+				PageState.Shown(currentState.source, currentState.isConverted, currentState.isUpscaled)
 			} else {
 				currentState
 			}
@@ -164,6 +182,10 @@ class PageViewModel(
 				null
 			}
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
+			
+			if (settingsProducer.value.isAiUpscaleEnabled && loader.isUpscaleReady()) {
+				startUpscaling(uri)
+			}
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Throwable) {
@@ -172,6 +194,22 @@ class PageViewModel(
 			if (e is IOException && !networkState.value) {
 				networkState.awaitForConnection()
 				retry(data, isFromUser = false)
+			}
+		}
+	}
+
+	private fun startUpscaling(originalUri: Uri) {
+		upscaleJob?.cancel()
+		upscaleJob = scope.launch(Dispatchers.Default) {
+			try {
+				val upscaledUri = loader.upscalePage(originalUri)
+				if (upscaledUri != originalUri) {
+					withContext(Dispatchers.Main) {
+						state.value = PageState.Loaded(upscaledUri.toImageSource(cachedBounds), isConverted = false, isUpscaled = true)
+					}
+				}
+			} catch (e: Throwable) {
+				e.printStackTraceDebug()
 			}
 		}
 	}
