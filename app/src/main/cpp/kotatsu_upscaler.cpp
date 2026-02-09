@@ -7,9 +7,9 @@
 #include <algorithm>
 
 // NCNN
-#include "ncnn/net.h"
-#include "ncnn/gpu.h"
-#include "ncnn/mat.h"
+#include "net.h"
+#include "gpu.h"
+#include "mat.h"
 
 #define TAG "NcnnUpscaler"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
