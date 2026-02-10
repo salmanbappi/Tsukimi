@@ -25,18 +25,27 @@ fun mangaGridItemAD(
 
 	bind { payloads ->
 		itemView.tag = item.id
-		binding.textViewTitle.text = item.title
+		if (binding.textViewTitle.text != item.title) {
+			binding.textViewTitle.text = item.title
+		}
 		binding.progressView.setProgress(item.progress, PAYLOAD_PROGRESS_CHANGED in payloads)
 		
-		val currentCover = binding.imageViewCover.getTag(R.id.cover_url) as? String
+		val coverView = binding.imageViewCover
+		val currentCover = coverView.getTag(R.id.cover_url) as? String
 		if (currentCover != item.coverUrl) {
-			binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)
-			binding.imageViewCover.setTag(R.id.cover_url, item.coverUrl)
+			coverView.setImageAsync(item.coverUrl, item.manga)
+			coverView.setTag(R.id.cover_url, item.coverUrl)
 		}
 		
 		binding.iconsView.updateIcons(item.isSaved, item.isFavorite)
 		
-		binding.badge.number = item.counter
-		binding.badge.isVisible = item.counter > 0
+		val badge = binding.badge
+		if (badge.number != item.counter) {
+			badge.number = item.counter
+		}
+		val shouldShowBadge = item.counter > 0
+		if (badge.isVisible != shouldShowBadge) {
+			badge.isVisible = shouldShowBadge
+		}
 	}
 }

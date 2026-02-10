@@ -111,7 +111,7 @@ abstract class MangaListFragment :
 		paginationListener = PaginationScrollListener(4, this)
 		with(binding.recyclerView) {
 			setHasFixedSize(true)
-			setItemViewCacheSize(2) // Minimum cache to reduce memory churn
+			setItemViewCacheSize(8) // Increased for smoother scrolling
 			
 			adapter = listAdapter
 			checkNotNull(selectionController).attachToRecyclerView(this)

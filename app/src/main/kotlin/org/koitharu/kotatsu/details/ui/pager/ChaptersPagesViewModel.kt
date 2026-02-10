@@ -99,7 +99,6 @@ abstract class ChaptersPagesViewModel(
 	val isDownloadedOnly = MutableStateFlow(false)
 	private val deletionConfirmation = MutableStateFlow(emptySet<Long>())
 	private val deletingChapters = MutableStateFlow(emptySet<Long>())
-	private val upscaledChapters = MutableStateFlow(emptySet<Long>())
 
 	private val downloadingChapters = combine(
 		downloadScheduler.observeWorks(),
@@ -224,7 +223,7 @@ abstract class ChaptersPagesViewModel(
 			deletionConfirmation = deletionConfirm,
 			downloadingChapters = downloading,
 			deletingChapters = deleting,
-			upscaledChapters = upscaled,
+			upscaledChapters = emptySet<Long>(),
 		).orEmpty()
 	}
 
@@ -258,42 +257,8 @@ abstract class ChaptersPagesViewModel(
 			localStorageChanges
 				.collect { 
 					onDownloadComplete(it)
-					refreshUpscaledChapters(it)
 				}
 		}
-		launchJob(Dispatchers.Default) {
-			manga.collect { 
-				// Need to find LocalManga for current manga
-				val local = mangaDetails.value?.local
-				refreshUpscaledChapters(local)
-			}
-		}
-	}
-
-	private fun refreshUpscaledChapters(localManga: LocalManga?) {
-		if (localManga == null) {
-			upscaledChapters.value = emptySet()
-			return
-		}
-		val upscaled = mutableSetOf<Long>()
-		localManga.manga.chapters?.forEach { chapter ->
-			val uri = android.net.Uri.parse(chapter.url)
-			if (uri.scheme == "file" || uri.scheme == "zip") {
-				val path = if (uri.scheme == "zip") uri.schemeSpecificPart.substringBefore("!") else uri.path
-				if (path != null) {
-					val file = java.io.File(path)
-					val marker = if (file.isDirectory) {
-						java.io.File(file, ".upscaled")
-					} else {
-						java.io.File(file.parentFile, "${file.name}.upscaled")
-					}
-					if (marker.exists()) {
-						upscaled.add(chapter.id)
-					}
-				}
-			}
-		}
-		upscaledChapters.value = upscaled
 	}
 
 	fun setChaptersReversed(newValue: Boolean) {

@@ -27,7 +27,7 @@ class DynamicItemSizeResolver(
 	override val cellWidth: Int
 		get() = (gridWidth * scaleFactor).roundToInt()
 
-	private val observers = java.util.Collections.newSetFromMap(java.util.WeakHashMap<SizeObserver, Boolean>())
+	private val observers = java.util.WeakHashMap<View, SizeObserver>()
 
 	init {
 		lifecycleOwner.lifecycle.addObserver(this)
@@ -36,7 +36,7 @@ class DynamicItemSizeResolver(
 
 	override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
 		if (key == AppSettings.KEY_GRID_SIZE) {
-			observers.forEach { it.update() }
+			observers.values.forEach { it.update() }
 		}
 	}
 
@@ -50,11 +50,11 @@ class DynamicItemSizeResolver(
 		textView: TextView?,
 		progressView: ReadingProgressView?
 	) {
-		val observer = SizeObserver(view, textView, progressView)
-		observers.add(observer)
-		if (view.isAttachedToWindow) {
-			observer.update()
+		val observer = observers.getOrPut(view) {
+			SizeObserver(view, textView, progressView)
 		}
+		// Always update immediately to avoid jumps during scroll
+		observer.update()
 	}
 
 	private inner class SizeObserver(
