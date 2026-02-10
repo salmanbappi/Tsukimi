@@ -79,6 +79,15 @@ android {
     }
 
     packagingOptions {
+        resources {
+            excludes += [
+                'META-INF/README.md',
+                'META-INF/NOTICE.md'
+            ]
+        }
+    }
+
+    sourceSets {
         androidTest.assets.srcDirs += files("$projectDir/schemas".toString())
         main.java.srcDirs += 'src/main/kotlin/'
     }
