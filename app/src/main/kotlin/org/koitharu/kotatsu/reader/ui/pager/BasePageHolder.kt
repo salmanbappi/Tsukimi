@@ -55,6 +55,7 @@ abstract class BasePageHolder<B : ViewBinding>(
 		networkState = networkState,
 		exceptionResolver = exceptionResolver,
 		isWebtoon = isWebtoon,
+		aiFeatureManager = aiFeatureManager,
 	)
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView

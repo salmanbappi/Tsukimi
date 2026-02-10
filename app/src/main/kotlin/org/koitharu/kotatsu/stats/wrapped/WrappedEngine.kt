@@ -30,7 +30,7 @@ class WrappedEngine @Inject constructor(
         val mangaCounts = allStats.groupBy { it.mangaId }
             .mapValues { it.value.sumOf { s -> s.pages } }
         val topMangaId = mangaCounts.maxByOrNull { it.value }?.key
-        val topManga = topMangaId?.let { db.getMangaDao().get(it)?.toManga(emptySet(), null) }
+        val topManga = topMangaId?.let { db.getMangaDao().find(it)?.manga?.toManga(emptySet(), null) }
 
         // Hour analysis
         val hourCounts = IntArray(24)

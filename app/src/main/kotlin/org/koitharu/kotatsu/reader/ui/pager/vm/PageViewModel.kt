@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.pager.vm
 import android.graphics.Rect
 import android.net.Uri
 import androidx.annotation.WorkerThread
+import androidx.core.net.toFile
 import com.davemorrissey.labs.subscaleview.DefaultOnImageEventListener
 import com.davemorrissey.labs.subscaleview.ImageSource
 import kotlinx.coroutines.CancellationException
