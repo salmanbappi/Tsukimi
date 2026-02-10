@@ -555,6 +555,7 @@ class ReaderActivity :
                 
                 ocrMutex.withLock {
                     // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
+                    var captureScale = 1f
                     val bitmap = try {
                         withContext(Dispatchers.Main) {
                             val width = ssiv.width
@@ -562,7 +563,7 @@ class ReaderActivity :
                             if (width <= 0 || height <= 0) return@withContext null
                             
                             // MAINTAIN QUALITY: Use 1440px threshold and ARGB_8888 to ensure good translation results
-                            val captureScale = if (Math.max(width, height) > 1440) 1440f / Math.max(width, height) else 1f
+                            captureScale = if (Math.max(width, height) > 1440) 1440f / Math.max(width, height) else 1f
                             val targetW = (width * captureScale).toInt()
                             val targetH = (height * captureScale).toInt()
                             val requiredBytes = targetW * targetH * 4 // ARGB_8888
