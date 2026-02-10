@@ -340,8 +340,16 @@ class ReaderViewModel @Inject constructor(
     private var averageSecPerPage = 10.0 // Default assumption
     private var isPrefetchingChapter = false
 
+    private var lastCenterPos = -1
+
     @MainThread
     fun onCurrentPageChanged(lowerPos: Int, upperPos: Int) {
+        val centerPos = (lowerPos + upperPos) / 2
+        if (centerPos == lastCenterPos && !content.value.pages.isEmpty()) {
+            return // Skip if position hasn't changed to save CPU
+        }
+        lastCenterPos = centerPos
+
         // Track reading speed
         val now = System.currentTimeMillis()
         if (pageTurnTimestamps.isNotEmpty()) {

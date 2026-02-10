@@ -24,7 +24,6 @@ fun mangaGridItemAD(
 	sizeResolver.attachToView(itemView, binding.textViewTitle, binding.progressView)
 
 	bind { payloads ->
-		itemView.setTooltipCompat(item.getSummary(context))
 		binding.textViewTitle.text = item.title
 		binding.progressView.setProgress(item.progress, PAYLOAD_PROGRESS_CHANGED in payloads)
 		

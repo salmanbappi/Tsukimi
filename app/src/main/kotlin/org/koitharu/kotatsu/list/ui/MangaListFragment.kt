@@ -111,6 +111,9 @@ abstract class MangaListFragment :
 		paginationListener = PaginationScrollListener(4, this)
 		with(binding.recyclerView) {
 			setHasFixedSize(true)
+			setItemViewCacheSize(20) // Cache more items off-screen
+			recycledViewPool.setMaxRecycledViews(ListItemType.MANGA_GRID.ordinal, 30)
+			
 			adapter = listAdapter
 			checkNotNull(selectionController).attachToRecyclerView(this)
 			addItemDecoration(TypedListSpacingDecoration(context, false))
