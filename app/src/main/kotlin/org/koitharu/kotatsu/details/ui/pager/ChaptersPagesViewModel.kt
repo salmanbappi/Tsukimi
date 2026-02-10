@@ -189,7 +189,6 @@ abstract class ChaptersPagesViewModel(
 		deletionConfirmation,
 		downloadingChapters,
 		deletingChapters,
-		upscaledChapters,
 	) { args: Array<Any?> ->
 		val details = args[0] as? MangaDetails
 		val currentChapterId = args[1] as Long
@@ -208,8 +207,6 @@ abstract class ChaptersPagesViewModel(
 		val downloading = args[10] as Map<Long, Float>
 		@Suppress("UNCHECKED_CAST")
 		val deleting = args[11] as Set<Long>
-		@Suppress("UNCHECKED_CAST")
-		val upscaled = args[12] as Set<Long>
 
 		details?.mapChapters(
 			currentChapterId = currentChapterId,
