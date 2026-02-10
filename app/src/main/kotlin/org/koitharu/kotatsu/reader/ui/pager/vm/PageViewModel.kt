@@ -43,37 +43,12 @@ class PageViewModel(
 	private val aiFeatureManager: AiFeatureManager,
 ) : DefaultOnImageEventListener {
 
-	companion object {
-		// Global limit: only upscale 1 image at a time across the entire app
-		private val upscaleSemaphore = Semaphore(1)
-	}
-
 	private val scope = loader.loaderScope + Dispatchers.Main.immediate
 	private var job: Job? = null
-	private var upscaleJob: Job? = null
 	private var cachedBounds: Rect? = null
 	private var boundPage: MangaPage? = null
 
 	val state = MutableStateFlow<PageState>(PageState.Empty)
-	val hapticEvent = kotlinx.coroutines.channels.Channel<Int>(kotlinx.coroutines.channels.Channel.BUFFERED)
-
-	init {
-		settingsProducer
-			.onEach { settings ->
-				if (settings.isAiUpscaleEnabled && loader.isUpscaleReady()) {
-					val currentState = state.value
-					val uri = when (currentState) {
-						is PageState.Shown -> if (!currentState.isUpscaled) (currentState.source as? ImageSource.Uri)?.uri else null
-						is PageState.Loaded -> if (!currentState.isUpscaled) (currentState.source as? ImageSource.Uri)?.uri else null
-						else -> null
-					}
-					if (uri != null) {
-						startUpscaling(uri)
-					}
-				}
-			}
-			.launchIn(scope)
-	}
 
 	fun isLoading() = job?.isActive == true
 
@@ -112,7 +87,6 @@ class PageViewModel(
 		cachedBounds = null
 		boundPage = null
 		job?.cancel()
-		upscaleJob?.cancel()
 	}
 
 	override fun onImageLoaded() {
@@ -122,13 +96,6 @@ class PageViewModel(
 			} else {
 				currentState
 			}
-		}
-		// If just shown and upscaling is enabled, trigger it
-		val uri = (state.value as? PageState.Shown)?.let { 
-			if (!it.isUpscaled) (it.source as? ImageSource.Uri)?.uri else null 
-		}
-		if (uri != null && settingsProducer.value.isAiUpscaleEnabled) {
-			startUpscaling(uri)
 		}
 	}
 
@@ -202,26 +169,6 @@ class PageViewModel(
 				null
 			}
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
-			
-			// Trigger Haptic Analysis
-			launch(Dispatchers.Default) {
-				try {
-					if (uri.scheme == "file") {
-						val bitmap = org.koitharu.kotatsu.core.image.BitmapDecoderCompat.decode(java.io.File(uri.path!!))
-						if (bitmap != null) {
-							val intensity = aiFeatureManager.analyzeForHaptics(bitmap)
-							if (intensity > 0) {
-								hapticEvent.send(intensity)
-							}
-							bitmap.recycle()
-						}
-					}
-				} catch (e: Exception) {
-					// Ignore analysis errors
-				}
-			}
-
-			// startUpscaling(uri) // Don't start automatically here to save memory
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Throwable) {
@@ -230,31 +177,6 @@ class PageViewModel(
 			if (e is IOException && !networkState.value) {
 				networkState.awaitForConnection()
 				retry(data, isFromUser = false)
-			}
-		}
-	}
-
-	private fun startUpscaling(originalUri: Uri) {
-		if (upscaleJob?.isActive == true) return
-		upscaleJob = scope.launch(Dispatchers.Default) {
-			upscaleSemaphore.withPermit {
-				try {
-					android.util.Log.d("PageViewModel", "Starting AI Upscale for: $originalUri")
-					// Wait a bit to ensure UI thread is free and user isn't scrolling rapidly
-					delay(500) 
-					val upscaledUri = loader.upscalePage(originalUri)
-					if (upscaledUri != originalUri) {
-						android.util.Log.d("PageViewModel", "AI Upscale success: $upscaledUri")
-						withContext(Dispatchers.Main) {
-							state.value = PageState.Loaded(upscaledUri.toImageSource(cachedBounds), isConverted = false, isUpscaled = true)
-						}
-					} else {
-						android.util.Log.d("PageViewModel", "AI Upscale skipped or failed (same URI returned)")
-					}
-				} catch (e: Throwable) {
-					android.util.Log.e("PageViewModel", "AI Upscale failed", e)
-					e.printStackTraceDebug()
-				}
 			}
 		}
 	}

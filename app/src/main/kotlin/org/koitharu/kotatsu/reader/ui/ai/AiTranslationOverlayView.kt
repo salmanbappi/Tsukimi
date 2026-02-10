@@ -238,8 +238,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
-		// Only request another frame if the state changed or is likely to change
-		// SSIV doesn't expose isAnimating easily, so we use a high-frequency sync while visible
-		postInvalidateOnAnimation()
+		// SMART REDRAW: Only request another frame if the image is still moving/zooming.
+		// This prevents constant CPU usage when viewing a static page with many bubbles.
+		val newScale = ssiv.scale
+		val newCenter = ssiv.getCenter()
+		if (newScale != lastScale || newCenter?.x != lastCenterX || newCenter?.y != lastCenterY) {
+			lastScale = newScale
+			lastCenterX = newCenter?.x ?: -1f
+			lastCenterY = newCenter?.y ?: -1f
+			postInvalidateOnAnimation()
+		}
 	}
 }

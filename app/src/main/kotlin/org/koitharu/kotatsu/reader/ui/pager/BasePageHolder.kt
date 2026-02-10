@@ -62,7 +62,6 @@ abstract class BasePageHolder<B : ViewBinding>(
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
 	protected open val translationOverlay: AiTranslationOverlayView? = null
-	protected open val upscaleBadge: View? = null
 
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value
@@ -82,19 +81,6 @@ abstract class BasePageHolder<B : ViewBinding>(
 			ssiv.isEagerLoadingEnabled = !context.isLowRamDevice()
 			ssiv.addOnImageEventListener(viewModel)
 			ssiv.addOnImageEventListener(this@BasePageHolder)
-			
-			// HAPTIC SYMPATHY
-			// Listen for analysis results and vibrate if needed
-			for (intensity in viewModel.hapticEvent) {
-				if (intensity > 0) {
-					val feedbackConstant = if (intensity >= 2) {
-						android.view.HapticFeedbackConstants.LONG_PRESS // Heavy impact
-					} else {
-						android.view.HapticFeedbackConstants.VIRTUAL_KEY // Light impact
-					}
-					itemView.performHapticFeedback(feedbackConstant)
-				}
-			}
 		}
 		val clickListener = View.OnClickListener { v ->
 			when (v.id) {
@@ -249,16 +235,6 @@ abstract class BasePageHolder<B : ViewBinding>(
 			}
 
 			is PageState.Shown -> {
-				if (state.isUpscaled) {
-					val currentScale = ssiv.scale
-					val currentCenter = ssiv.getCenter()
-					ssiv.setImage(state.source)
-					if (currentCenter != null) {
-						// UpscaleFactor is 2x
-						ssiv.setScaleAndCenter(currentScale / 2f, android.graphics.PointF(currentCenter.x * 2f, currentCenter.y * 2f))
-					}
-				}
-				upscaleBadge?.isVisible = state.isUpscaled
 				restoreTranslationIfPossible()
 			}
 		}

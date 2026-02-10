@@ -77,7 +77,6 @@ import org.koitharu.kotatsu.parsers.model.MangaSource
 import org.koitharu.kotatsu.parsers.util.requireBody
 import org.koitharu.kotatsu.parsers.util.runCatchingCancellable
 import org.koitharu.kotatsu.reader.ui.pager.ReaderPage
-import org.koitharu.kotatsu.reader.domain.UpscaleManager
 import java.io.File
 import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicInteger
@@ -100,7 +99,6 @@ class PageLoader @Inject constructor(
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
-	private val upscaleManager: UpscaleManager,
 ) {
 
 	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
@@ -116,8 +114,6 @@ class PageLoader @Inject constructor(
 	private val counter = AtomicInteger(0)
 	private var prefetchQueueLimit = PREFETCH_LIMIT_DEFAULT // TODO adaptive
 	private val edgeDetector = EdgeDetector(context)
-
-	fun isUpscaleReady(): Boolean = upscaleManager.isReady()
 
 	fun isPrefetchApplicable(): Boolean {
 		return repository is CachingMangaRepository
@@ -268,31 +264,6 @@ class PageLoader @Inject constructor(
 		}
 	}
 
-	suspend fun upscalePage(uri: Uri): Uri {
-		if (uri.isZipUri()) return uri
-		
-		val rawFile = uri.toFile()
-		val cacheKey = "upscale_${rawFile.absolutePath}".md5()
-		
-		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
-		
-		return lock.withLock {
-			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
-
-			withContext(Dispatchers.IO) {
-				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
-				val upscaled = upscaleManager.upscale(bitmap, "realesrgan-x4plus-anime", UpscaleManager.UpscaleParams())
-				if (upscaled != null) {
-					processedCache.set(cacheKey, upscaled)
-					upscaled.recycle()
-				}
-				bitmap.recycle()
-			}
-			
-			processedCache.get(cacheKey)?.toUri() ?: uri
-		}
-	}
-
 	suspend fun invalidate(clearCache: Boolean) {
 		tasks.clear()
 		loaderScope.cancelChildrenAndJoin()
@@ -377,11 +348,6 @@ class PageLoader @Inject constructor(
 			}
 
 			uri.isFileUri() -> {
-				// Hook for Upscaling
-				if (upscaleManager.isReady() && settings.isAiUpscaleEnabled) {
-					// This should ideally be a separate background job to not block initial load
-					// For now, we return original and let a separate flow handle swapping
-				}
 				uri
 			}
 			else -> {

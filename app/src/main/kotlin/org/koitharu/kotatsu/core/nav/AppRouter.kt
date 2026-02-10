@@ -144,8 +144,8 @@ class AppRouter private constructor(
 
     fun openSearch(source: MangaSource, query: String) = openList(source, MangaListFilter(query = query), null)
 
-    fun openDetails(manga: Manga, options: Bundle? = null) {
-        startActivity(detailsIntent(contextOrNull() ?: return, manga), options)
+    fun openDetails(manga: Manga) {
+        startActivity(detailsIntent(contextOrNull() ?: return, manga))
     }
 
     fun openDetails(mangaId: Long) {
