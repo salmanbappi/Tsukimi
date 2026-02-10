@@ -12,7 +12,7 @@ import org.koitharu.kotatsu.core.db.entity.MangaEntity
     foreignKeys = [
         ForeignKey(
             entity = MangaEntity::class,
-            parentColumns = ["id"],
+            parentColumns = ["manga_id"],
             childColumns = ["manga_id"],
             onDelete = ForeignKey.CASCADE
         )
