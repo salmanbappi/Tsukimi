@@ -158,7 +158,29 @@ abstract class MangaListFragment :
 		if (selectionController?.onItemClick(item.id) != true) {
 			val manga = item.toMangaWithOverride()
 			if ((activity as? MangaListActivity)?.showPreview(manga) != true) {
-				router.openDetails(manga)
+				// SHARED ELEMENT TRANSITION LOGIC
+				val coverView = view.findViewById<View>(R.id.imageView_cover)
+				if (coverView != null) {
+					coverView.transitionName = "cover_${manga.id}"
+					val extras = androidx.navigation.fragment.FragmentNavigatorExtras(
+						coverView to coverView.transitionName
+					)
+					// Note: Router needs to support Extras. 
+					// For now we set the transition name and let the standard openDetails handle it
+					// if it supports options. 
+					// Assuming 'router.openDetails' needs update or we use direct navigation if feasible.
+					// Since 'router' is an abstraction, we will rely on Activity-level transitions 
+					// or updated Router implementation.
+					// For standard Activity transition:
+					val options = androidx.core.app.ActivityOptionsCompat.makeSceneTransitionAnimation(
+						requireActivity(),
+						coverView,
+						"cover_transition" // Constant name for the target activity's shared element
+					)
+					router.openDetails(manga, options.toBundle())
+				} else {
+					router.openDetails(manga)
+				}
 			}
 		}
 	}

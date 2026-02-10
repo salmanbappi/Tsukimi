@@ -27,6 +27,7 @@ import org.koitharu.kotatsu.core.util.ext.throttle
 import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.reader.domain.PageLoader
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
 
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -38,6 +39,7 @@ class PageViewModel(
 	private val networkState: NetworkState,
 	private val exceptionResolver: ExceptionResolver,
 	private val isWebtoon: Boolean,
+	private val aiFeatureManager: AiFeatureManager,
 ) : DefaultOnImageEventListener {
 
 	companion object {
@@ -52,6 +54,7 @@ class PageViewModel(
 	private var boundPage: MangaPage? = null
 
 	val state = MutableStateFlow<PageState>(PageState.Empty)
+	val hapticEvent = kotlinx.coroutines.channels.Channel<Int>(kotlinx.coroutines.channels.Channel.BUFFERED)
 
 	init {
 		settingsProducer
@@ -199,6 +202,24 @@ class PageViewModel(
 			}
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
 			
+			// Trigger Haptic Analysis
+			launch(Dispatchers.Default) {
+				try {
+					if (uri.scheme == "file") {
+						val bitmap = org.koitharu.kotatsu.core.image.BitmapDecoderCompat.decode(uri.toFile())
+						if (bitmap != null) {
+							val intensity = aiFeatureManager.analyzeForHaptics(bitmap)
+							if (intensity > 0) {
+								hapticEvent.send(intensity)
+							}
+							bitmap.recycle()
+						}
+					}
+				} catch (e: Exception) {
+					// Ignore analysis errors
+				}
+			}
+
 			// startUpscaling(uri) // Don't start automatically here to save memory
 		} catch (e: CancellationException) {
 			throw e
@@ -217,15 +238,20 @@ class PageViewModel(
 		upscaleJob = scope.launch(Dispatchers.Default) {
 			upscaleSemaphore.withPermit {
 				try {
+					android.util.Log.d("PageViewModel", "Starting AI Upscale for: $originalUri")
 					// Wait a bit to ensure UI thread is free and user isn't scrolling rapidly
 					delay(500) 
 					val upscaledUri = loader.upscalePage(originalUri)
 					if (upscaledUri != originalUri) {
+						android.util.Log.d("PageViewModel", "AI Upscale success: $upscaledUri")
 						withContext(Dispatchers.Main) {
 							state.value = PageState.Loaded(upscaledUri.toImageSource(cachedBounds), isConverted = false, isUpscaled = true)
 						}
+					} else {
+						android.util.Log.d("PageViewModel", "AI Upscale skipped or failed (same URI returned)")
 					}
 				} catch (e: Throwable) {
+					android.util.Log.e("PageViewModel", "AI Upscale failed", e)
 					e.printStackTraceDebug()
 				}
 			}

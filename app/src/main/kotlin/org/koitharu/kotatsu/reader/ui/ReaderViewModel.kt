@@ -335,8 +335,34 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    // Predictive Prefetching State
+    private val pageTurnTimestamps = java.util.LinkedList<Long>()
+    private var averageSecPerPage = 10.0 // Default assumption
+    private var isPrefetchingChapter = false
+
     @MainThread
     fun onCurrentPageChanged(lowerPos: Int, upperPos: Int) {
+        // Track reading speed
+        val now = System.currentTimeMillis()
+        if (pageTurnTimestamps.isNotEmpty()) {
+            val diff = (now - pageTurnTimestamps.last) / 1000.0
+            if (diff > 1.0 && diff < 300.0) { // Ignore fast scrolls or huge breaks
+                pageTurnTimestamps.add(now)
+                if (pageTurnTimestamps.size > 5) pageTurnTimestamps.removeFirst()
+                
+                // Calculate moving average
+                var totalDiff = 0.0
+                for (i in 1 until pageTurnTimestamps.size) {
+                    totalDiff += (pageTurnTimestamps[i] - pageTurnTimestamps[i-1]) / 1000.0
+                }
+                if (pageTurnTimestamps.size > 1) {
+                    averageSecPerPage = totalDiff / (pageTurnTimestamps.size - 1)
+                }
+            }
+        } else {
+            pageTurnTimestamps.add(now)
+        }
+
         val prevJob = stateChangeJob
         val pages = content.value.pages // capture immediately
         stateChangeJob = launchJob(Dispatchers.Default) {
@@ -358,6 +384,16 @@ class ReaderViewModel @Inject constructor(
             ensureActive()
             val autoLoadAllowed = readerMode.value != ReaderMode.WEBTOON || !isWebtoonPullGestureEnabled.value
             if (autoLoadAllowed) {
+                // Predictive Logic: Time-Based Trigger
+                // If pages remaining * speed < 30 seconds, trigger next chapter load
+                val pagesRemaining = pages.size - 1 - upperPos
+                val timeRemaining = pagesRemaining * averageSecPerPage
+                
+                if (timeRemaining < 30.0 && !isPrefetchingChapter) {
+                     loadPrevNextChapter(pages.last().chapterId, isNext = true)
+                     isPrefetchingChapter = true // Reset this flag when chapter changes
+                }
+                
                 if (upperPos >= pages.lastIndex - BOUNDS_PAGE_OFFSET) {
                     loadPrevNextChapter(pages.last().chapterId, isNext = true)
                 }

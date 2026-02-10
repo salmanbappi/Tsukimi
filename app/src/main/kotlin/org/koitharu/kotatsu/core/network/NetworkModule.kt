@@ -64,6 +64,7 @@ interface NetworkModule {
 			cookieJar: CookieJar,
 			settings: AppSettings,
 			proxyProvider: ProxyProvider,
+			cloudFlareSolverInterceptor: org.koitharu.kotatsu.core.network.cf.CloudFlareSolverInterceptor
 		): OkHttpClient = OkHttpClient.Builder().apply {
 			assertNotInMainThread()
 			connectTimeout(20, TimeUnit.SECONDS)
@@ -80,7 +81,7 @@ interface NetworkModule {
 			}
 			cache(cache)
 			addInterceptor(GZipInterceptor())
-			addInterceptor(CloudFlareInterceptor())
+			addInterceptor(cloudFlareSolverInterceptor)
 			addInterceptor(RateLimitInterceptor())
 			if (BuildConfig.DEBUG) {
 				addInterceptor(CurlLoggingInterceptor())

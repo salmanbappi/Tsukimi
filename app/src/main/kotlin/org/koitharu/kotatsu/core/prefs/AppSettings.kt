@@ -259,6 +259,10 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_READER_HAPTICS, true)
 		set(value) = prefs.edit { putBoolean(KEY_READER_HAPTICS, value) }
 
+	var isImmersiveHapticsEnabled: Boolean
+		get() = prefs.getBoolean(KEY_IMMERSIVE_HAPTICS, true)
+		set(value) = prefs.edit { putBoolean(KEY_IMMERSIVE_HAPTICS, value) }
+
 	var isAiTranslationEnabled: Boolean
 		get() = prefs.getBoolean(KEY_AI_TRANSLATION, false)
 		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION, value) }
@@ -818,6 +822,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_READER_SCREEN_ON = "reader_screen_on"
 		const val KEY_READER_ZEN_MODE = "reader_zen_mode"
 		const val KEY_READER_HAPTICS = "reader_haptics"
+		const val KEY_IMMERSIVE_HAPTICS = "immersive_haptics"
 		const val KEY_AI_TRANSLATION = "ai_translation"
 		const val KEY_AI_AUTO_TRANSLATION = "ai_auto_translation"
 		const val KEY_AI_SEAMLESS_TRANSLATION = "ai_seamless_translation"

@@ -52,6 +52,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		color = Color.BLACK
 		isAntiAlias = true
 		typeface = Typeface.DEFAULT_BOLD
+		// Premium polish: subtle drop shadow for depth
+		setShadowLayer(2f, 1f, 1f, Color.parseColor("#40000000"))
 	}
 	
 	private val strokePaint = TextPaint().apply {
@@ -87,6 +89,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		this.ssiv = ssiv
+		ssiv.setOnStateChangedListener(object : SubsamplingScaleImageView.OnStateChangedListener {
+			override fun onScaleChanged(newScale: Float, origin: Int) {
+				invalidate()
+			}
+			override fun onCenterChanged(newCenter: PointF?, origin: Int) {
+				invalidate()
+			}
+		})
 	}
 
 	private fun prepareLayouts() {
@@ -218,7 +228,5 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			canvas.restore()
 		}
-		
-		postInvalidateOnAnimation()
 	}
 }

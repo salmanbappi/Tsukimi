@@ -107,7 +107,7 @@ class PageLoader @Inject constructor(
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
 	private val semaphore = Semaphore(3)
-	private val convertLock = Mutex()
+	private val processingLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
 	private val prefetchLock = Mutex()
 
 	@Volatile
@@ -200,28 +200,38 @@ class PageLoader @Inject constructor(
 
 
 	@CheckResult
-	suspend fun convertBimap(uri: Uri): Uri = convertLock.withLock {
-		if (uri.isZipUri()) {
-			runInterruptible(Dispatchers.IO) {
-				ZipFile(uri.schemeSpecificPart).use { zip ->
-					val entry = zip.getEntry(uri.fragment)
-					context.ensureRamAtLeast(entry.size * 2)
-					zip.getInputStream(entry).use {
-						BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
+	suspend fun convertBimap(uri: Uri): Uri {
+		val lockKey = uri.toString()
+		val lock = processingLocks.computeIfAbsent(lockKey) { Mutex() }
+		
+		return lock.withLock {
+			try {
+				if (uri.isZipUri()) {
+					runInterruptible(Dispatchers.IO) {
+						ZipFile(uri.schemeSpecificPart).use { zip ->
+							val entry = zip.getEntry(uri.fragment)
+							context.ensureRamAtLeast(entry.size * 2)
+							zip.getInputStream(entry).use {
+								BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
+							}
+						}
+					}.use { image ->
+						cache.set(uri.toString(), image).toUri()
 					}
+				} else {
+					val file = uri.toFile()
+					runInterruptible(Dispatchers.IO) {
+						context.ensureRamAtLeast(file.length() * 2)
+						BitmapDecoderCompat.decode(file)
+					}.use { image ->
+						image.compressToPNG(file)
+					}
+					uri
 				}
-			}.use { image ->
-				cache.set(uri.toString(), image).toUri()
+			} finally {
+				// Optional: cleanup lock if needed, but keeping it for caching simplicity is fine for now
+				// processingLocks.remove(lockKey) 
 			}
-		} else {
-			val file = uri.toFile()
-			runInterruptible(Dispatchers.IO) {
-				context.ensureRamAtLeast(file.length() * 2)
-				BitmapDecoderCompat.decode(file)
-			}.use { image ->
-				image.compressToPNG(file)
-			}
-			uri
 		}
 	}
 
@@ -235,45 +245,52 @@ class PageLoader @Inject constructor(
 		return getRepository(page.source).getPageUrl(page)
 	}
 
-	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri = convertLock.withLock {
-		if (uri.isZipUri()) return@withLock uri
+	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri {
+		if (uri.isZipUri()) return uri
 		
 		val rawFile = uri.toFile()
-		// Safe key: MD5(absolutePath + sharpening + denoising) to ensure unique per manga/chapter
 		val cacheKey = "${rawFile.absolutePath}_s${sharpening}_d${denoising}".md5()
 		
-		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
-
-		withContext(Dispatchers.IO) {
-			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
-			val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
-			processedCache.set(cacheKey, filtered)
-			filtered.recycle()
-			bitmap.recycle()
-		}
+		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
 		
-		processedCache.get(cacheKey)?.toUri() ?: uri
+		return lock.withLock {
+			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+			withContext(Dispatchers.IO) {
+				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+				val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
+				processedCache.set(cacheKey, filtered)
+				filtered.recycle()
+				bitmap.recycle()
+			}
+			
+			processedCache.get(cacheKey)?.toUri() ?: uri
+		}
 	}
 
-	suspend fun upscalePage(uri: Uri): Uri = convertLock.withLock {
-		if (uri.isZipUri()) return@withLock uri
+	suspend fun upscalePage(uri: Uri): Uri {
+		if (uri.isZipUri()) return uri
 		
 		val rawFile = uri.toFile()
 		val cacheKey = "upscale_${rawFile.absolutePath}".md5()
 		
-		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
-
-		withContext(Dispatchers.IO) {
-			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
-			val upscaled = upscaleManager.upscale(bitmap, "realesrgan-x4plus-anime", UpscaleManager.UpscaleParams())
-			if (upscaled != null) {
-				processedCache.set(cacheKey, upscaled)
-				upscaled.recycle()
-			}
-			bitmap.recycle()
-		}
+		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
 		
-		processedCache.get(cacheKey)?.toUri() ?: uri
+		return lock.withLock {
+			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+			withContext(Dispatchers.IO) {
+				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+				val upscaled = upscaleManager.upscale(bitmap, "realesrgan-x4plus-anime", UpscaleManager.UpscaleParams())
+				if (upscaled != null) {
+					processedCache.set(cacheKey, upscaled)
+					upscaled.recycle()
+				}
+				bitmap.recycle()
+			}
+			
+			processedCache.get(cacheKey)?.toUri() ?: uri
+		}
 	}
 
 	suspend fun invalidate(clearCache: Boolean) {

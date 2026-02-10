@@ -140,8 +140,15 @@ class DetailsActivity :
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		// PREMIUM TRANSITION: Postpone until image is loaded
+		supportPostponeEnterTransition()
+		
 		setContentView(ActivityDetailsBinding.inflate(layoutInflater))
 		infoBinding = LayoutDetailsTableBinding.bind(viewBinding.root)
+		
+		// Set the Transition Name expected by the caller
+		viewBinding.imageViewCover.transitionName = "cover_transition"
+		
 		setDisplayHomeAsUp(isEnabled = true, showUpAsClose = false)
 		supportActionBar?.setDisplayShowTitleEnabled(false)
 		viewBinding.chipFavorite.setOnClickListener(this)
@@ -520,7 +527,10 @@ class DetailsActivity :
 	}
 
 	private fun loadCover(imageUrl: String?) {
-		viewBinding.imageViewCover.setImageAsync(imageUrl, viewModel.getMangaOrNull())
+		viewBinding.imageViewCover.setImageAsync(imageUrl, viewModel.getMangaOrNull()) {
+			// Start transition once image is ready (or fails)
+			supportStartPostponedEnterTransition()
+		}
 	}
 
 	private fun String.withEstimatedTime(time: ReadingTime?): String {

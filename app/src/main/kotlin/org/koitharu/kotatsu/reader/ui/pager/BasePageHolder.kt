@@ -79,6 +79,19 @@ abstract class BasePageHolder<B : ViewBinding>(
 			ssiv.isEagerLoadingEnabled = !context.isLowRamDevice()
 			ssiv.addOnImageEventListener(viewModel)
 			ssiv.addOnImageEventListener(this@BasePageHolder)
+			
+			// HAPTIC SYMPATHY
+			// Listen for analysis results and vibrate if needed
+			for (intensity in viewModel.hapticEvent) {
+				if (intensity > 0) {
+					val feedbackConstant = if (intensity >= 2) {
+						android.view.HapticFeedbackConstants.LONG_PRESS // Heavy impact
+					} else {
+						android.view.HapticFeedbackConstants.VIRTUAL_KEY // Light impact
+					}
+					itemView.performHapticFeedback(feedbackConstant)
+				}
+			}
 		}
 		val clickListener = View.OnClickListener { v ->
 			when (v.id) {

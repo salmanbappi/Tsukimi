@@ -190,6 +190,53 @@ class AiFeatureManager @Inject constructor(
 		}
 	}
 
+	suspend fun analyzeForHaptics(bitmap: Bitmap): Int = withContext(Dispatchers.Default) {
+		if (!settings.isImmersiveHapticsEnabled) return@withContext 0
+		
+		try {
+			// Fast path: heavy downscale (max 300px) just to find HUGE text
+			val maxDim = 300
+			val scale = if (bitmap.width > 0 && bitmap.height > 0) {
+				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
+			} else 1f
+			
+			val analysisBitmap = if (scale < 1f) {
+				val targetW = (bitmap.width * scale).toInt().coerceAtLeast(1)
+				val targetH = (bitmap.height * scale).toInt().coerceAtLeast(1)
+				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+			} else bitmap
+
+			val inputImage = InputImage.fromBitmap(analysisBitmap, 0)
+			val visionText = textRecognizer.process(inputImage).await()
+			
+			// Analysis Logic:
+			// Look for any single text block that occupies a significant portion of the screen height.
+			// > 15% height -> Light Haptic (Conversation/Impact)
+			// > 30% height -> Heavy Haptic (Scream/Explosion)
+			
+			var maxBlockHeightRatio = 0f
+			val imgHeight = analysisBitmap.height.toFloat()
+			
+			for (block in visionText.textBlocks) {
+				val box = block.boundingBox ?: continue
+				val heightRatio = box.height() / imgHeight
+				if (heightRatio > maxBlockHeightRatio) {
+					maxBlockHeightRatio = heightRatio
+				}
+			}
+			
+			if (analysisBitmap != bitmap) analysisBitmap.recycle()
+			
+			return@withContext when {
+				maxBlockHeightRatio > 0.30f -> 2 // Heavy
+				maxBlockHeightRatio > 0.15f -> 1 // Light
+				else -> 0
+			}
+		} catch (e: Exception) {
+			0
+		}
+	}
+
 	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {
 		val apiKey = settings.groqApiKey ?: return@withContext null
 		val langName = getLanguageName(targetLanguage)
@@ -344,7 +391,8 @@ class AiFeatureManager @Inject constructor(
 
 	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
 		val avgHeight = (r1.height() + r2.height()) / 2f
-		val threshold = (avgHeight * 0.5f).toInt().coerceAtLeast(10)
+		// Aggressive merging for vertical Japanese text: 1.1x line height gap allowed
+		val threshold = (avgHeight * 1.1f).toInt().coerceAtLeast(15)
 		val expanded = Rect(r1)
 		expanded.inset(-threshold, -threshold)
 		return Rect.intersects(expanded, r2)

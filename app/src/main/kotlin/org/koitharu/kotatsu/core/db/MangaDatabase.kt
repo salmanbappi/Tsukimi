@@ -19,6 +19,7 @@ import org.koitharu.kotatsu.core.db.dao.PreferencesDao
 import org.koitharu.kotatsu.core.db.dao.ReadChaptersDao
 import org.koitharu.kotatsu.core.db.dao.TagsDao
 import org.koitharu.kotatsu.core.db.dao.TrackLogsDao
+import org.koitharu.kotatsu.core.db.dao.vector.MangaVectorDao
 import org.koitharu.kotatsu.core.db.entity.ChapterEntity
 import org.koitharu.kotatsu.core.db.entity.MangaEntity
 import org.koitharu.kotatsu.core.db.entity.MangaPrefsEntity
@@ -26,6 +27,7 @@ import org.koitharu.kotatsu.core.db.entity.MangaSourceEntity
 import org.koitharu.kotatsu.core.db.entity.MangaTagsEntity
 import org.koitharu.kotatsu.core.db.entity.ReadChapterEntity
 import org.koitharu.kotatsu.core.db.entity.TagEntity
+import org.koitharu.kotatsu.core.db.entities.vector.MangaVectorEntity
 import org.koitharu.kotatsu.core.db.migrations.Migration10To11
 import org.koitharu.kotatsu.core.db.migrations.Migration11To12
 import org.koitharu.kotatsu.core.db.migrations.Migration12To13
@@ -77,7 +79,7 @@ import org.koitharu.kotatsu.tracker.data.TrackEntity
 import org.koitharu.kotatsu.tracker.data.TrackLogEntity
 import org.koitharu.kotatsu.tracker.data.TracksDao
 
-const val DATABASE_VERSION = 32
+const val DATABASE_VERSION = 33
 
 @Database(
 	entities = [
@@ -85,6 +87,7 @@ const val DATABASE_VERSION = 32
 		FavouriteCategoryEntity::class, FavouriteEntity::class, MangaPrefsEntity::class, TrackEntity::class,
 		TrackLogEntity::class, SuggestionEntity::class, BookmarkEntity::class, ScrobblingEntity::class,
 		MangaSourceEntity::class, StatsEntity::class, LocalMangaIndexEntity::class, ReadChapterEntity::class,
+		MangaVectorEntity::class,
 	],
 	version = DATABASE_VERSION,
 )
@@ -121,6 +124,8 @@ abstract class MangaDatabase : RoomDatabase() {
 	abstract fun getChaptersDao(): ChaptersDao
 
 	abstract fun getReadChaptersDao(): ReadChaptersDao
+
+	abstract fun getMangaVectorDao(): MangaVectorDao
 }
 
 fun getDatabaseMigrations(context: Context): Array<Migration> = arrayOf(
