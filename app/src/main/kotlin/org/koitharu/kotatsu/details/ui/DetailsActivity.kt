@@ -527,10 +527,15 @@ class DetailsActivity :
 	}
 
 	private fun loadCover(imageUrl: String?) {
-		viewBinding.imageViewCover.setImageAsync(imageUrl, viewModel.getMangaOrNull()) {
-			// Start transition once image is ready (or fails)
-			supportStartPostponedEnterTransition()
-		}
+		viewBinding.imageViewCover.addImageRequestListener(object : coil3.request.ImageRequest.Listener {
+			override fun onSuccess(request: coil3.request.ImageRequest, result: coil3.request.SuccessResult) {
+				supportStartPostponedEnterTransition()
+			}
+			override fun onError(request: coil3.request.ImageRequest, result: coil3.request.ErrorResult) {
+				supportStartPostponedEnterTransition()
+			}
+		})
+		viewBinding.imageViewCover.setImageAsync(imageUrl, viewModel.getMangaOrNull())
 	}
 
 	private fun String.withEstimatedTime(time: ReadingTime?): String {
