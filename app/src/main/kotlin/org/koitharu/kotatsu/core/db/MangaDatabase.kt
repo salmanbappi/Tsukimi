@@ -50,6 +50,7 @@ import org.koitharu.kotatsu.core.db.migrations.Migration26To27
 import org.koitharu.kotatsu.core.db.migrations.Migration27To28
 import org.koitharu.kotatsu.core.db.migrations.Migration28To29
 import org.koitharu.kotatsu.core.db.migrations.Migration29To30
+import org.koitharu.kotatsu.core.db.migrations.Migration2To3
 import org.koitharu.kotatsu.core.db.migrations.Migration30To31
 import org.koitharu.kotatsu.core.db.migrations.Migration31To32
 import org.koitharu.kotatsu.core.db.migrations.Migration32To33
