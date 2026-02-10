@@ -24,22 +24,18 @@ fun mangaGridItemAD(
 	sizeResolver.attachToView(itemView, binding.textViewTitle, binding.progressView)
 
 	bind { payloads ->
+		itemView.tag = item.id
 		binding.textViewTitle.text = item.title
 		binding.progressView.setProgress(item.progress, PAYLOAD_PROGRESS_CHANGED in payloads)
 		
-		val icons = ArrayList<Any>(2)
-		if (item.isSaved) icons.add(R.drawable.ic_storage)
-		if (item.isFavorite) icons.add(R.drawable.ic_heart_outline)
-		
-		with(binding.iconsView) {
-			setIcons(icons)
-			val newVisibility = icons.isNotEmpty()
-			if (isVisible != newVisibility) {
-				isVisible = newVisibility
-			}
+		val currentCover = binding.imageViewCover.getTag(R.id.cover_url) as? String
+		if (currentCover != item.coverUrl) {
+			binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)
+			binding.imageViewCover.setTag(R.id.cover_url, item.coverUrl)
 		}
 		
-		binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)
+		binding.iconsView.updateIcons(item.isSaved, item.isFavorite)
+		
 		binding.badge.number = item.counter
 		binding.badge.isVisible = item.counter > 0
 	}

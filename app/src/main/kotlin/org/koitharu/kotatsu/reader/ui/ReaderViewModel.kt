@@ -309,17 +309,17 @@ class ReaderViewModel @Inject constructor(
 
     fun switchChapterBy(delta: Int) {
         val prevJob = loadingJob
-        loadingJob = launchLoadingJob(Dispatchers.Default) {
+        loadingJob = launchJob(Dispatchers.Default) {
             prevJob?.cancelAndJoin()
             val prevState = readingState.requireValue()
             val newChapterId = if (delta != 0) {
                 val allChapters = mangaDetails.requireValue().allChapters
                 var index = allChapters.indexOfFirst { x -> x.id == prevState.chapterId }
                 if (index < 0) {
-                    return@launchLoadingJob
+                    return@launchJob
                 }
                 index += delta
-                (allChapters.getOrNull(index) ?: return@launchLoadingJob).id
+                (allChapters.getOrNull(index) ?: return@launchJob).id
             } else {
                 prevState.chapterId
             }
@@ -335,11 +335,6 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    // Predictive Prefetching State
-    private val pageTurnTimestamps = java.util.LinkedList<Long>()
-    private var averageSecPerPage = 10.0 // Default assumption
-    private var isPrefetchingChapter = false
-
     private var lastCenterPos = -1
 
     @MainThread
@@ -350,27 +345,6 @@ class ReaderViewModel @Inject constructor(
         }
         lastCenterPos = centerPos
 
-        // Track reading speed
-        val now = System.currentTimeMillis()
-        if (pageTurnTimestamps.isNotEmpty()) {
-            val diff = (now - pageTurnTimestamps.last) / 1000.0
-            if (diff > 1.0 && diff < 300.0) { // Ignore fast scrolls or huge breaks
-                pageTurnTimestamps.add(now)
-                if (pageTurnTimestamps.size > 5) pageTurnTimestamps.removeFirst()
-                
-                // Calculate moving average
-                var totalDiff = 0.0
-                for (i in 1 until pageTurnTimestamps.size) {
-                    totalDiff += (pageTurnTimestamps[i] - pageTurnTimestamps[i-1]) / 1000.0
-                }
-                if (pageTurnTimestamps.size > 1) {
-                    averageSecPerPage = totalDiff / (pageTurnTimestamps.size - 1)
-                }
-            }
-        } else {
-            pageTurnTimestamps.add(now)
-        }
-
         val prevJob = stateChangeJob
         val pages = content.value.pages // capture immediately
         stateChangeJob = launchJob(Dispatchers.Default) {
@@ -379,7 +353,6 @@ class ReaderViewModel @Inject constructor(
             if (pages.size != content.value.pages.size) {
                 return@launchJob // TODO
             }
-            val centerPos = (lowerPos + upperPos) / 2
             pages.getOrNull(centerPos)?.let { page ->
                 readingState.update { cs ->
                     cs?.copy(chapterId = page.chapterId, page = page.index)
@@ -392,17 +365,6 @@ class ReaderViewModel @Inject constructor(
             ensureActive()
             val autoLoadAllowed = readerMode.value != ReaderMode.WEBTOON || !isWebtoonPullGestureEnabled.value
             if (autoLoadAllowed) {
-                // Predictive Logic: Time-Based Trigger
-                // Reduced aggressiveness: trigger if < 20 seconds remaining and not on metered network
-                val pagesRemaining = pages.size - 1 - upperPos
-                val timeRemaining = pagesRemaining * averageSecPerPage
-                
-                if (timeRemaining < 20.0 && !isPrefetchingChapter) {
-                     // Check for connection stability or preferences before background heavy load
-                     loadPrevNextChapter(pages.last().chapterId, isNext = true)
-                     isPrefetchingChapter = true 
-                }
-                
                 if (upperPos >= pages.lastIndex - BOUNDS_PAGE_OFFSET) {
                     loadPrevNextChapter(pages.last().chapterId, isNext = true)
                 }

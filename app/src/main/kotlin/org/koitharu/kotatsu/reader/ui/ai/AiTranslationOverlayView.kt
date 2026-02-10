@@ -61,8 +61,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		color = Color.BLACK
 		isAntiAlias = true
 		typeface = Typeface.DEFAULT_BOLD
-		// Premium polish: subtle drop shadow for depth
-		setShadowLayer(2f, 1f, 1f, Color.parseColor("#40000000"))
 	}
 	
 	private val strokePaint = TextPaint().apply {

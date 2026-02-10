@@ -195,6 +195,8 @@ class DetailsViewModel @Inject constructor(
 			}
 		}
 		launchJob(Dispatchers.Default) {
+			// Postpone to avoid transition lag
+			kotlinx.coroutines.delay(800)
 			val manga = mangaDetails.firstOrNull { it != null && it.isLocal } ?: return@launchJob
 			remoteManga.value = interactor.findRemote(manga.toManga())
 		}

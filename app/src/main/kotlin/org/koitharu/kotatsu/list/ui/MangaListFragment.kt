@@ -111,8 +111,7 @@ abstract class MangaListFragment :
 		paginationListener = PaginationScrollListener(4, this)
 		with(binding.recyclerView) {
 			setHasFixedSize(true)
-			setItemViewCacheSize(20) // Cache more items off-screen
-			recycledViewPool.setMaxRecycledViews(ListItemType.MANGA_GRID.ordinal, 30)
+			setItemViewCacheSize(2) // Minimum cache to reduce memory churn
 			
 			adapter = listAdapter
 			checkNotNull(selectionController).attachToRecyclerView(this)
@@ -166,7 +165,6 @@ abstract class MangaListFragment :
 	}
 
 	override fun onItemLongClick(item: MangaListModel, view: View): Boolean {
-		view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 		if (selectionController?.count == 0) {
 			router.showMangaPreview(item.toMangaWithOverride())
 			return true
