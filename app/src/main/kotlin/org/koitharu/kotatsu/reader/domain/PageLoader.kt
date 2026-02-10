@@ -104,7 +104,7 @@ class PageLoader @Inject constructor(
 	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
-	private val semaphore = Semaphore(3)
+	private val semaphore = Semaphore(6) // Increased from 3
 	private val processingLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
 	private val prefetchLock = Mutex()
 

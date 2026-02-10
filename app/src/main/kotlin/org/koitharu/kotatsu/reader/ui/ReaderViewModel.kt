@@ -385,13 +385,14 @@ class ReaderViewModel @Inject constructor(
             val autoLoadAllowed = readerMode.value != ReaderMode.WEBTOON || !isWebtoonPullGestureEnabled.value
             if (autoLoadAllowed) {
                 // Predictive Logic: Time-Based Trigger
-                // If pages remaining * speed < 30 seconds, trigger next chapter load
+                // Reduced aggressiveness: trigger if < 20 seconds remaining and not on metered network
                 val pagesRemaining = pages.size - 1 - upperPos
                 val timeRemaining = pagesRemaining * averageSecPerPage
                 
-                if (timeRemaining < 30.0 && !isPrefetchingChapter) {
+                if (timeRemaining < 20.0 && !isPrefetchingChapter) {
+                     // Check for connection stability or preferences before background heavy load
                      loadPrevNextChapter(pages.last().chapterId, isNext = true)
-                     isPrefetchingChapter = true // Reset this flag when chapter changes
+                     isPrefetchingChapter = true 
                 }
                 
                 if (upperPos >= pages.lastIndex - BOUNDS_PAGE_OFFSET) {

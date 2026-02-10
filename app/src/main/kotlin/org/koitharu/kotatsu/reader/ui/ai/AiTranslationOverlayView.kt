@@ -239,10 +239,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		}
 		
 		// SMART REDRAW: Only request another frame if the image is still moving/zooming.
-		// This prevents constant CPU usage when viewing a static page with many bubbles.
+		// Use a small threshold to avoid constant redraws due to tiny floating point changes.
 		val newScale = ssiv.scale
 		val newCenter = ssiv.getCenter()
-		if (newScale != lastScale || newCenter?.x != lastCenterX || newCenter?.y != lastCenterY) {
+		val scaleChanged = Math.abs(newScale - lastScale) > 0.001f
+		val centerChanged = newCenter != null && (Math.abs(newCenter.x - lastCenterX) > 0.5f || Math.abs(newCenter.y - lastCenterY) > 0.5f)
+		
+		if (scaleChanged || centerChanged) {
 			lastScale = newScale
 			lastCenterX = newCenter?.x ?: -1f
 			lastCenterY = newCenter?.y ?: -1f

@@ -154,7 +154,6 @@ abstract class MangaListFragment :
 	}
 
 	override fun onItemClick(item: MangaListModel, view: View) {
-		view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
 		if (selectionController?.onItemClick(item.id) != true) {
 			val manga = item.toMangaWithOverride()
 			if ((activity as? MangaListActivity)?.showPreview(manga) != true) {
