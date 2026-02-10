@@ -18,7 +18,13 @@ class WrappedEngine @Inject constructor(
         val calendar = Calendar.getInstance()
         calendar.set(year, Calendar.JANUARY, 1, 0, 0, 0)
         val startTime = calendar.timeInMillis
-        calendar.set(year, Calendar.DECEMBER, 31, 23, 59, 59)
+        
+        calendar.set(Calendar.YEAR, year)
+        calendar.set(Calendar.MONTH, Calendar.DECEMBER)
+        calendar.set(Calendar.DAY_OF_MONTH, 31)
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
         val endTime = calendar.timeInMillis
 
         val dao = db.getStatsDao()

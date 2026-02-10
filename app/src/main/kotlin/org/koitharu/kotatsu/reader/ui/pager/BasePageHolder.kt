@@ -49,14 +49,16 @@ abstract class BasePageHolder<B : ViewBinding>(
 		EntryPointAccessors.fromApplication(context, AiEntryPoint::class.java).aiFeatureManager()
 	}
 
-	protected val viewModel = PageViewModel(
-		loader = loader,
-		settingsProducer = readerSettingsProducer,
-		networkState = networkState,
-		exceptionResolver = exceptionResolver,
-		isWebtoon = isWebtoon,
-		aiFeatureManager = aiFeatureManager,
-	)
+	protected val viewModel: PageViewModel by lazy {
+		PageViewModel(
+			loader = loader,
+			settingsProducer = readerSettingsProducer,
+			networkState = networkState,
+			exceptionResolver = exceptionResolver,
+			isWebtoon = isWebtoon,
+			aiFeatureManager = aiFeatureManager,
+		)
+	}
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
 	protected open val translationOverlay: AiTranslationOverlayView? = null

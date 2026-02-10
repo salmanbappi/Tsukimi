@@ -32,8 +32,17 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	// Pre-allocated PointF to ensure zero object creation in onDraw loop
 	private val vPoint = PointF()
 	
+	// State tracking for performance
+	private var lastScale = -1f
+	private var lastCenterX = -1f
+	private var lastCenterY = -1f
+	
 	companion object {
 		private const val REFERENCE_SCALE = 1.5f
+	}
+	
+	init {
+		setLayerType(LAYER_TYPE_HARDWARE, null)
 	}
 	
 	private val backgroundPaint = Paint().apply {
@@ -172,20 +181,28 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
 		val currentScale = ssiv.scale
+		val center = ssiv.getCenter() ?: return
+		
+		// Update state for smart invalidation
+		lastScale = currentScale
+		lastCenterX = center.x
+		lastCenterY = center.y
+		
+		// Calculate global translation once per frame to avoid matrix math in the loop
+		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
+		val tx = -origin.x * currentScale
+		val ty = -origin.y * currentScale
 		
 		val count = preparedBlocks.size
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
 			val sourceRect = prep.sourceRect
 			
-			// Use standard 3-arg sourceToViewCoord with pre-allocated PointF
-			ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top, vPoint)
-			val vLeft = vPoint.x
-			val vTop = vPoint.y
-			
-			ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom, vPoint)
-			val vRight = vPoint.x
-			val vBottom = vPoint.y
+			// Faster manual coordinate mapping
+			val vLeft = sourceRect.left * currentScale + tx
+			val vTop = sourceRect.top * currentScale + ty
+			val vRight = sourceRect.right * currentScale + tx
+			val vBottom = sourceRect.bottom * currentScale + ty
 			
 			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.4f).coerceAtMost(60f)
 			
@@ -221,6 +238,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
+		// Only request another frame if the state changed or is likely to change
+		// SSIV doesn't expose isAnimating easily, so we use a high-frequency sync while visible
 		postInvalidateOnAnimation()
 	}
 }

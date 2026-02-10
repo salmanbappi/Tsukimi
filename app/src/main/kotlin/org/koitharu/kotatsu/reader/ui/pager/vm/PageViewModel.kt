@@ -207,7 +207,7 @@ class PageViewModel(
 			launch(Dispatchers.Default) {
 				try {
 					if (uri.scheme == "file") {
-						val bitmap = org.koitharu.kotatsu.core.image.BitmapDecoderCompat.decode(uri.toFile())
+						val bitmap = org.koitharu.kotatsu.core.image.BitmapDecoderCompat.decode(java.io.File(uri.path!!))
 						if (bitmap != null) {
 							val intensity = aiFeatureManager.analyzeForHaptics(bitmap)
 							if (intensity > 0) {
