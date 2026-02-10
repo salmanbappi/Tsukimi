@@ -23,10 +23,7 @@ class TypedListSpacingDecoration(
 		parent: RecyclerView,
 		state: RecyclerView.State,
 	) {
-		val position = parent.getChildAdapterPosition(view)
-		if (position == RecyclerView.NO_POSITION) return
-		
-		val itemType = parent.adapter?.getItemViewType(position)?.let {
+		val itemType = (view.getTag(R.id.item_type) as? Int ?: parent.getChildViewHolder(view)?.itemViewType)?.let {
 			ListItemType.entries.getOrNull(it)
 		}
 		when (itemType) {

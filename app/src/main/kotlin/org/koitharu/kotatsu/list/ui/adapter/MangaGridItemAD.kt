@@ -21,6 +21,7 @@ fun mangaGridItemAD(
 ) {
 
 	AdapterDelegateClickListenerAdapter(this, clickListener).attach(itemView)
+	itemView.setTag(R.id.item_type, ListItemType.MANGA_GRID.ordinal)
 	sizeResolver.attachToView(itemView, binding.textViewTitle, binding.progressView)
 
 	bind { payloads ->

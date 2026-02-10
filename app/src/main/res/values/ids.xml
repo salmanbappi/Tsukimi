@@ -17,4 +17,5 @@
 	<item name="nav_suggestions" type="id" />
 	<item name="nav_bookmarks" type="id" />
 	<item name="cover_url" type="id" />
+	<item name="item_type" type="id" />
 </resources>

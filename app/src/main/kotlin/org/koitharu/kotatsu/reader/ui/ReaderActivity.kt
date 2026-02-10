@@ -592,7 +592,14 @@ class ReaderActivity :
                         return@withLock
                     }
                     
-                    val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
+                    val blocks = aiFeatureManager.translatePage(
+                        pageKey = pageKey,
+                        bitmap = bitmap,
+                        viewScale = scale,
+                        vTranslateX = vTranslateX,
+                        vTranslateY = vTranslateY,
+                        captureScale = captureScale
+                    )
                     
                     withContext(Dispatchers.Main) {
                         overlay.setupWithSSIV(ssiv)

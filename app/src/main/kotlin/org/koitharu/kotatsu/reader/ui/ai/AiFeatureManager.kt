@@ -72,6 +72,7 @@ class AiFeatureManager @Inject constructor(
 		viewScale: Float,
 		vTranslateX: Float,
 		vTranslateY: Float,
+		captureScale: Float = 1f,
 		targetLanguage: String = TranslateLanguage.ENGLISH
 	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
@@ -86,7 +87,8 @@ class AiFeatureManager @Inject constructor(
 			// Double-check cache after acquiring lock
 			translationCache.get(pageKey)?.let { return@withLock it }
 
-			// Optimization: Downscale bitmap for faster OCR processing
+			// Optimization: Downscale bitmap for faster OCR processing if needed
+			// Note: bitmap is already scaled by captureScale in ReaderActivity
 			val maxDim = 1440
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
@@ -142,26 +144,34 @@ class AiFeatureManager @Inject constructor(
 
 						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
 						
-						// Map back to original captured bitmap coordinates
-						val rectInOriginalBitmap = RectF(
+						// Map back to captured bitmap coordinates
+						val rectInBitmap = RectF(
 							bubbleRect.left / ocrScale,
 							bubbleRect.top / ocrScale,
 							bubbleRect.right / ocrScale,
 							bubbleRect.bottom / ocrScale
 						)
 
+						// Map back to view coordinates using captureScale
+						val rectInView = RectF(
+							rectInBitmap.left / captureScale,
+							rectInBitmap.top / captureScale,
+							rectInBitmap.right / captureScale,
+							rectInBitmap.bottom / captureScale
+						)
+
 						// ABSOLUTE IMAGE ANCHORING:
-						// Convert bitmap coordinates to actual source image coordinates
+						// Convert view coordinates to actual source image coordinates
 						val sourceRect = RectF(
-							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
-							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
-							(rectInOriginalBitmap.right - vTranslateX) / viewScale,
-							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
+							(rectInView.left - vTranslateX) / viewScale,
+							(rectInView.top - vTranslateY) / viewScale,
+							(rectInView.right - vTranslateX) / viewScale,
+							(rectInView.bottom - vTranslateY) / viewScale
 						)
 						
 						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
-						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
-							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
+						if (rectInBitmap.width() > bitmap.width * 0.99f || 
+							rectInBitmap.height() > bitmap.height * 0.99f) return@async null
 
 						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
 
@@ -360,9 +370,9 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Reduced max expansion to prevent merging separate bubbles
-			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
+			// Strictly limited expansion to avoid panel blocking
+			val maxExpandX = (textRect.width().toDouble() * 0.25).coerceAtMost((width * 0.08).toDouble()).coerceAtLeast(15.0).toInt()
+			val maxExpandY = (textRect.height().toDouble() * 0.25).coerceAtMost((height * 0.08).toDouble()).coerceAtLeast(15.0).toInt()
 
 			var left = textRect.left
 			var dist = 0

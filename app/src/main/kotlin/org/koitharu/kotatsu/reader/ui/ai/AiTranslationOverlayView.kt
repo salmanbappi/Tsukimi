@@ -110,8 +110,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			if (refWidth <= 0 || refHeight <= 0) continue
 
-			val paddingX = refWidth * 0.12f
-			val paddingY = refHeight * 0.12f
+			// Reduced padding for better space utilization (12% -> 6%)
+			val paddingX = refWidth * 0.06f
+			val paddingY = refHeight * 0.06f
 			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
