@@ -158,19 +158,7 @@ abstract class MangaListFragment :
 		if (selectionController?.onItemClick(item.id) != true) {
 			val manga = item.toMangaWithOverride()
 			if ((activity as? MangaListActivity)?.showPreview(manga) != true) {
-				// SHARED ELEMENT TRANSITION LOGIC
-				val coverView = view.findViewById<View>(R.id.imageView_cover)
-				if (coverView != null) {
-					coverView.transitionName = "cover_${manga.id}"
-					val options = androidx.core.app.ActivityOptionsCompat.makeSceneTransitionAnimation(
-						requireActivity(),
-						coverView,
-						"cover_transition" // Constant name for the target activity's shared element
-					)
-					router.openDetails(manga, options.toBundle())
-				} else {
-					router.openDetails(manga)
-				}
+				router.openDetails(manga)
 			}
 		}
 	}
