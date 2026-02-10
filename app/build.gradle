@@ -17,8 +17,8 @@ android {
         applicationId 'com.tsukimi.app'
         minSdk 23
         targetSdk 36
-        versionCode 1099
-        versionName = '3.0.61'
+        versionCode 1100
+        versionName = '3.0.62'
         generatedDensities = []
         testInstrumentationRunner 'org.koitharu.kotatsu.HiltTestRunner'
         ksp {
