@@ -30,9 +30,10 @@ import org.koitharu.kotatsu.reader.domain.PageLoader
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
 import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
 
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
 
 class PageViewModel(
 	private val loader: PageLoader,
