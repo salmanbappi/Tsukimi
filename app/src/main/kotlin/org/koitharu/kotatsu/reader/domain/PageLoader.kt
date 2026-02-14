@@ -86,7 +86,7 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import java.util.concurrent.ConcurrentHashMap
 
-@ActivityRetainedScoped
+@ActivityRetainedLifecycleScoped
 class PageLoader @Inject constructor(
 	@LocalizedAppContext private val context: Context,
 	lifecycle: ActivityRetainedLifecycle,
