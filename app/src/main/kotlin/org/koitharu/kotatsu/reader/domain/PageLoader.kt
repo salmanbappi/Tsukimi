@@ -18,11 +18,11 @@ import coil3.request.transformations
 import coil3.size.Size
 import coil3.toBitmap
 import com.davemorrissey.labs.subscaleview.ImageSource
-import dagger.hilt.android.ActivityRetainedLifecycle
-import dagger.hilt.android.scopes.ActivityRetainedLifecycleScoped
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -60,7 +60,6 @@ import org.koitharu.kotatsu.core.util.ext.isNotEmpty
 import org.koitharu.kotatsu.core.util.ext.isPowerSaveMode
 import org.koitharu.kotatsu.core.util.ext.isZipUri
 import org.koitharu.kotatsu.core.util.ext.md5
-import org.koitharu.kotatsu.core.util.ext.lifecycleScope
 import org.koitharu.kotatsu.core.util.ext.mangaSourceExtra
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
 import org.koitharu.kotatsu.core.util.ext.ramAvailable
@@ -82,14 +81,14 @@ import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import java.util.concurrent.ConcurrentHashMap
 
-@ActivityRetainedLifecycleScoped
+@Singleton
 class PageLoader @Inject constructor(
 	@LocalizedAppContext private val context: Context,
-	lifecycle: ActivityRetainedLifecycle,
 	@MangaHttpClient private val okHttp: OkHttpClient,
 	@PageCache private val cache: LocalStorageCache,
 	@ProcessedPageCache private val processedCache: LocalStorageCache,
@@ -101,7 +100,7 @@ class PageLoader @Inject constructor(
 	private val optimizationHelper: ReaderOptimizationHelper,
 ) {
 
-	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
+	val loaderScope = CoroutineScope(SupervisorJob() + InternalErrorHandler() + Dispatchers.Default)
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
 	private val activeSemaphore = Semaphore(1)
@@ -203,21 +202,21 @@ class PageLoader @Inject constructor(
 			if (uri.isZipUri()) {
 				runInterruptible(Dispatchers.IO) {
 						ZipFile(uri.schemeSpecificPart).use { zip ->
-							val entry = zip.getEntry(uri.fragment)
-							context.ensureRamAtLeast(entry.size * 2)
-							zip.getInputStream(entry).use {
-								BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
-							}
+								val entry = zip.getEntry(uri.fragment)
+								context.ensureRamAtLeast(entry.size * 2)
+								zip.getInputStream(entry).use {
+									BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
+								}
 						}
-				}.use {
-					cache.set(uri.toString(), it).toUri()
+				}.use { image ->
+					cache.set(uri.toString(), image).toUri()
 				}
 			} else {
 				val file = uri.toFile()
 				runInterruptible(Dispatchers.IO) {
 					context.ensureRamAtLeast(file.length() * 2)
 					BitmapDecoderCompat.decode(file)
-				}.use {
+				}.use { image ->
 					image.compressToPNG(file)
 				}
 				uri
