@@ -100,7 +100,7 @@ class AiFeatureManager @Inject constructor(
 				val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
 				enhanceForOcr(scaled)
 			} else {
-				enhanceForOcr(bitmap.copy(bitmap.config, true))
+				enhanceForOcr(bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, true))
 			}
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
@@ -463,7 +463,8 @@ class AiFeatureManager @Inject constructor(
 	private fun enhanceForOcr(src: Bitmap): Bitmap {
 		val width = src.width
 		val height = src.height
-		val bmOut = Bitmap.createBitmap(width, height, src.config ?: Bitmap.Config.ARGB_8888)
+		val config = src.config ?: Bitmap.Config.ARGB_8888
+		val bmOut = Bitmap.createBitmap(width, height, config)
 		
 		val canvas = android.graphics.Canvas(bmOut)
 		val paint = android.graphics.Paint()

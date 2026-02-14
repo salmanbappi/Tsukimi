@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.pager.webtoon
 import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 import android.widget.EdgeEffect
 import androidx.core.view.ViewCompat.TYPE_TOUCH
