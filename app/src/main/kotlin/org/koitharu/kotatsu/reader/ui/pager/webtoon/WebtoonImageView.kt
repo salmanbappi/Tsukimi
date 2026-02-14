@@ -92,7 +92,7 @@ class WebtoonImageView @JvmOverloads constructor(
 			}
 		}
 		desiredWidth = desiredWidth.coerceAtLeast(suggestedMinimumWidth)
-		desiredHeight = desiredHeight.coerceAtLeast(suggestedMinimumHeight).coerceAtMost(parentHeight())
+		desiredHeight = desiredHeight.coerceAtLeast(suggestedMinimumHeight).coerceAtMost(20000)
 		setMeasuredDimension(desiredWidth, desiredHeight)
 	}
 

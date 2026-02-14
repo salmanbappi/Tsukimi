@@ -562,8 +562,9 @@ class ReaderActivity :
                             val height = ssiv.height
                             if (width <= 0 || height <= 0) return@withContext null
                             
-                            // MAINTAIN QUALITY: Use 1440px threshold and ARGB_8888 to ensure good translation results
-                            captureScale = if (Math.max(width, height) > 1440) 1440f / Math.max(width, height) else 1f
+                            // MAINTAIN QUALITY: Use 3600px threshold and ARGB_8888 to ensure good translation results
+                            // Higher threshold is critical for Webtoon mode where views can be very tall.
+                            captureScale = if (Math.max(width, height) > 3600) 3600f / Math.max(width, height) else 1f
                             val targetW = (width * captureScale).toInt()
                             val targetH = (height * captureScale).toInt()
                             val requiredBytes = targetW * targetH * 4 // ARGB_8888

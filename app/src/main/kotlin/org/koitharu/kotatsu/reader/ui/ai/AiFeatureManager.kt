@@ -89,7 +89,7 @@ class AiFeatureManager @Inject constructor(
 
 			// Optimization: Downscale bitmap for faster OCR processing if needed
 			// Note: bitmap is already scaled by captureScale in ReaderActivity
-			val maxDim = 1440
+			val maxDim = 1800
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -324,10 +324,28 @@ class AiFeatureManager @Inject constructor(
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		val sorted = blocks.sortedWith(
-			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
-				.thenBy { it.boundingBox?.top ?: 0 }
-		)
+		// Determine dominant orientation (Vertical vs Horizontal)
+		var verticalCount = 0
+		var horizontalCount = 0
+		for (block in blocks) {
+			val rect = block.boundingBox ?: continue
+			if (rect.height() > rect.width() * 1.2f) verticalCount++
+			else if (rect.width() > rect.height() * 1.2f) horizontalCount++
+		}
+		val isLikelyVertical = verticalCount > horizontalCount
+
+		val sorted = if (isLikelyVertical) {
+			blocks.sortedWith(
+				compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
+					.thenBy { it.boundingBox?.top ?: 0 }
+			)
+		} else {
+			blocks.sortedWith(
+				compareBy<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.top ?: 0 }
+					.thenBy { it.boundingBox?.left ?: 0 }
+			)
+		}
+		
 		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {
@@ -337,8 +355,12 @@ class AiFeatureManager @Inject constructor(
 			var isMerged = false
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
-				if (areBlocksClose(m.boundingBox, rect)) {
-					m.text.append("\n").append(text)
+				if (areBlocksClose(m.boundingBox, rect, isLikelyVertical)) {
+					if (isLikelyVertical) {
+						m.text.append("\n").append(text)
+					} else {
+						m.text.append(" ").append(text)
+					}
 					m.boundingBox.union(rect)
 					isMerged = true
 					break
@@ -352,13 +374,30 @@ class AiFeatureManager @Inject constructor(
 		return merged
 	}
 
-	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
-		val avgHeight = (r1.height() + r2.height()) / 2f
-		// Aggressive merging for vertical Japanese text: 1.1x line height gap allowed
-		val threshold = (avgHeight * 1.1f).toInt().coerceAtLeast(15)
-		val expanded = Rect(r1)
-		expanded.inset(-threshold, -threshold)
-		return Rect.intersects(expanded, r2)
+	private fun areBlocksClose(r1: Rect, r2: Rect, isVertical: Boolean): Boolean {
+		val h1 = r1.height()
+		val h2 = r2.height()
+		val w1 = r1.width()
+		val w2 = r2.width()
+		
+		val avgH = (h1 + h2) / 2f
+		val avgW = (w1 + w2) / 2f
+		
+		return if (isVertical) {
+			// Manga: Tight vertical, wider horizontal (columns)
+			val thresholdX = (avgH * 1.8f).toInt().coerceAtLeast(40)
+			val thresholdY = (avgH * 0.7f).toInt().coerceAtLeast(15)
+			val expanded = Rect(r1)
+			expanded.inset(-thresholdX, -thresholdY)
+			Rect.intersects(expanded, r2)
+		} else {
+			// Webtoon: Tight horizontal, wider vertical (rows)
+			val thresholdX = (avgW * 0.7f).toInt().coerceAtLeast(15)
+			val thresholdY = (avgW * 1.2f).toInt().coerceAtLeast(30)
+			val expanded = Rect(r1)
+			expanded.inset(-thresholdX, -thresholdY)
+			Rect.intersects(expanded, r2)
+		}
 	}
 	
 	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): Rect {
@@ -371,8 +410,8 @@ class AiFeatureManager @Inject constructor(
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
 			// Strictly limited expansion to avoid panel blocking
-			val maxExpandX = (textRect.width().toDouble() * 0.25).coerceAtMost((width * 0.08).toDouble()).coerceAtLeast(15.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 0.25).coerceAtMost((height * 0.08).toDouble()).coerceAtLeast(15.0).toInt()
+			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.12).toDouble()).coerceAtLeast(20.0).toInt()
+			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.12).toDouble()).coerceAtLeast(20.0).toInt()
 
 			var left = textRect.left
 			var dist = 0
@@ -450,7 +489,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 220 // Stricter threshold for "white" bubble background
+			return luminance >= 190 // Relaxed threshold for better detection on screentones
 		} catch (e: Exception) {
 			return false
 		}

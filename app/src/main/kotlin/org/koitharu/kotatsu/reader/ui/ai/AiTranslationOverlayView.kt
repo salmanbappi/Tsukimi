@@ -117,8 +117,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			var textSize = 40f * REFERENCE_SCALE
-			val minTextSize = 8f * REFERENCE_SCALE
+			// Reasonable default text size range: 12dp to 32dp (at reference scale)
+			val maxAllowedSize = 32f * REFERENCE_SCALE
+			val minAllowedSize = 10f * REFERENCE_SCALE
+			
+			var textSize = (refHeight * 0.5f).coerceIn(minAllowedSize, maxAllowedSize)
+			val minTextSize = 9f * REFERENCE_SCALE
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
@@ -130,7 +134,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
-				if (maxWordWidth > availableWidth && textSize > minTextSize) {
+				
+				// Allow slight overflow for padding (6% -> 10% tolerance)
+				if (maxWordWidth > availableWidth * 1.05f && textSize > minTextSize) {
 					textSize -= step
 					continue
 				}
@@ -143,7 +149,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
-				if (layout.height <= availableHeight) {
+				if (layout.height <= availableHeight * 1.05f) {
 					finalLayout = layout
 					finalTextSize = textSize
 					finalYOffset = (availableHeight - layout.height) / 2f
