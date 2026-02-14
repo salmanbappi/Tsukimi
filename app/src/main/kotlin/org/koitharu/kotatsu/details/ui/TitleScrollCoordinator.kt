@@ -17,11 +17,9 @@ class TitleScrollCoordinator(
 
 	override fun onScrollChange(v: NestedScrollView, scrollX: Int, scrollY: Int, oldScrollX: Int, oldScrollY: Int) {
 		val actionBar = getActivity(v.context)?.supportActionBar ?: return
-		titleView.getLocationOnScreen(location)
-		var top = location[1] + titleView.height
-		v.getLocationOnScreen(location)
-		top -= location[1]
-		actionBar.setDisplayShowTitleEnabled(top < 0)
+		// Use relative position to scroll container instead of screen coordinates
+		val threshold = titleView.bottom
+		actionBar.setDisplayShowTitleEnabled(scrollY > threshold)
 	}
 
 	fun attach(scrollView: NestedScrollView) {

@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.pager.vm
 import android.graphics.Rect
 import android.net.Uri
 import androidx.annotation.WorkerThread
+import androidx.core.net.toFile
 import com.davemorrissey.labs.subscaleview.DefaultOnImageEventListener
 import com.davemorrissey.labs.subscaleview.ImageSource
 import kotlinx.coroutines.CancellationException
@@ -27,6 +28,11 @@ import org.koitharu.kotatsu.core.util.ext.throttle
 import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.reader.domain.PageLoader
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
+
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.delay
 
 class PageViewModel(
 	private val loader: PageLoader,
@@ -34,11 +40,11 @@ class PageViewModel(
 	private val networkState: NetworkState,
 	private val exceptionResolver: ExceptionResolver,
 	private val isWebtoon: Boolean,
+	private val aiFeatureManager: AiFeatureManager,
 ) : DefaultOnImageEventListener {
 
 	private val scope = loader.loaderScope + Dispatchers.Main.immediate
 	private var job: Job? = null
-	private var upscaleJob: Job? = null
 	private var cachedBounds: Rect? = null
 	private var boundPage: MangaPage? = null
 
@@ -81,13 +87,12 @@ class PageViewModel(
 		cachedBounds = null
 		boundPage = null
 		job?.cancel()
-		upscaleJob?.cancel()
 	}
 
 	override fun onImageLoaded() {
 		state.update { currentState ->
 			if (currentState is PageState.Loaded) {
-				PageState.Shown(currentState.source, currentState.isConverted)
+				PageState.Shown(currentState.source, currentState.isConverted, currentState.isUpscaled)
 			} else {
 				currentState
 			}

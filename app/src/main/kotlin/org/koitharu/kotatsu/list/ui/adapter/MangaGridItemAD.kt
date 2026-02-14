@@ -21,27 +21,32 @@ fun mangaGridItemAD(
 ) {
 
 	AdapterDelegateClickListenerAdapter(this, clickListener).attach(itemView)
+	itemView.setTag(R.id.item_type, ListItemType.MANGA_GRID.ordinal)
 	sizeResolver.attachToView(itemView, binding.textViewTitle, binding.progressView)
 
 	bind { payloads ->
-		itemView.setTooltipCompat(item.getSummary(context))
-		binding.textViewTitle.text = item.title
+		itemView.tag = item.id
+		if (binding.textViewTitle.text != item.title) {
+			binding.textViewTitle.text = item.title
+		}
 		binding.progressView.setProgress(item.progress, PAYLOAD_PROGRESS_CHANGED in payloads)
 		
-		val icons = ArrayList<Any>(2)
-		if (item.isSaved) icons.add(R.drawable.ic_storage)
-		if (item.isFavorite) icons.add(R.drawable.ic_heart_outline)
-		
-		with(binding.iconsView) {
-			setIcons(icons)
-			val newVisibility = icons.isNotEmpty()
-			if (isVisible != newVisibility) {
-				isVisible = newVisibility
-			}
+		val coverView = binding.imageViewCover
+		val currentCover = coverView.getTag(R.id.cover_url) as? String
+		if (currentCover != item.coverUrl) {
+			coverView.setImageAsync(item.coverUrl, item.manga)
+			coverView.setTag(R.id.cover_url, item.coverUrl)
 		}
 		
-		binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)
-		binding.badge.number = item.counter
-		binding.badge.isVisible = item.counter > 0
+		binding.iconsView.updateIcons(item.isSaved, item.isFavorite)
+		
+		val badge = binding.badge
+		if (badge.number != item.counter) {
+			badge.number = item.counter
+		}
+		val shouldShowBadge = item.counter > 0
+		if (badge.isVisible != shouldShowBadge) {
+			badge.isVisible = shouldShowBadge
+		}
 	}
 }

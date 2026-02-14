@@ -38,6 +38,38 @@ class IconsView @JvmOverloads constructor(
 		}
 	}
 
+	fun updateIcons(isSaved: Boolean, isFavorite: Boolean) {
+		var index = 0
+		if (isSaved) {
+			val iv = (getChildAt(index) as? ImageView) ?: addImageView()
+			if (iv.tag != R.drawable.ic_storage) {
+				iv.setImageResource(R.drawable.ic_storage)
+				iv.tag = R.drawable.ic_storage
+			}
+			iv.isVisible = true
+			index++
+		}
+		if (isFavorite) {
+			val iv = (getChildAt(index) as? ImageView) ?: addImageView()
+			if (iv.tag != R.drawable.ic_heart_outline) {
+				iv.setImageResource(R.drawable.ic_heart_outline)
+				iv.tag = R.drawable.ic_heart_outline
+			}
+			iv.isVisible = true
+			index++
+		}
+		
+		for (i in index until childCount) {
+			val child = getChildAt(i)
+			if (child.isVisible) child.isVisible = false
+		}
+		
+		val shouldBeVisible = index > 0
+		if (isVisible != shouldBeVisible) {
+			isVisible = shouldBeVisible
+		}
+	}
+
 	fun setIcons(icons: List<Any>) {
 		// 'icons' can contain Drawables or Int (resIds)
 		var index = 0

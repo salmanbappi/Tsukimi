@@ -15,10 +15,10 @@ import kotlin.math.roundToInt
 
 class DynamicItemSizeResolver(
 	resources: Resources,
-	private val lifecycleOwner: LifecycleOwner,
+	lifecycleOwner: LifecycleOwner,
 	private val settings: AppSettings,
 	private val adjustWidth: Boolean,
-) : ItemSizeResolver {
+) : ItemSizeResolver, SharedPreferences.OnSharedPreferenceChangeListener, DefaultLifecycleObserver {
 
 	private val gridWidth = resources.getDimension(R.dimen.preferred_grid_width)
 	private val scaleFactor: Float
@@ -27,57 +27,53 @@ class DynamicItemSizeResolver(
 	override val cellWidth: Int
 		get() = (gridWidth * scaleFactor).roundToInt()
 
+	private val observers = java.util.WeakHashMap<View, SizeObserver>()
+
+	init {
+		lifecycleOwner.lifecycle.addObserver(this)
+		settings.subscribe(this)
+	}
+
+	override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+		if (key == AppSettings.KEY_GRID_SIZE) {
+			observers.values.forEach { it.update() }
+		}
+	}
+
+	override fun onDestroy(owner: LifecycleOwner) {
+		settings.unsubscribe(this)
+		observers.clear()
+	}
+
 	override fun attachToView(
 		view: View,
 		textView: TextView?,
 		progressView: ReadingProgressView?
 	) {
-		val observer = SizeObserver(view, textView, progressView)
-		view.addOnAttachStateChangeListener(observer)
-		lifecycleOwner.lifecycle.addObserver(observer)
-		if (view.isAttachedToWindow) {
-			observer.update()
+		val observer = observers.getOrPut(view) {
+			SizeObserver(view, textView, progressView)
 		}
+		// Always update immediately to avoid jumps during scroll
+		observer.update()
 	}
 
 	private inner class SizeObserver(
 		private val view: View,
 		private val textView: TextView?,
 		private val progressView: ReadingProgressView?,
-	) : DefaultLifecycleObserver, SharedPreferences.OnSharedPreferenceChangeListener, View.OnAttachStateChangeListener {
+	) {
 
 		private val widthThreshold = view.resources.getDimensionPixelSize(R.dimen.small_grid_width)
 
 		@StyleRes
 		private var prevTextAppearance = 0
 
-		override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
-			if (key == AppSettings.KEY_GRID_SIZE) {
-				update()
-			}
-		}
-
-		override fun onViewAttachedToWindow(v: View) {
-			settings.subscribe(this)
-			update()
-		}
-
-		override fun onViewDetachedFromWindow(v: View) {
-			settings.unsubscribe(this)
-		}
-
-		override fun onDestroy(owner: LifecycleOwner) {
-			super.onDestroy(owner)
-			settings.unsubscribe(this)
-			view.removeOnAttachStateChangeListener(this)
-		}
-
 		fun update() {
 			val newWidth = cellWidth
 			textView?.adjustTextAppearance(newWidth)
 			if (adjustWidth) {
 				val lp = view.layoutParams
-				if (lp.width != newWidth) {
+				if (lp != null && lp.width != newWidth) {
 					lp.width = newWidth
 					view.layoutParams = lp
 				}
@@ -86,7 +82,7 @@ class DynamicItemSizeResolver(
 		}
 
 		private fun ReadingProgressView.adjustSize(width: Int) {
-			val lp = layoutParams
+			val lp = layoutParams ?: return
 			val size = resources.getDimensionPixelSize(
 				if (width < widthThreshold) {
 					R.dimen.card_indicator_size_small
@@ -110,7 +106,6 @@ class DynamicItemSizeResolver(
 			if (textAppearanceResId != prevTextAppearance) {
 				prevTextAppearance = textAppearanceResId
 				TextViewCompat.setTextAppearance(this, textAppearanceResId)
-				requestLayout()
 			}
 		}
 	}

@@ -14,6 +14,7 @@ sealed class PageState {
 	data class Loaded(
 		val source: ImageSource,
 		val isConverted: Boolean,
+		val isUpscaled: Boolean = false,
 	) : PageState()
 
 	class Converting() : PageState()

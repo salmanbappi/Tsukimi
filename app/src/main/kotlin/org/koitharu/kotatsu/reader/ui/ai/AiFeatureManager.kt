@@ -72,6 +72,7 @@ class AiFeatureManager @Inject constructor(
 		viewScale: Float,
 		vTranslateX: Float,
 		vTranslateY: Float,
+		captureScale: Float = 1f,
 		targetLanguage: String = TranslateLanguage.ENGLISH
 	): List<TranslatedBlock> = withContext(Dispatchers.Default) {
 		if (!settings.isAiTranslationEnabled) return@withContext emptyList()
@@ -86,8 +87,9 @@ class AiFeatureManager @Inject constructor(
 			// Double-check cache after acquiring lock
 			translationCache.get(pageKey)?.let { return@withLock it }
 
-			// Optimization: Downscale bitmap for faster OCR processing
-			val maxDim = 1440
+			// Optimization: Downscale bitmap for faster OCR processing if needed
+			// Note: bitmap is already scaled by captureScale in ReaderActivity
+			val maxDim = 1800
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -95,8 +97,11 @@ class AiFeatureManager @Inject constructor(
 			val ocrBitmap = if (ocrScale < 1f) {
 				val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
 				val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
-				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
-			} else bitmap
+				val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+				enhanceForOcr(scaled)
+			} else {
+				enhanceForOcr(bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, true))
+			}
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 			val visionText = textRecognizer.process(inputImage).await()
@@ -142,26 +147,34 @@ class AiFeatureManager @Inject constructor(
 
 						val bubbleRect = detectBubbleBounds(it.boundingBox, ocrBitmap)
 						
-						// Map back to original captured bitmap coordinates
-						val rectInOriginalBitmap = RectF(
+						// Map back to captured bitmap coordinates
+						val rectInBitmap = RectF(
 							bubbleRect.left / ocrScale,
 							bubbleRect.top / ocrScale,
 							bubbleRect.right / ocrScale,
 							bubbleRect.bottom / ocrScale
 						)
 
+						// Map back to view coordinates using captureScale
+						val rectInView = RectF(
+							rectInBitmap.left / captureScale,
+							rectInBitmap.top / captureScale,
+							rectInBitmap.right / captureScale,
+							rectInBitmap.bottom / captureScale
+						)
+
 						// ABSOLUTE IMAGE ANCHORING:
-						// Convert bitmap coordinates to actual source image coordinates
+						// Convert view coordinates to actual source image coordinates
 						val sourceRect = RectF(
-							(rectInOriginalBitmap.left - vTranslateX) / viewScale,
-							(rectInOriginalBitmap.top - vTranslateY) / viewScale,
-							(rectInOriginalBitmap.right - vTranslateX) / viewScale,
-							(rectInOriginalBitmap.bottom - vTranslateY) / viewScale
+							(rectInView.left - vTranslateX) / viewScale,
+							(rectInView.top - vTranslateY) / viewScale,
+							(rectInView.right - vTranslateX) / viewScale,
+							(rectInView.bottom - vTranslateY) / viewScale
 						)
 						
 						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
-						if (rectInOriginalBitmap.width() > bitmap.width * 0.99f || 
-							rectInOriginalBitmap.height() > bitmap.height * 0.99f) return@async null
+						if (rectInBitmap.width() > bitmap.width * 0.99f || 
+							rectInBitmap.height() > bitmap.height * 0.99f) return@async null
 
 						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
 
@@ -314,10 +327,28 @@ class AiFeatureManager @Inject constructor(
 	private fun mergeNearbyBlocks(blocks: List<com.google.mlkit.vision.text.Text.TextBlock>): List<IntermediateBlock> {
 		if (blocks.isEmpty()) return emptyList()
 
-		val sorted = blocks.sortedWith(
-			compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
-				.thenBy { it.boundingBox?.top ?: 0 }
-		)
+		// Determine dominant orientation (Vertical vs Horizontal)
+		var verticalCount = 0
+		var horizontalCount = 0
+		for (block in blocks) {
+			val rect = block.boundingBox ?: continue
+			if (rect.height() > rect.width() * 1.2f) verticalCount++
+			else if (rect.width() > rect.height() * 1.2f) horizontalCount++
+		}
+		val isLikelyVertical = verticalCount > horizontalCount
+
+		val sorted = if (isLikelyVertical) {
+			blocks.sortedWith(
+				compareByDescending<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.right ?: 0 }
+					.thenBy { it.boundingBox?.top ?: 0 }
+			)
+		} else {
+			blocks.sortedWith(
+				compareBy<com.google.mlkit.vision.text.Text.TextBlock> { it.boundingBox?.top ?: 0 }
+					.thenBy { it.boundingBox?.left ?: 0 }
+			)
+		}
+		
 		val merged = mutableListOf<IntermediateBlock>()
 
 		for (block in sorted) {
@@ -327,8 +358,12 @@ class AiFeatureManager @Inject constructor(
 			var isMerged = false
 			for (i in merged.indices.reversed()) {
 				val m = merged[i]
-				if (areBlocksClose(m.boundingBox, rect)) {
-					m.text.append("\n").append(text)
+				if (areBlocksClose(m.boundingBox, rect, isLikelyVertical)) {
+					if (isLikelyVertical) {
+						m.text.append("\n").append(text)
+					} else {
+						m.text.append(" ").append(text)
+					}
 					m.boundingBox.union(rect)
 					isMerged = true
 					break
@@ -342,12 +377,30 @@ class AiFeatureManager @Inject constructor(
 		return merged
 	}
 
-	private fun areBlocksClose(r1: Rect, r2: Rect): Boolean {
-		val avgHeight = (r1.height() + r2.height()) / 2f
-		val threshold = (avgHeight * 0.5f).toInt().coerceAtLeast(10)
-		val expanded = Rect(r1)
-		expanded.inset(-threshold, -threshold)
-		return Rect.intersects(expanded, r2)
+	private fun areBlocksClose(r1: Rect, r2: Rect, isVertical: Boolean): Boolean {
+		val h1 = r1.height()
+		val h2 = r2.height()
+		val w1 = r1.width()
+		val w2 = r2.width()
+		
+		val avgH = (h1 + h2) / 2f
+		val avgW = (w1 + w2) / 2f
+		
+		return if (isVertical) {
+			// Manga: Tight vertical, wider horizontal (columns)
+			val thresholdX = (avgH * 1.8f).toInt().coerceAtLeast(40)
+			val thresholdY = (avgH * 0.7f).toInt().coerceAtLeast(15)
+			val expanded = Rect(r1)
+			expanded.inset(-thresholdX, -thresholdY)
+			Rect.intersects(expanded, r2)
+		} else {
+			// Webtoon: Tight horizontal, wider vertical (rows)
+			val thresholdX = (avgW * 0.7f).toInt().coerceAtLeast(15)
+			val thresholdY = (avgW * 1.2f).toInt().coerceAtLeast(30)
+			val expanded = Rect(r1)
+			expanded.inset(-thresholdX, -thresholdY)
+			Rect.intersects(expanded, r2)
+		}
 	}
 	
 	private fun detectBubbleBounds(textRect: Rect, bitmap: Bitmap): Rect {
@@ -359,42 +412,73 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Reduced max expansion to prevent merging separate bubbles
-			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.15).toDouble()).coerceAtLeast(30.0).toInt()
+			// More generous expansion for modern high-res displays
+			val maxExpandX = (textRect.width() * 0.6).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
+			val maxExpandY = (textRect.height() * 0.6).toInt().coerceAtMost(height / 5).coerceAtLeast(30)
 
-			var left = textRect.left
-			var dist = 0
-			while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
-				left--
-				dist++
+			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
+				var x = startX
+				var y = startY
+				var dist = 0
+				var tolerance = 3 // Allow up to 3 dark pixels (screentone noise)
+				var lastValidDist = 0
+				
+				while (dist < maxDist) {
+					x += dx
+					y += dy
+					if (x !in 0 until width || y !in 0 until height) break
+					
+					if (isPixelLight(bitmap, x, y)) {
+						dist++
+						lastValidDist = dist
+						tolerance = 3 // Reset tolerance
+					} else {
+						if (tolerance > 0) {
+							dist++
+							tolerance--
+						} else {
+							break
+						}
+					}
+				}
+				return lastValidDist
 			}
 
-			var right = textRect.right
-			dist = 0
-			while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
-				right++
-				dist++
-			}
+			val leftDist = scan(textRect.left, centerY, -1, 0, maxExpandX)
+			val rightDist = scan(textRect.right, centerY, 1, 0, maxExpandX)
+			val topDist = scan(centerX, textRect.top, 0, -1, maxExpandY)
+			val bottomDist = scan(centerX, textRect.bottom, 0, 1, maxExpandY)
 
-			var top = textRect.top
-			dist = 0
-			while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
-				top--
-				dist++
-			}
-
-			var bottom = textRect.bottom
-			dist = 0
-			while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
-				bottom++
-				dist++
-			}
-
-			return Rect(left, top, right, bottom)
+			return Rect(
+				textRect.left - leftDist,
+				textRect.top - topDist,
+				textRect.right + rightDist,
+				textRect.bottom + bottomDist
+			)
 		} catch (e: Exception) {
 			return textRect
 		}
+	}
+
+	private fun enhanceForOcr(src: Bitmap): Bitmap {
+		val width = src.width
+		val height = src.height
+		val config = src.config ?: Bitmap.Config.ARGB_8888
+		val bmOut = Bitmap.createBitmap(width, height, config)
+		
+		val canvas = android.graphics.Canvas(bmOut)
+		val paint = android.graphics.Paint()
+		// High contrast matrix: increase scale, decrease offset
+		val colorMatrix = android.graphics.ColorMatrix(floatArrayOf(
+			2.5f, 0f, 0f, 0f, -120f,
+			0f, 2.5f, 0f, 0f, -120f,
+			0f, 0f, 2.5f, 0f, -120f,
+			0f, 0f, 0f, 1f, 0f
+		))
+		paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
+		canvas.drawBitmap(src, 0f, 0f, paint)
+		if (src.width > 1) src.recycle()
+		return bmOut
 	}
 
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
@@ -439,7 +523,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 220 // Stricter threshold for "white" bubble background
+			return luminance >= 190 // Relaxed threshold for better detection on screentones
 		} catch (e: Exception) {
 			return false
 		}

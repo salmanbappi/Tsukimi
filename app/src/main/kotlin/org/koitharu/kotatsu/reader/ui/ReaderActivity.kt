@@ -555,14 +555,16 @@ class ReaderActivity :
                 
                 ocrMutex.withLock {
                     // Optimized bitmap capture: only capture if necessary and use a smaller bitmap if possible
+                    var captureScale = 1f
                     val bitmap = try {
                         withContext(Dispatchers.Main) {
                             val width = ssiv.width
                             val height = ssiv.height
                             if (width <= 0 || height <= 0) return@withContext null
                             
-                            // MAINTAIN QUALITY: Use 1440px threshold and ARGB_8888 to ensure good translation results
-                            val captureScale = if (Math.max(width, height) > 1440) 1440f / Math.max(width, height) else 1f
+                            // MAINTAIN QUALITY: Use 3600px threshold and ARGB_8888 to ensure good translation results
+                            // Higher threshold is critical for Webtoon mode where views can be very tall.
+                            captureScale = if (Math.max(width, height) > 3600) 3600f / Math.max(width, height) else 1f
                             val targetW = (width * captureScale).toInt()
                             val targetH = (height * captureScale).toInt()
                             val requiredBytes = targetW * targetH * 4 // ARGB_8888
@@ -592,7 +594,14 @@ class ReaderActivity :
                         return@withLock
                     }
                     
-                    val blocks = aiFeatureManager.translatePage(pageKey, bitmap, scale, vTranslateX, vTranslateY)
+                    val blocks = aiFeatureManager.translatePage(
+                        pageKey = pageKey,
+                        bitmap = bitmap,
+                        viewScale = scale,
+                        vTranslateX = vTranslateX,
+                        vTranslateY = vTranslateY,
+                        captureScale = captureScale
+                    )
                     
                     withContext(Dispatchers.Main) {
                         overlay.setupWithSSIV(ssiv)

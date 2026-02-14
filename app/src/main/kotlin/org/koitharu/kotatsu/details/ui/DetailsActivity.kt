@@ -14,6 +14,7 @@ import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.text.method.LinkMovementMethodCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -115,7 +116,6 @@ class DetailsActivity :
 	BaseActivity<ActivityDetailsBinding>(),
 	View.OnClickListener,
 	View.OnLayoutChangeListener,
-	ViewTreeObserver.OnDrawListener,
 	ChipsView.OnChipClickListener,
 	OnListItemClickListener<Bookmark>,
 	SwipeRefreshLayout.OnRefreshListener,
@@ -154,7 +154,6 @@ class DetailsActivity :
 		viewBinding.buttonRelatedMore.setOnClickListener(this)
 		viewBinding.textViewDescription.addOnLayoutChangeListener(this)
 		viewBinding.swipeRefreshLayout.setOnRefreshListener(this)
-		viewBinding.textViewDescription.viewTreeObserver.addOnDrawListener(this)
 		infoBinding.textViewAuthor.movementMethod = LinkMovementMethodCompat.getInstance()
 		viewBinding.textViewDescription.movementMethod = LinkMovementMethodCompat.getInstance()
 		viewBinding.chipsTags.onChipClickListener = this
@@ -297,13 +296,6 @@ class DetailsActivity :
 		viewModel.reload()
 	}
 
-	override fun onDraw() {
-		viewBinding.run {
-			buttonDescriptionMore.isVisible = textViewDescription.maxLines == Int.MAX_VALUE ||
-				textViewDescription.isTextTruncated
-		}
-	}
-
 	override fun onLayoutChange(
 		v: View?,
 		left: Int,
@@ -412,67 +404,73 @@ class DetailsActivity :
 
 	private fun onMangaUpdated(details: MangaDetails) {
 		val manga = details.toManga()
-		with(viewBinding) {
-			textViewTitle.text = manga.title
-			textViewSubtitle.textAndVisible = manga.altTitles.joinToString("\n")
-			textViewNsfw16.isVisible = manga.contentRating == ContentRating.SUGGESTIVE
-			textViewNsfw18.isVisible = manga.contentRating == ContentRating.ADULT
-			textViewDescription.text = details.description.ifNullOrEmpty { getString(R.string.no_description) }
-		}
-		with(infoBinding) {
-			val translation = details.getLocale()
-			infoBinding.textViewTranslation.textAndVisible = translation?.getDisplayLanguage(translation)
-				?.toTitleCase(translation)
-			infoBinding.textViewTranslation.drawableStart = translation?.let {
-				LocaleUtils.getEmojiFlag(it)
-			}?.let {
-				TextDrawable.compound(infoBinding.textViewTranslation, it)
+		viewBinding.root.post {
+			with(viewBinding) {
+				textViewTitle.text = manga.title
+				textViewSubtitle.textAndVisible = manga.altTitles.joinToString("\n")
+				textViewNsfw16.isVisible = manga.contentRating == ContentRating.SUGGESTIVE
+				textViewNsfw18.isVisible = manga.contentRating == ContentRating.ADULT
+				textViewDescription.text = details.description.ifNullOrEmpty { getString(R.string.no_description) }
+				textViewDescription.doOnLayout {
+					buttonDescriptionMore.isVisible = textViewDescription.maxLines == Int.MAX_VALUE ||
+						textViewDescription.isTextTruncated
+				}
 			}
-			infoBinding.textViewTranslationLabel.isVisible = infoBinding.textViewTranslation.isVisible
-			textViewAuthor.textAndVisible = manga.getAuthorsString()
-			textViewAuthorLabel.isVisible = textViewAuthor.isVisible
-			if (manga.hasRating) {
-				ratingBarRating.rating = manga.rating * ratingBarRating.numStars
-				ratingBarRating.isVisible = true
-				textViewRatingLabel.isVisible = true
-			} else {
-				ratingBarRating.isVisible = false
-				textViewRatingLabel.isVisible = false
-			}
-			manga.state?.let { state ->
-				textViewState.textAndVisible = resources.getString(state.titleResId)
-				textViewStateLabel.isVisible = textViewState.isVisible
-			} ?: run {
-				textViewState.isVisible = false
-				textViewStateLabel.isVisible = false
-			}
+			with(infoBinding) {
+				val translation = details.getLocale()
+				infoBinding.textViewTranslation.textAndVisible = translation?.getDisplayLanguage(translation)
+					?.toTitleCase(translation)
+				infoBinding.textViewTranslation.drawableStart = translation?.let {
+					LocaleUtils.getEmojiFlag(it)
+				}?.let {
+					TextDrawable.compound(infoBinding.textViewTranslation, it)
+				}
+				infoBinding.textViewTranslationLabel.isVisible = infoBinding.textViewTranslation.isVisible
+				textViewAuthor.textAndVisible = manga.getAuthorsString()
+				textViewAuthorLabel.isVisible = textViewAuthor.isVisible
+				if (manga.hasRating) {
+					ratingBarRating.rating = manga.rating * ratingBarRating.numStars
+					ratingBarRating.isVisible = true
+					textViewRatingLabel.isVisible = true
+				} else {
+					ratingBarRating.isVisible = false
+					textViewRatingLabel.isVisible = false
+				}
+				manga.state?.let { state ->
+					textViewState.textAndVisible = resources.getString(state.titleResId)
+					textViewStateLabel.isVisible = textViewState.isVisible
+				} ?: run {
+					textViewState.isVisible = false
+					textViewStateLabel.isVisible = false
+				}
 
-			if (manga.source == LocalMangaSource || manga.source == UnknownMangaSource) {
-				textViewSource.isVisible = false
-				textViewSourceLabel.isVisible = false
-			} else {
-				textViewSource.textAndVisible = manga.source.getTitle(this@DetailsActivity)
-				textViewSource.setTooltipCompat(manga.source.getSummary(this@DetailsActivity))
-				textViewSourceLabel.isVisible = textViewSource.isVisible == true
+				if (manga.source == LocalMangaSource || manga.source == UnknownMangaSource) {
+					textViewSource.isVisible = false
+					textViewSourceLabel.isVisible = false
+				} else {
+					textViewSource.textAndVisible = manga.source.getTitle(this@DetailsActivity)
+					textViewSource.setTooltipCompat(manga.source.getSummary(this@DetailsActivity))
+					textViewSourceLabel.isVisible = textViewSource.isVisible == true
+				}
+				val faviconPlaceholderFactory = FaviconDrawable.Factory(R.style.FaviconDrawable_Chip)
+				ImageRequest.Builder(this@DetailsActivity)
+					.data(manga.source.faviconUri())
+					.lifecycle(this@DetailsActivity)
+					.crossfade(false)
+					.precision(Precision.EXACT)
+					.size(resources.getDimensionPixelSize(materialR.dimen.m3_chip_icon_size))
+					.target(TextViewTarget(textViewSource, Gravity.START))
+					.placeholder(faviconPlaceholderFactory)
+					.error(faviconPlaceholderFactory)
+					.fallback(faviconPlaceholderFactory)
+					.mangaSourceExtra(manga.source)
+					.transformations(RoundedCornersTransformation(resources.getDimension(R.dimen.chip_icon_corner)))
+					.allowRgb565(true)
+					.enqueueWith(coil)
 			}
-			val faviconPlaceholderFactory = FaviconDrawable.Factory(R.style.FaviconDrawable_Chip)
-			ImageRequest.Builder(this@DetailsActivity)
-				.data(manga.source.faviconUri())
-				.lifecycle(this@DetailsActivity)
-				.crossfade(false)
-				.precision(Precision.EXACT)
-				.size(resources.getDimensionPixelSize(materialR.dimen.m3_chip_icon_size))
-				.target(TextViewTarget(textViewSource, Gravity.START))
-				.placeholder(faviconPlaceholderFactory)
-				.error(faviconPlaceholderFactory)
-				.fallback(faviconPlaceholderFactory)
-				.mangaSourceExtra(manga.source)
-				.transformations(RoundedCornersTransformation(resources.getDimension(R.dimen.chip_icon_corner)))
-				.allowRgb565(true)
-				.enqueueWith(coil)
+			title = manga.title
+			invalidateOptionsMenu()
 		}
-		title = manga.title
-		invalidateOptionsMenu()
 	}
 
 	private fun onMangaRemoved(manga: Manga) {

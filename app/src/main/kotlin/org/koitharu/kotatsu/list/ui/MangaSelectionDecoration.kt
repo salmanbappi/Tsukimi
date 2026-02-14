@@ -37,9 +37,7 @@ open class MangaSelectionDecoration(context: Context) : AbstractSelectionItemDec
 	}
 
 	override fun getItemId(parent: RecyclerView, child: View): Long {
-		val holder = parent.getChildViewHolder(child) ?: return NO_ID
-		val item = holder.getItem(MangaListModel::class.java) ?: return NO_ID
-		return item.id
+		return child.tag as? Long ?: NO_ID
 	}
 
 	override fun onDrawForeground(

@@ -48,9 +48,9 @@ import org.koitharu.kotatsu.core.db.migrations.Migration26To27
 import org.koitharu.kotatsu.core.db.migrations.Migration27To28
 import org.koitharu.kotatsu.core.db.migrations.Migration28To29
 import org.koitharu.kotatsu.core.db.migrations.Migration29To30
+import org.koitharu.kotatsu.core.db.migrations.Migration2To3
 import org.koitharu.kotatsu.core.db.migrations.Migration30To31
 import org.koitharu.kotatsu.core.db.migrations.Migration31To32
-import org.koitharu.kotatsu.core.db.migrations.Migration2To3
 import org.koitharu.kotatsu.core.db.migrations.Migration3To4
 import org.koitharu.kotatsu.core.db.migrations.Migration4To5
 import org.koitharu.kotatsu.core.db.migrations.Migration5To6
@@ -118,45 +118,81 @@ abstract class MangaDatabase : RoomDatabase() {
 
 	abstract fun getLocalMangaIndexDao(): LocalMangaIndexDao
 
-	abstract fun getChaptersDao(): ChaptersDao
+		abstract fun getChaptersDao(): ChaptersDao
 
-	abstract fun getReadChaptersDao(): ReadChaptersDao
-}
+	
 
-fun getDatabaseMigrations(context: Context): Array<Migration> = arrayOf(
-	Migration1To2(),
-	Migration2To3(),
-	Migration3To4(),
-	Migration4To5(),
-	Migration5To6(),
-	Migration6To7(),
-	Migration7To8(),
-	Migration8To9(),
-	Migration9To10(),
-	Migration10To11(),
-	Migration11To12(),
-	Migration12To13(),
-	Migration13To14(),
-	Migration14To15(),
-	Migration15To16(),
-	Migration16To17(context),
-	Migration17To18(),
-	Migration18To19(),
-	Migration19To20(),
-	Migration20To21(),
-	Migration21To22(),
-	Migration22To23(),
-	Migration23To24(),
-	Migration24To23(),
-	Migration24To25(),
-	Migration25To26(),
-	Migration26To27(),
-	Migration27To28(),
-	Migration28To29(),
-	Migration29To30(),
-	Migration30To31(),
-	Migration31To32(),
-)
+		abstract fun getReadChaptersDao(): ReadChaptersDao
+
+	}
+
+	
+
+	fun getDatabaseMigrations(context: Context): Array<Migration> = arrayOf(
+
+		Migration1To2(),
+
+		Migration2To3(),
+
+		Migration3To4(),
+
+		Migration4To5(),
+
+		Migration5To6(),
+
+		Migration6To7(),
+
+		Migration7To8(),
+
+		Migration8To9(),
+
+		Migration9To10(),
+
+		Migration10To11(),
+
+		Migration11To12(),
+
+		Migration12To13(),
+
+		Migration13To14(),
+
+		Migration14To15(),
+
+		Migration15To16(),
+
+		Migration16To17(context),
+
+		Migration17To18(),
+
+		Migration18To19(),
+
+		Migration19To20(),
+
+		Migration20To21(),
+
+		Migration21To22(),
+
+		Migration22To23(),
+
+			Migration23To24(),
+
+			Migration24To25(),
+
+			Migration25To26(),
+
+		Migration26To27(),
+
+		Migration27To28(),
+
+		Migration28To29(),
+
+		Migration29To30(),
+
+		Migration30To31(),
+
+		Migration31To32(),
+
+	)
 
 fun MangaDatabase(context: Context): MangaDatabase = Room
 	.databaseBuilder(context, MangaDatabase::class.java, "kotatsu-db")

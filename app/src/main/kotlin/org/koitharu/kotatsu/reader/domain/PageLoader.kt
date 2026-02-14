@@ -19,7 +19,7 @@ import coil3.size.Size
 import coil3.toBitmap
 import com.davemorrissey.labs.subscaleview.ImageSource
 import dagger.hilt.android.ActivityRetainedLifecycle
-import dagger.hilt.android.scopes.ActivityRetainedScoped
+import dagger.hilt.android.scopes.ActivityRetainedLifecycleScoped
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -84,8 +84,7 @@ import java.util.zip.ZipFile
 import javax.inject.Inject
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
-
-
+import java.util.concurrent.ConcurrentHashMap
 
 @ActivityRetainedScoped
 class PageLoader @Inject constructor(
@@ -107,7 +106,7 @@ class PageLoader @Inject constructor(
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
 	private val activeSemaphore = Semaphore(1)
 	private val prefetchSemaphore = Semaphore(optimizationHelper.getParallelism())
-	private val convertLock = Mutex()
+	private val processingLocks = ConcurrentHashMap<String, Mutex>()
 	private val prefetchLock = Mutex()
 
 	@Volatile
@@ -195,31 +194,34 @@ class PageLoader @Inject constructor(
 		return loadPageAsync(page, force).await()
 	}
 
-
-
 	@CheckResult
-	suspend fun convertBimap(uri: Uri): Uri = convertLock.withLock {
-		if (uri.isZipUri()) {
-			runInterruptible(Dispatchers.IO) {
-				ZipFile(uri.schemeSpecificPart).use { zip ->
-					val entry = zip.getEntry(uri.fragment)
-					context.ensureRamAtLeast(entry.size * 2)
-					zip.getInputStream(entry).use {
-						BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
-					}
+	suspend fun convertBimap(uri: Uri): Uri {
+		val lockKey = uri.toString()
+		val lock = processingLocks.computeIfAbsent(lockKey) { Mutex() }
+		
+		return lock.withLock {
+			if (uri.isZipUri()) {
+				runInterruptible(Dispatchers.IO) {
+						ZipFile(uri.schemeSpecificPart).use { zip ->
+							val entry = zip.getEntry(uri.fragment)
+							context.ensureRamAtLeast(entry.size * 2)
+							zip.getInputStream(entry).use {
+								BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
+							}
+						}
+				}.use {
+					cache.set(uri.toString(), it).toUri()
 				}
-			}.use { image ->
-				cache.set(uri.toString(), image).toUri()
+			} else {
+				val file = uri.toFile()
+				runInterruptible(Dispatchers.IO) {
+					context.ensureRamAtLeast(file.length() * 2)
+					BitmapDecoderCompat.decode(file)
+				}.use {
+					image.compressToPNG(file)
+				}
+				uri
 			}
-		} else {
-			val file = uri.toFile()
-			runInterruptible(Dispatchers.IO) {
-				context.ensureRamAtLeast(file.length() * 2)
-				BitmapDecoderCompat.decode(file)
-			}.use { image ->
-				image.compressToPNG(file)
-			}
-			uri
 		}
 	}
 
@@ -233,24 +235,27 @@ class PageLoader @Inject constructor(
 		return getRepository(page.source).getPageUrl(page)
 	}
 
-	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri = convertLock.withLock {
-		if (uri.isZipUri()) return@withLock uri
+	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri {
+		if (uri.isZipUri()) return uri
 		
 		val rawFile = uri.toFile()
-		// Safe key: MD5(absolutePath + sharpening + denoising) to ensure unique per manga/chapter
 		val cacheKey = "${rawFile.absolutePath}_s${sharpening}_d${denoising}".md5()
 		
-		processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
-
-		withContext(Dispatchers.IO) {
-			val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
-			val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
-			processedCache.set(cacheKey, filtered)
-			filtered.recycle()
-			bitmap.recycle()
-		}
+		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
 		
-		processedCache.get(cacheKey)?.toUri() ?: uri
+		return lock.withLock {
+			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+			withContext(Dispatchers.IO) {
+				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+				val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
+				processedCache.set(cacheKey, filtered)
+				filtered.recycle()
+				bitmap.recycle()
+			}
+			
+			processedCache.get(cacheKey)?.toUri() ?: uri
+		}
 	}
 
 	suspend fun invalidate(clearCache: Boolean) {
@@ -315,7 +320,7 @@ class PageLoader @Inject constructor(
 		val sem = if (isPrefetch) prefetchSemaphore else activeSemaphore
 		return sem.withPermit {
 			val pageUrl = getPageUrl(page)
-			check(pageUrl.isNotBlank()) { \"Cannot obtain full image url for $page\" }
+			check(pageUrl.isNotBlank()) { "Cannot obtain full image url for $page" }
 			if (!skipCache) {
 				cache.get(pageUrl)?.let { return@withPermit it.toUri() }
 			}
@@ -332,12 +337,12 @@ class PageLoader @Inject constructor(
 					if (isPrefetch) {
 						downloadSlowdownDispatcher.delay(page.source)
 					}
-					val request = createPageRequest(pageUrl, page.source).build()
-					imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
-						response.requireBody().withProgress(progress).use {
-							cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
+				val request = createPageRequest(pageUrl, page.source).build()
+				imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
+					response.requireBody().withProgress(progress).use {
+						cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
 						}
-					}.toUri()
+				}.toUri()
 				}
 			}
 		}

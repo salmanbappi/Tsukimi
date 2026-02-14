@@ -20,7 +20,6 @@ fun mangaListItemAD(
 	AdapterDelegateClickListenerAdapter(this, clickListener).attach(itemView)
 
 	bind {
-		itemView.setTooltipCompat(item.getSummary(context))
 		binding.textViewTitle.text = item.title
 		binding.textViewSubtitle.textAndVisible = item.subtitle
 		binding.imageViewCover.setImageAsync(item.coverUrl, item.manga)

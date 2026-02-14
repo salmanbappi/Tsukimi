@@ -309,17 +309,17 @@ class ReaderViewModel @Inject constructor(
 
     fun switchChapterBy(delta: Int) {
         val prevJob = loadingJob
-        loadingJob = launchLoadingJob(Dispatchers.Default) {
+        loadingJob = launchJob(Dispatchers.Default) {
             prevJob?.cancelAndJoin()
             val prevState = readingState.requireValue()
             val newChapterId = if (delta != 0) {
                 val allChapters = mangaDetails.requireValue().allChapters
                 var index = allChapters.indexOfFirst { x -> x.id == prevState.chapterId }
                 if (index < 0) {
-                    return@launchLoadingJob
+                    return@launchJob
                 }
                 index += delta
-                (allChapters.getOrNull(index) ?: return@launchLoadingJob).id
+                (allChapters.getOrNull(index) ?: return@launchJob).id
             } else {
                 prevState.chapterId
             }
@@ -335,8 +335,16 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    private var lastCenterPos = -1
+
     @MainThread
     fun onCurrentPageChanged(lowerPos: Int, upperPos: Int) {
+        val centerPos = (lowerPos + upperPos) / 2
+        if (centerPos == lastCenterPos && !content.value.pages.isEmpty()) {
+            return // Skip if position hasn't changed to save CPU
+        }
+        lastCenterPos = centerPos
+
         val prevJob = stateChangeJob
         val pages = content.value.pages // capture immediately
         stateChangeJob = launchJob(Dispatchers.Default) {
@@ -345,7 +353,6 @@ class ReaderViewModel @Inject constructor(
             if (pages.size != content.value.pages.size) {
                 return@launchJob // TODO
             }
-            val centerPos = (lowerPos + upperPos) / 2
             pages.getOrNull(centerPos)?.let { page ->
                 readingState.update { cs ->
                     cs?.copy(chapterId = page.chapterId, page = page.index)

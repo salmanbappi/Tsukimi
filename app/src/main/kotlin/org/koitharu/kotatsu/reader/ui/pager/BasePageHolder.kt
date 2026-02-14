@@ -49,17 +49,19 @@ abstract class BasePageHolder<B : ViewBinding>(
 		EntryPointAccessors.fromApplication(context, AiEntryPoint::class.java).aiFeatureManager()
 	}
 
-	protected val viewModel = PageViewModel(
-		loader = loader,
-		settingsProducer = readerSettingsProducer,
-		networkState = networkState,
-		exceptionResolver = exceptionResolver,
-		isWebtoon = isWebtoon,
-	)
+	protected val viewModel: PageViewModel by lazy {
+		PageViewModel(
+			loader = loader,
+			settingsProducer = readerSettingsProducer,
+			networkState = networkState,
+			exceptionResolver = exceptionResolver,
+			isWebtoon = isWebtoon,
+			aiFeatureManager = aiFeatureManager,
+		)
+	}
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
 	protected open val translationOverlay: AiTranslationOverlayView? = null
-	protected open val upscaleBadge: View? = null
 
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value
@@ -239,17 +241,6 @@ abstract class BasePageHolder<B : ViewBinding>(
 			}
 
 			is PageState.Shown -> {
-				if (state.isUpscaled) {
-					val currentScale = ssiv.scale
-					val currentCenter = ssiv.getCenter()
-					ssiv.setImage(state.source)
-					if (currentCenter != null) {
-						// UpscaleFactor is 2x, so we need to adjust center coordinates
-						// and scale to maintain the same view
-						ssiv.setScaleAndCenter(currentScale / 2f, android.graphics.PointF(currentCenter.x * 2f, currentCenter.y * 2f))
-					}
-				}
-				upscaleBadge?.isVisible = state.isUpscaled
 				restoreTranslationIfPossible()
 			}
 		}

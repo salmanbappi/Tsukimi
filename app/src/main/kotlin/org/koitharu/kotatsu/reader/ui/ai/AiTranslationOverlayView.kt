@@ -32,8 +32,17 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	// Pre-allocated PointF to ensure zero object creation in onDraw loop
 	private val vPoint = PointF()
 	
+	// State tracking for performance
+	private var lastScale = -1f
+	private var lastCenterX = -1f
+	private var lastCenterY = -1f
+	
 	companion object {
 		private const val REFERENCE_SCALE = 1.5f
+	}
+	
+	init {
+		setLayerType(LAYER_TYPE_HARDWARE, null)
 	}
 	
 	private val backgroundPaint = Paint().apply {
@@ -101,14 +110,19 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			if (refWidth <= 0 || refHeight <= 0) continue
 
-			val paddingX = refWidth * 0.12f
-			val paddingY = refHeight * 0.12f
+			// Reduced padding for better space utilization (12% -> 6%)
+			val paddingX = refWidth * 0.06f
+			val paddingY = refHeight * 0.06f
 			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			var textSize = 40f * REFERENCE_SCALE
-			val minTextSize = 8f * REFERENCE_SCALE
+			// Standard readable text range (at 1.5x reference scale)
+			val maxAllowedSize = 42f * REFERENCE_SCALE
+			val minAllowedSize = 14f * REFERENCE_SCALE
+			
+			var textSize = (refHeight * 0.45f).coerceIn(minAllowedSize, maxAllowedSize)
+			val minTextSize = 11f * REFERENCE_SCALE
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
@@ -120,20 +134,22 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			while (textSize >= minTextSize) {
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
-				if (maxWordWidth > availableWidth && textSize > minTextSize) {
+				
+				// Allow 10% overflow for padding tolerance
+				if (maxWordWidth > availableWidth * 1.1f && textSize > minTextSize) {
 					textSize -= step
 					continue
 				}
 
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
-					.setLineSpacing(0f, 1.0f)
+					.setLineSpacing(0f, 0.95f) // Tighten line spacing slightly for manga feel
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
-				if (layout.height <= availableHeight) {
+				if (layout.height <= availableHeight * 1.1f) {
 					finalLayout = layout
 					finalTextSize = textSize
 					finalYOffset = (availableHeight - layout.height) / 2f
@@ -170,20 +186,28 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
 		val currentScale = ssiv.scale
+		val center = ssiv.getCenter() ?: return
+		
+		// Update state for smart invalidation
+		lastScale = currentScale
+		lastCenterX = center.x
+		lastCenterY = center.y
+		
+		// Calculate global translation once per frame to avoid matrix math in the loop
+		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
+		val tx = -origin.x * currentScale
+		val ty = -origin.y * currentScale
 		
 		val count = preparedBlocks.size
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
 			val sourceRect = prep.sourceRect
 			
-			// Use standard 3-arg sourceToViewCoord with pre-allocated PointF
-			ssiv.sourceToViewCoord(sourceRect.left, sourceRect.top, vPoint)
-			val vLeft = vPoint.x
-			val vTop = vPoint.y
-			
-			ssiv.sourceToViewCoord(sourceRect.right, sourceRect.bottom, vPoint)
-			val vRight = vPoint.x
-			val vBottom = vPoint.y
+			// Faster manual coordinate mapping
+			val vLeft = sourceRect.left * currentScale + tx
+			val vTop = sourceRect.top * currentScale + ty
+			val vRight = sourceRect.right * currentScale + tx
+			val vBottom = sourceRect.bottom * currentScale + ty
 			
 			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.4f).coerceAtMost(60f)
 			
@@ -219,6 +243,18 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			canvas.restore()
 		}
 		
-		postInvalidateOnAnimation()
+		// SMART REDRAW: Only request another frame if the image is still moving/zooming.
+		// Use a small threshold to avoid constant redraws due to tiny floating point changes.
+		val newScale = ssiv.scale
+		val newCenter = ssiv.getCenter()
+		val scaleChanged = Math.abs(newScale - lastScale) > 0.001f
+		val centerChanged = newCenter != null && (Math.abs(newCenter.x - lastCenterX) > 0.5f || Math.abs(newCenter.y - lastCenterY) > 0.5f)
+		
+		if (scaleChanged || centerChanged) {
+			lastScale = newScale
+			lastCenterX = newCenter?.x ?: -1f
+			lastCenterY = newCenter?.y ?: -1f
+			postInvalidateOnAnimation()
+		}
 	}
 }

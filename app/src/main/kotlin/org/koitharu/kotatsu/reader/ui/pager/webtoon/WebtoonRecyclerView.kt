@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.pager.webtoon
 import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 import android.widget.EdgeEffect
 import androidx.core.view.ViewCompat.TYPE_TOUCH
@@ -61,67 +62,13 @@ class WebtoonRecyclerView @JvmOverloads constructor(
 
 	override fun startNestedScroll(axes: Int, type: Int): Boolean = isNotEmpty()
 
-	override fun dispatchNestedPreScroll(
-		dx: Int,
-		dy: Int,
-		consumed: IntArray?,
-		offsetInWindow: IntArray?
-	) = dispatchNestedPreScroll(dx, dy, consumed, offsetInWindow, TYPE_TOUCH)
-
-	override fun dispatchNestedPreScroll(
-		dx: Int,
-		dy: Int,
-		consumed: IntArray?,
-		offsetInWindow: IntArray?,
-		type: Int
-	): Boolean {
-		val consumedY = consumeVerticalScroll(dy)
-		if (consumed != null) {
-			consumed[0] = 0
-			consumed[1] = consumedY
-		}
-		notifyScrollChanged(dy)
-		return consumedY != 0 || dy == 0
+	override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+		return super.onInterceptTouchEvent(e)
 	}
 
-	private fun consumeVerticalScroll(dy: Int): Int {
-		if (isEmpty()) {
-			return 0
-		}
-		when {
-			dy > 0 -> {
-				val child = getChildAt(0) as WebtoonFrameLayout
-				var consumedByChild = child.dispatchVerticalScroll(dy)
-				if (consumedByChild < dy) {
-					if (childCount > 1) {
-						val nextChild = getChildAt(1) as WebtoonFrameLayout
-						val unconsumed =
-							dy - consumedByChild - nextChild.top //will be consumed by scroll
-						if (unconsumed > 0) {
-							consumedByChild += nextChild.dispatchVerticalScroll(unconsumed)
-						}
-					}
-				}
-				return consumedByChild
-			}
-
-			dy < 0 -> {
-				val child = getChildAt(childCount - 1) as WebtoonFrameLayout
-				var consumedByChild = child.dispatchVerticalScroll(dy)
-				if (consumedByChild > dy) {
-					if (childCount > 1) {
-						val nextChild = getChildAt(childCount - 2) as WebtoonFrameLayout
-						val unconsumed =
-							dy - consumedByChild + (height - nextChild.bottom) //will be consumed by scroll
-						if (unconsumed < 0) {
-							consumedByChild += nextChild.dispatchVerticalScroll(unconsumed)
-						}
-					}
-				}
-				return consumedByChild
-			}
-		}
-		return 0
+	override fun onScrolled(dx: Int, dy: Int) {
+		super.onScrolled(dx, dy)
+		scrollDispatcher.dispatchScroll(this, dy)
 	}
 
 	fun addOnPageScrollListener(listener: OnWebtoonScrollListener) {
@@ -130,14 +77,6 @@ class WebtoonRecyclerView @JvmOverloads constructor(
 
 	fun removeOnPageScrollListener(listener: OnWebtoonScrollListener) {
 		onPageScrollListeners.remove(listener)
-	}
-
-	private fun notifyScrollChanged(dy: Int) {
-		val listeners = onPageScrollListeners
-		if (listeners.isEmpty()) {
-			return
-		}
-		scrollDispatcher.dispatchScroll(this, dy)
 	}
 
 	fun relayoutChildren() {
@@ -150,33 +89,7 @@ class WebtoonRecyclerView @JvmOverloads constructor(
 	}
 
 	fun updateChildrenScroll() {
-		if (isFixingScroll) {
-			return
-		}
-		isFixingScroll = true
-		for (child in this) {
-			val ssiv = (child as WebtoonFrameLayout).target
-			if (adjustScroll(child, ssiv)) {
-				break
-			}
-		}
-		isFixingScroll = false
-	}
-
-	private fun adjustScroll(child: View, ssiv: WebtoonImageView): Boolean = when {
-		child.bottom < height && ssiv.getScroll() < ssiv.getScrollRange() -> {
-			val distance = minOf(height - child.bottom, ssiv.getScrollRange() - ssiv.getScroll())
-			ssiv.scrollBy(distance)
-			true
-		}
-
-		child.top > 0 && ssiv.getScroll() > 0 -> {
-			val distance = minOf(child.top, ssiv.getScroll())
-			ssiv.scrollBy(-distance)
-			true
-		}
-
-		else -> false
+		// No longer needed as we use native scrolling
 	}
 
 	private class WebtoonScrollDispatcher {
