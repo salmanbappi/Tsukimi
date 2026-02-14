@@ -97,8 +97,11 @@ class AiFeatureManager @Inject constructor(
 			val ocrBitmap = if (ocrScale < 1f) {
 				val targetW = (bitmap.width * ocrScale).toInt().coerceAtLeast(1)
 				val targetH = (bitmap.height * ocrScale).toInt().coerceAtLeast(1)
-				Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
-			} else bitmap
+				val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+				enhanceForOcr(scaled)
+			} else {
+				enhanceForOcr(bitmap.copy(bitmap.config, true))
+			}
 
 			val inputImage = InputImage.fromBitmap(ocrBitmap, 0)
 			val visionText = textRecognizer.process(inputImage).await()
@@ -409,42 +412,72 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Strictly limited expansion to avoid panel blocking
-			val maxExpandX = (textRect.width().toDouble() * 0.4).coerceAtMost((width * 0.12).toDouble()).coerceAtLeast(20.0).toInt()
-			val maxExpandY = (textRect.height().toDouble() * 0.4).coerceAtMost((height * 0.12).toDouble()).coerceAtLeast(20.0).toInt()
+			// More generous expansion for modern high-res displays
+			val maxExpandX = (textRect.width() * 0.6).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
+			val maxExpandY = (textRect.height() * 0.6).toInt().coerceAtMost(height / 5).coerceAtLeast(30)
 
-			var left = textRect.left
-			var dist = 0
-			while (left > 0 && dist < maxExpandX && isPixelLight(bitmap, left, centerY)) {
-				left--
-				dist++
+			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
+				var x = startX
+				var y = startY
+				var dist = 0
+				var tolerance = 3 // Allow up to 3 dark pixels (screentone noise)
+				var lastValidDist = 0
+				
+				while (dist < maxDist) {
+					x += dx
+					y += dy
+					if (x !in 0 until width || y !in 0 until height) break
+					
+					if (isPixelLight(bitmap, x, y)) {
+						dist++
+						lastValidDist = dist
+						tolerance = 3 // Reset tolerance
+					} else {
+						if (tolerance > 0) {
+							dist++
+							tolerance--
+						} else {
+							break
+						}
+					}
+				}
+				return lastValidDist
 			}
 
-			var right = textRect.right
-			dist = 0
-			while (right < width - 1 && dist < maxExpandX && isPixelLight(bitmap, right, centerY)) {
-				right++
-				dist++
-			}
+			val leftDist = scan(textRect.left, centerY, -1, 0, maxExpandX)
+			val rightDist = scan(textRect.right, centerY, 1, 0, maxExpandX)
+			val topDist = scan(centerX, textRect.top, 0, -1, maxExpandY)
+			val bottomDist = scan(centerX, textRect.bottom, 0, 1, maxExpandY)
 
-			var top = textRect.top
-			dist = 0
-			while (top > 0 && dist < maxExpandY && isPixelLight(bitmap, centerX, top)) {
-				top--
-				dist++
-			}
-
-			var bottom = textRect.bottom
-			dist = 0
-			while (bottom < height - 1 && dist < maxExpandY && isPixelLight(bitmap, centerX, bottom)) {
-				bottom++
-				dist++
-			}
-
-			return Rect(left, top, right, bottom)
+			return Rect(
+				textRect.left - leftDist,
+				textRect.top - topDist,
+				textRect.right + rightDist,
+				textRect.bottom + bottomDist
+			)
 		} catch (e: Exception) {
 			return textRect
 		}
+	}
+
+	private fun enhanceForOcr(src: Bitmap): Bitmap {
+		val width = src.width
+		val height = src.height
+		val bmOut = Bitmap.createBitmap(width, height, src.config ?: Bitmap.Config.ARGB_8888)
+		
+		val canvas = android.graphics.Canvas(bmOut)
+		val paint = android.graphics.Paint()
+		// High contrast matrix: increase scale, decrease offset
+		val colorMatrix = android.graphics.ColorMatrix(floatArrayOf(
+			2.5f, 0f, 0f, 0f, -120f,
+			0f, 2.5f, 0f, 0f, -120f,
+			0f, 0f, 2.5f, 0f, -120f,
+			0f, 0f, 0f, 1f, 0f
+		))
+		paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
+		canvas.drawBitmap(src, 0f, 0f, paint)
+		if (src.width > 1) src.recycle()
+		return bmOut
 	}
 
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {

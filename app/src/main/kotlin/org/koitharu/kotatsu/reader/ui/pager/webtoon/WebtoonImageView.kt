@@ -92,7 +92,8 @@ class WebtoonImageView @JvmOverloads constructor(
 			}
 		}
 		desiredWidth = desiredWidth.coerceAtLeast(suggestedMinimumWidth)
-		desiredHeight = desiredHeight.coerceAtLeast(suggestedMinimumHeight).coerceAtMost(20000)
+		// 60,000px is safe for modern Android hardware canvases and covers extreme long-strips.
+		desiredHeight = desiredHeight.coerceAtLeast(suggestedMinimumHeight).coerceAtMost(60000)
 		setMeasuredDimension(desiredWidth, desiredHeight)
 	}
 

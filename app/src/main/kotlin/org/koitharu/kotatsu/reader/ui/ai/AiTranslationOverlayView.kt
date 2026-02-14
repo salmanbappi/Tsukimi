@@ -117,12 +117,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
-			// Reasonable default text size range: 12dp to 32dp (at reference scale)
-			val maxAllowedSize = 32f * REFERENCE_SCALE
-			val minAllowedSize = 10f * REFERENCE_SCALE
+			// Standard readable text range (at 1.5x reference scale)
+			val maxAllowedSize = 42f * REFERENCE_SCALE
+			val minAllowedSize = 14f * REFERENCE_SCALE
 			
-			var textSize = (refHeight * 0.5f).coerceIn(minAllowedSize, maxAllowedSize)
-			val minTextSize = 9f * REFERENCE_SCALE
+			var textSize = (refHeight * 0.45f).coerceIn(minAllowedSize, maxAllowedSize)
+			val minTextSize = 11f * REFERENCE_SCALE
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
@@ -135,21 +135,21 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				
-				// Allow slight overflow for padding (6% -> 10% tolerance)
-				if (maxWordWidth > availableWidth * 1.05f && textSize > minTextSize) {
+				// Allow 10% overflow for padding tolerance
+				if (maxWordWidth > availableWidth * 1.1f && textSize > minTextSize) {
 					textSize -= step
 					continue
 				}
 
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
-					.setLineSpacing(0f, 1.0f)
+					.setLineSpacing(0f, 0.95f) // Tighten line spacing slightly for manga feel
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
-				if (layout.height <= availableHeight * 1.05f) {
+				if (layout.height <= availableHeight * 1.1f) {
 					finalLayout = layout
 					finalTextSize = textSize
 					finalYOffset = (availableHeight - layout.height) / 2f
