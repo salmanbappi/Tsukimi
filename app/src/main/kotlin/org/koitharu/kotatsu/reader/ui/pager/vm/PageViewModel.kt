@@ -153,16 +153,27 @@ class PageViewModel(
 			
 			val sharpening = settingsProducer.value.sharpening
 			val denoising = settingsProducer.value.denoising
-			if (sharpening > 0f || denoising > 0f) {
-				state.value = PageState.Converting()
-				uri = loader.applyImageFilters(uri, sharpening, denoising)
+			
+			// Start filter and bounds calculation concurrently
+			val filteredUriDeferred = async(Dispatchers.Default) {
+				if (sharpening > 0f || denoising > 0f) {
+					loader.applyImageFilters(uri, sharpening, denoising)
+				} else {
+					uri
+				}
 			}
 
-			cachedBounds = if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {
-				loader.getTrimmedBounds(uri)
-			} else {
-				null
+			val boundsDeferred = async(Dispatchers.Default) {
+				if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {
+					loader.getTrimmedBounds(uri)
+				} else {
+					null
+				}
 			}
+
+			uri = filteredUriDeferred.await()
+			cachedBounds = boundsDeferred.await()
+			
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
 		} catch (e: CancellationException) {
 			throw e

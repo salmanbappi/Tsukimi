@@ -27,56 +27,53 @@ import kotlin.math.min
 
 class EdgeDetector(private val context: Context) {
 
-	private val mutex = Mutex()
 	private val cache = SynchronizedSieveCache<ImageSource, Rect>(CACHE_SIZE)
 
 	suspend fun getBounds(imageSource: ImageSource): Rect? {
 		cache[imageSource]?.let { rect ->
 			return if (rect.isEmpty) null else rect
 		}
-		return mutex.withLock {
-			withContext(Dispatchers.IO) {
-				val decoder = SkiaPooledImageRegionDecoder(Bitmap.Config.RGB_565)
+		return withContext(Dispatchers.IO) {
+			val decoder = SkiaPooledImageRegionDecoder(Bitmap.Config.RGB_565)
+			try {
+				val size = runInterruptible {
+					decoder.init(context, imageSource)
+				}
+				val scaleFactor = calculateScaleFactor(size)
+				val sampleSize = (1f / scaleFactor).toInt().coerceAtLeast(1)
+
+				val fullBitmap = decoder.decodeRegion(
+					Rect(0, 0, size.x, size.y),
+					sampleSize,
+				)
+
 				try {
-					val size = runInterruptible {
-						decoder.init(context, imageSource)
+					val edges = coroutineScope {
+						listOf(
+							async { detectLeftRightEdge(fullBitmap, size, sampleSize, isLeft = true) },
+							async { detectTopBottomEdge(fullBitmap, size, sampleSize, isTop = true) },
+							async { detectLeftRightEdge(fullBitmap, size, sampleSize, isLeft = false) },
+							async { detectTopBottomEdge(fullBitmap, size, sampleSize, isTop = false) },
+						).awaitAll()
 					}
-					val scaleFactor = calculateScaleFactor(size)
-					val sampleSize = (1f / scaleFactor).toInt().coerceAtLeast(1)
-
-					val fullBitmap = decoder.decodeRegion(
-						Rect(0, 0, size.x, size.y),
-						sampleSize,
-					)
-
-					try {
-						val edges = coroutineScope {
-							listOf(
-								async { detectLeftRightEdge(fullBitmap, size, sampleSize, isLeft = true) },
-								async { detectTopBottomEdge(fullBitmap, size, sampleSize, isTop = true) },
-								async { detectLeftRightEdge(fullBitmap, size, sampleSize, isLeft = false) },
-								async { detectTopBottomEdge(fullBitmap, size, sampleSize, isTop = false) },
-							).awaitAll()
+					var hasEdges = false
+					for (edge in edges) {
+						if (edge > 0) {
+							hasEdges = true
+						} else if (edge < 0) {
+							return@withContext null
 						}
-						var hasEdges = false
-						for (edge in edges) {
-							if (edge > 0) {
-								hasEdges = true
-							} else if (edge < 0) {
-								return@withContext null
-							}
-						}
-						if (hasEdges) {
-							Rect(edges[0], edges[1], size.x - edges[2], size.y - edges[3])
-						} else {
-							null
-						}
-					} finally {
-						fullBitmap.recycle()
+					}
+					if (hasEdges) {
+						Rect(edges[0], edges[1], size.x - edges[2], size.y - edges[3])
+					} else {
+						null
 					}
 				} finally {
-					decoder.recycle()
+					fullBitmap.recycle()
 				}
+			} finally {
+				decoder.recycle()
 			}
 		}.also {
 			cache.put(imageSource, it ?: EMPTY_RECT)

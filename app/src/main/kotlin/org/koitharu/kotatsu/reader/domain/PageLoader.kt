@@ -99,12 +99,14 @@ class PageLoader @Inject constructor(
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
+	private val optimizationHelper: ReaderOptimizationHelper,
 ) {
 
 	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
-	private val semaphore = Semaphore(3)
+	private val activeSemaphore = Semaphore(1)
+	private val prefetchSemaphore = Semaphore(optimizationHelper.getParallelism())
 	private val convertLock = Mutex()
 	private val prefetchLock = Mutex()
 
@@ -112,7 +114,6 @@ class PageLoader @Inject constructor(
 	private var repository: MangaRepository? = null
 	private val prefetchQueue = LinkedList<MangaPage>()
 	private val counter = AtomicInteger(0)
-	private var prefetchQueueLimit = PREFETCH_LIMIT_DEFAULT // TODO adaptive
 	private val edgeDetector = EdgeDetector(context)
 
 	fun isPrefetchApplicable(): Boolean {
@@ -124,13 +125,14 @@ class PageLoader @Inject constructor(
 
 	@AnyThread
 	fun prefetch(pages: List<ReaderPage>) = loaderScope.launch {
+		val limit = optimizationHelper.getPrefetchLimit()
 		prefetchLock.withLock {
 			for (page in pages.asReversed()) {
 				if (tasks.containsKey(page.id)) {
 					continue
 				}
 				prefetchQueue.offerFirst(page.toMangaPage())
-				if (prefetchQueue.size > prefetchQueueLimit) {
+				if (prefetchQueue.size > limit) {
 					prefetchQueue.pollLast()
 				}
 			}
@@ -309,31 +311,34 @@ class PageLoader @Inject constructor(
 		progress: MutableStateFlow<Float>,
 		isPrefetch: Boolean,
 		skipCache: Boolean,
-	): Uri = semaphore.withPermit {
-		val pageUrl = getPageUrl(page)
-		check(pageUrl.isNotBlank()) { "Cannot obtain full image url for $page" }
-		if (!skipCache) {
-			cache.get(pageUrl)?.let { return it.toUri() }
-		}
-		val uri = pageUrl.toUri()
-		return when {
-			uri.isZipUri() -> if (uri.scheme == URI_SCHEME_ZIP) {
-				uri
-			} else { // legacy uri
-				uri.buildUpon().scheme(URI_SCHEME_ZIP).build()
+	): Uri {
+		val sem = if (isPrefetch) prefetchSemaphore else activeSemaphore
+		return sem.withPermit {
+			val pageUrl = getPageUrl(page)
+			check(pageUrl.isNotBlank()) { \"Cannot obtain full image url for $page\" }
+			if (!skipCache) {
+				cache.get(pageUrl)?.let { return@withPermit it.toUri() }
 			}
-
-			uri.isFileUri() -> uri
-			else -> {
-				if (isPrefetch) {
-					downloadSlowdownDispatcher.delay(page.source)
+			val uri = pageUrl.toUri()
+			when {
+				uri.isZipUri() -> if (uri.scheme == URI_SCHEME_ZIP) {
+					uri
+				} else { // legacy uri
+					uri.buildUpon().scheme(URI_SCHEME_ZIP).build()
 				}
-				val request = createPageRequest(pageUrl, page.source).build()
-				imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
-					response.requireBody().withProgress(progress).use {
-						cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
+
+				uri.isFileUri() -> uri
+				else -> {
+					if (isPrefetch) {
+						downloadSlowdownDispatcher.delay(page.source)
 					}
-				}.toUri()
+					val request = createPageRequest(pageUrl, page.source).build()
+					imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
+						response.requireBody().withProgress(progress).use {
+							cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
+						}
+					}.toUri()
+				}
 			}
 		}
 	}
