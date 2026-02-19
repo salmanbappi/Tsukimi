@@ -12,6 +12,21 @@
 		android:layout_height="match_parent"
 		tools:background="@color/grey" />
 
+	<com.google.android.material.floatingactionbutton.FloatingActionButton
+		android:id="@+id/button_ai_translate_fab"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="bottom|end"
+		android:layout_margin="16dp"
+		android:contentDescription="@string/ai_translation"
+		android:visibility="gone"
+		app:backgroundTint="?attr/colorTertiaryContainer"
+		app:srcCompat="@drawable/ic_translate"
+		app:fabSize="normal"
+		app:elevation="6dp"
+		app:pressedTranslationZ="12dp"
+		app:tint="?attr/colorOnTertiaryContainer" />
+
 	<org.koitharu.kotatsu.core.ui.widgets.ZoomControl
 		android:id="@+id/zoomControl"
 		android:layout_width="wrap_content"

@@ -151,10 +151,11 @@ class ReaderActivity :
         		viewBinding.zoomControl.listener = this
         		viewBinding.actionsView.listener = this
         		viewBinding.buttonTimer?.setOnClickListener(this)
-        		viewBinding.buttonAiTranslateFab.setOnClickListener { performAiTranslation() }
-        		updateAiTranslateFabVisibility()
-        		idlingDetector.bindToLifecycle(this)
-        		screenOrientationHelper.applySettings()        viewModel.isBookmarkAdded.observe(this) { viewBinding.actionsView.isBookmarkAdded = it }
+		viewBinding.buttonAiTranslateFab?.setOnClickListener { performAiTranslation() }
+		updateAiTranslateFabVisibility()
+		idlingDetector.bindToLifecycle(this)
+		screenOrientationHelper.applySettings()
+		viewModel.isBookmarkAdded.observe(this) { viewBinding.actionsView.isBookmarkAdded = it }
         scrollTimer.isActive.observe(this) {
             updateScrollTimerButton()
             viewBinding.actionsView.setTimerActive(it)
@@ -391,16 +392,29 @@ class ReaderActivity :
     		updateAiTranslateFabVisibility()
     	}
     
-    		private fun updateAiTranslateFabVisibility() {
-    			val isVisible = settings.isAiTranslationEnabled && !settings.isAiAutoTranslationEnabled
-    			if (viewBinding.buttonAiTranslateFab.isVisible != isVisible) {
-    				if (isAnimationsEnabled) {
-    					TransitionManager.beginDelayedTransition(viewBinding.root, Fade().addTarget(viewBinding.buttonAiTranslateFab))
+    			private fun updateAiTranslateFabVisibility() {
+    
+    				val fab = viewBinding.buttonAiTranslateFab ?: return
+    
+    				val isVisible = settings.isAiTranslationEnabled && !settings.isAiAutoTranslationEnabled
+    
+    				if (fab.isVisible != isVisible) {
+    
+    					if (isAnimationsEnabled) {
+    
+    						TransitionManager.beginDelayedTransition(viewBinding.root, Fade().addTarget(fab))
+    
+    					}
+    
+    					fab.isVisible = isVisible
+    
     				}
-    				viewBinding.buttonAiTranslateFab.isVisible = isVisible
+    
     			}
-    		}    
-    	private fun applyDoubleModeAuto(manualEnabled: Boolean? = null) {        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    		
+    
+    			private fun applyDoubleModeAuto(manualEnabled: Boolean? = null) {        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val autoFoldable = settings.isReaderDoubleOnFoldable && isFoldUnfolded
         val manualLandscape = (manualEnabled ?: settings.isReaderDoubleOnLandscape) && isLandscape
         val autoEnabled = autoFoldable || manualLandscape
