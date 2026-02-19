@@ -577,11 +577,12 @@ class AiFeatureManager @Inject constructor(
 				scan(textRect.right, textRect.bottom, 0, 1, maxExpandY)
 			)
 
+			val safetyMargin = 8 // Ensure no stroke edges peek out
 			return Rect(
-				textRect.left - leftDist,
-				textRect.top - topDist,
-				textRect.right + rightDist,
-				textRect.bottom + bottomDist
+				textRect.left - leftDist - safetyMargin,
+				textRect.top - topDist - safetyMargin,
+				textRect.right + rightDist + safetyMargin,
+				textRect.bottom + bottomDist + safetyMargin
 			)
 		} catch (e: Exception) {
 			return textRect
