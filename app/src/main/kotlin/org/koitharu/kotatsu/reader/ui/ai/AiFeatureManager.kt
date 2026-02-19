@@ -89,7 +89,7 @@ class AiFeatureManager @Inject constructor(
 
 			// Optimization: Downscale bitmap for faster OCR processing if needed
 			// Note: bitmap is already scaled by captureScale in ReaderActivity
-			val maxDim = 1800
+			val maxDim = 2400
 			val ocrScale = if (bitmap.width > 0 && bitmap.height > 0) {
 				Math.min(1f, maxDim.toFloat() / Math.max(bitmap.width, bitmap.height))
 			} else 1f
@@ -131,7 +131,7 @@ class AiFeatureManager @Inject constructor(
 				val translationJobs = mergedBlocks.mapIndexed { index, it ->
 					async {
 						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
-						if (cleanText.isBlank()) return@async null
+						if (cleanText.length < 2) return@async null
 
 						// Skip sound effects (short Japanese-only strings)
 						val isLikelySFX = cleanText.length <= 4 && 
@@ -177,10 +177,12 @@ class AiFeatureManager @Inject constructor(
 							(rectInView.bottom - vTranslateY) / viewScale
 						)
 						
-						// Safety guard: skip giant broken OCR blocks (>60% width or >40% height)
+						// Safety guard: skip giant broken OCR blocks (>65% width or >45% height)
 						// Real speech bubbles are rarely this large compared to the page.
-						if (rectInBitmap.width() > bitmap.width * 0.6f || 
-							rectInBitmap.height() > bitmap.height * 0.4f) return@async null
+						val srcW = (bitmap.width / captureScale)
+						val srcH = (bitmap.height / captureScale)
+						if (sourceRect.width() > srcW * 0.65f || 
+							sourceRect.height() > srcH * 0.45f) return@async null
 
 						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
 
@@ -394,15 +396,15 @@ class AiFeatureManager @Inject constructor(
 		
 		return if (isVertical) {
 			// Manga: Tight vertical, even tighter horizontal (don't cross panels)
-			val thresholdX = (avgH * 0.3f).toInt().coerceIn(8, 40)
-			val thresholdY = (avgH * 0.2f).toInt().coerceIn(5, 25)
+			val thresholdX = (avgH * 0.3f).toInt().coerceIn(5, 28)
+			val thresholdY = (avgH * 0.2f).toInt().coerceIn(3, 18)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
 		} else {
 			// Webtoon: Tight horizontal, tight vertical
-			val thresholdX = (avgW * 0.2f).toInt().coerceIn(5, 25)
-			val thresholdY = (avgW * 0.3f).toInt().coerceIn(8, 40)
+			val thresholdX = (avgW * 0.2f).toInt().coerceIn(3, 18)
+			val thresholdY = (avgW * 0.3f).toInt().coerceIn(5, 28)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
@@ -490,11 +492,11 @@ class AiFeatureManager @Inject constructor(
 		
 		val canvas = android.graphics.Canvas(bmOut)
 		val paint = android.graphics.Paint()
-		// High contrast matrix: increase scale, decrease offset
+		// Refined contrast matrix: moderate scale, smaller offset
 		val colorMatrix = android.graphics.ColorMatrix(floatArrayOf(
-			2.5f, 0f, 0f, 0f, -120f,
-			0f, 2.5f, 0f, 0f, -120f,
-			0f, 0f, 2.5f, 0f, -120f,
+			1.8f, 0f, 0f, 0f, -60f,
+			0f, 1.8f, 0f, 0f, -60f,
+			0f, 0f, 1.8f, 0f, -60f,
 			0f, 0f, 0f, 1f, 0f
 		))
 		paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
@@ -545,7 +547,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 215 // Stricter threshold for better bubble detection
+			return luminance >= 170 // Relaxed threshold to include more varied bubbles
 		} catch (e: Exception) {
 			return false
 		}
