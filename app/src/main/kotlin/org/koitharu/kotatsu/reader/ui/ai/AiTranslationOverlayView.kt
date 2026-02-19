@@ -166,18 +166,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val ssiv = this.ssiv ?: return
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
-		val currentScale = ssiv.scale
-		val center = ssiv.getCenter() ?: return
-		
-		// Update state for smart invalidation
-		lastScale = currentScale
-		lastCenterX = center.x
-		lastCenterY = center.y
-		
-		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
-		val tx = -origin.x * currentScale
-		val ty = -origin.y * currentScale
-		
 		val count = preparedBlocks.size
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
@@ -230,10 +218,11 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		}
 		
 		// Smart redraw check
-		val newScale = ssiv.scale
-		val newCenter = ssiv.getCenter()
-		if (Math.abs(newScale - lastScale) > 0.001f || 
-			(newCenter != null && (Math.abs(newCenter.x - lastCenterX) > 0.5f || Math.abs(newCenter.y - lastCenterY) > 0.5f))) {
+		if (Math.abs(currentScale - lastScale) > 0.001f || 
+			Math.abs(center.x - lastCenterX) > 0.5f || Math.abs(center.y - lastCenterY) > 0.5f) {
+			lastScale = currentScale
+			lastCenterX = center.x
+			lastCenterY = center.y
 			postInvalidateOnAnimation()
 		}
 	}
