@@ -22,11 +22,6 @@ class ReaderMenuProvider(
 				true
 			}
 
-			R.id.action_ai_translate -> {
-				listener.onAiTranslateClick()
-				true
-			}
-
 
 
 			R.id.action_info -> {

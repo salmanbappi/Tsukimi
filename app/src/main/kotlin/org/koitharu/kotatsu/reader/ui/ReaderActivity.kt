@@ -148,12 +148,13 @@ class ReaderActivity :
         scrollTimer = scrollTimerFactory.create(resources, this, this)
         pageSaveHelper = pageSaveHelperFactory.create(this)
         controlDelegate = ReaderControlDelegate(resources, settings, tapGridSettings, this)
-        viewBinding.zoomControl.listener = this
-        viewBinding.actionsView.listener = this
-        viewBinding.buttonTimer?.setOnClickListener(this)
-        idlingDetector.bindToLifecycle(this)
-        screenOrientationHelper.applySettings()
-        viewModel.isBookmarkAdded.observe(this) { viewBinding.actionsView.isBookmarkAdded = it }
+        		viewBinding.zoomControl.listener = this
+        		viewBinding.actionsView.listener = this
+        		viewBinding.buttonTimer?.setOnClickListener(this)
+        		viewBinding.buttonAiTranslateFab.setOnClickListener { performAiTranslation() }
+        		updateAiTranslateFabVisibility()
+        		idlingDetector.bindToLifecycle(this)
+        		screenOrientationHelper.applySettings()        viewModel.isBookmarkAdded.observe(this) { viewBinding.actionsView.isBookmarkAdded = it }
         scrollTimer.isActive.observe(this) {
             updateScrollTimerButton()
             viewBinding.actionsView.setTimerActive(it)
@@ -382,12 +383,24 @@ class ReaderActivity :
         viewBinding.timerControl.onReaderModeChanged(mode)
     }
 
-    override fun onDoubleModeChanged(isEnabled: Boolean) {
-        applyDoubleModeAuto(isEnabled)
-    }
-
-    private fun applyDoubleModeAuto(manualEnabled: Boolean? = null) {
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    	override fun onDoubleModeChanged(isEnabled: Boolean) {
+    		applyDoubleModeAuto(isEnabled)
+    	}
+    
+    	override fun onAiTranslationChanged(isEnabled: Boolean) {
+    		updateAiTranslateFabVisibility()
+    	}
+    
+    		private fun updateAiTranslateFabVisibility() {
+    			val isVisible = settings.isAiTranslationEnabled && !settings.isAiAutoTranslationEnabled
+    			if (viewBinding.buttonAiTranslateFab.isVisible != isVisible) {
+    				if (isAnimationsEnabled) {
+    					TransitionManager.beginDelayedTransition(viewBinding.root, Fade().addTarget(viewBinding.buttonAiTranslateFab))
+    				}
+    				viewBinding.buttonAiTranslateFab.isVisible = isVisible
+    			}
+    		}    
+    	private fun applyDoubleModeAuto(manualEnabled: Boolean? = null) {        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val autoFoldable = settings.isReaderDoubleOnFoldable && isFoldUnfolded
         val manualLandscape = (manualEnabled ?: settings.isReaderDoubleOnLandscape) && isLandscape
         val autoEnabled = autoFoldable || manualLandscape
@@ -488,15 +501,9 @@ class ReaderActivity :
         viewModel.toggleBookmark()
     }
 
-    override fun onAiTranslateClick() {
-        if (!settings.isAiTranslationEnabled) {
-            Snackbar.make(viewBinding.container, "Enable AI Translation in Reader Settings first", Snackbar.LENGTH_SHORT)
-                .setAnchorView(viewBinding.toolbarDocked)
-                .show()
-            return
-        }
-        performAiTranslation()
-    }
+	override fun onAiTranslateClick() {
+		performAiTranslation()
+	}
 
 
 

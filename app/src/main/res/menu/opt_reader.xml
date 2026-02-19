@@ -9,12 +9,6 @@
 		android:title="@string/update"
 		app:showAsAction="ifRoom" />
 
-	<item
-		android:id="@+id/action_ai_translate"
-		android:icon="@drawable/ic_translate"
-		android:title="@string/ai_translation"
-		app:showAsAction="ifRoom" />
-
 
 
 	<item

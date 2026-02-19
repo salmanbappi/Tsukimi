@@ -110,10 +110,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			if (refWidth <= 0 || refHeight <= 0) continue
 
-			// Reduced padding for better space utilization (12% -> 6%)
-			val paddingX = refWidth * 0.06f
-			val paddingY = refHeight * 0.06f
-			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
+			// Increased padding for better readability (6% -> 10%)
+			var paddingX = refWidth * 0.10f
+			val paddingY = refHeight * 0.08f
+			var availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
 			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
@@ -128,6 +128,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			var finalLayout: StaticLayout? = null
 			var finalYOffset = 0f
 			var finalTextSize = minTextSize
+			var finalWidthExpansion = 0f
 
 			val paint = TextPaint(baseTextPaint)
 
@@ -135,13 +136,23 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				
-				// Allow 10% overflow for padding tolerance
-				if (maxWordWidth > availableWidth * 1.1f && textSize > minTextSize) {
+				// If a word is too long, allow the bubble to expand slightly (up to 20% of refWidth)
+				val expansionNeeded = (maxWordWidth - availableWidth).coerceAtLeast(0f)
+				val allowedExpansion = refWidth * 0.20f
+				
+				val currentWidth = if (expansionNeeded > 0 && expansionNeeded <= allowedExpansion) {
+					availableWidth + expansionNeeded
+				} else {
+					availableWidth.toFloat()
+				}
+
+				// Allow 5% overflow for padding tolerance
+				if (maxWordWidth > currentWidth * 1.05f && textSize > minTextSize) {
 					textSize -= step
 					continue
 				}
 
-				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
+				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, currentWidth.toInt())
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setLineSpacing(0f, 0.95f) // Tighten line spacing slightly for manga feel
 					.setIncludePad(false)
@@ -153,6 +164,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					finalLayout = layout
 					finalTextSize = textSize
 					finalYOffset = (availableHeight - layout.height) / 2f
+					finalWidthExpansion = (currentWidth - availableWidth)
 					break
 				}
 				textSize -= step
@@ -168,11 +180,22 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
+			val expandedRect = if (finalWidthExpansion > 0) {
+				RectF(
+					block.boundingBox.left - finalWidthExpansion / (2 * REFERENCE_SCALE),
+					block.boundingBox.top,
+					block.boundingBox.right + finalWidthExpansion / (2 * REFERENCE_SCALE),
+					block.boundingBox.bottom
+				)
+			} else {
+				block.boundingBox
+			}
+
 			preparedBlocks.add(PreparedBlock(
-				sourceRect = block.boundingBox,
+				sourceRect = expandedRect,
 				layout = finalLayout,
 				textSize = finalTextSize,
-				paddingX = paddingX / REFERENCE_SCALE,
+				paddingX = (paddingX + finalWidthExpansion / 2) / REFERENCE_SCALE,
 				paddingY = paddingY / REFERENCE_SCALE,
 				yOffset = finalYOffset / REFERENCE_SCALE,
 				backgroundColor = block.backgroundColor

@@ -97,7 +97,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonPagesThumbs.initAction()
 		binding.buttonTimer.initAction()
 		binding.buttonBookmark.initAction()
-		binding.buttonAiTranslate.initAction()
 		binding.slider.setLabelFormatter(PageLabelFormatter())
 		binding.slider.addOnChangeListener(this)
 		binding.slider.addOnSliderTouchListener(this)
@@ -130,7 +129,6 @@ class ReaderActionsView @JvmOverloads constructor(
 			R.id.button_screen_rotation -> listener?.toggleScreenOrientation()
 			R.id.button_options -> listener?.openMenu()
 			R.id.button_bookmark -> listener?.onBookmarkClick()
-			R.id.button_ai_translate -> listener?.onAiTranslateClick()
 		}
 	}
 
@@ -200,7 +198,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonSave.isVisible = ReaderControl.SAVE_PAGE in controls
 		binding.buttonTimer.isVisible = ReaderControl.TIMER in controls
 		binding.buttonBookmark.isVisible = ReaderControl.BOOKMARK in controls
-		binding.buttonAiTranslate.isVisible = ReaderControl.AI_TRANSLATE in controls
 		binding.slider.isVisible = ReaderControl.SLIDER in controls
 		adjustLayoutParams()
 	}

@@ -99,6 +99,8 @@ class ReaderConfigSheet :
         binding.adjustSensitivitySlider(withAnimation = false)
         
         binding.switchAiTranslation.isChecked = settings.isAiTranslationEnabled
+        binding.switchAutoAiTranslation.isChecked = settings.isAiAutoTranslationEnabled
+        binding.switchAutoAiTranslation.isVisible = settings.isAiTranslationEnabled
 
         binding.checkableGroup.addOnButtonCheckedListener(this)
         binding.buttonSavePage.setOnClickListener(this)
@@ -112,6 +114,7 @@ class ReaderConfigSheet :
         binding.switchDoubleFoldable.setOnCheckedChangeListener(this)
         binding.switchZenMode.setOnCheckedChangeListener(this)
         binding.switchAiTranslation.setOnCheckedChangeListener(this)
+        binding.switchAutoAiTranslation.setOnCheckedChangeListener(this)
         binding.sliderDoubleSensitivity.addOnChangeListener(this)
 
         viewModel.isBookmarkAdded.observe(viewLifecycleOwner) {
@@ -176,13 +179,8 @@ class ReaderConfigSheet :
                     viewModel.switchChapterBy(0)
                 }
             }
-
         }
     }
-
-
-
-
 
     override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
         when (buttonView.id) {
@@ -198,7 +196,6 @@ class ReaderConfigSheet :
 
             R.id.switch_double_foldable -> {
                 settings.isReaderDoubleOnFoldable = isChecked
-                // Re-evaluate double-page considering foldable state and current manual toggle
                 findParentCallback(Callback::class.java)?.onDoubleModeChanged(settings.isReaderDoubleOnLandscape)
             }
 
@@ -208,8 +205,14 @@ class ReaderConfigSheet :
 
             R.id.switch_ai_translation -> {
                 settings.isAiTranslationEnabled = isChecked
+                viewBinding?.switchAutoAiTranslation?.isVisible = isChecked
+                findParentCallback(Callback::class.java)?.onAiTranslationChanged(isChecked)
             }
 
+            R.id.switch_auto_ai_translation -> {
+                settings.isAiAutoTranslationEnabled = isChecked
+                findParentCallback(Callback::class.java)?.onAiTranslationChanged(settings.isAiTranslationEnabled)
+            }
         }
     }
 
@@ -286,15 +289,11 @@ class ReaderConfigSheet :
     }
 
     interface Callback {
-
         fun onReaderModeChanged(mode: ReaderMode)
-
         fun onDoubleModeChanged(isEnabled: Boolean)
-
+        fun onAiTranslationChanged(isEnabled: Boolean)
         fun onSavePageClick()
-
         fun onScrollTimerClick(isLongClick: Boolean)
-
         fun onBookmarkClick()
     }
 }

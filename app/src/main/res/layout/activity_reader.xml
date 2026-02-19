@@ -12,16 +12,37 @@
 		android:layout_height="match_parent"
 		tools:background="@color/grey" />
 
-	<com.google.android.material.button.MaterialButton
-		android:id="@+id/button_timer"
-		style="?materialIconButtonOutlinedStyle"
+	<LinearLayout
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:layout_gravity="bottom|end"
 		android:layout_margin="16dp"
-		app:backgroundTint="@color/bg_floating_button"
-		app:icon="@drawable/ic_timelapse"
-		app:layout_insetEdge="bottom" />
+		android:orientation="vertical"
+		android:gravity="end">
+
+		<com.google.android.material.floatingactionbutton.FloatingActionButton
+			android:id="@+id/button_ai_translate_fab"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginBottom="8dp"
+			android:contentDescription="@string/ai_translation"
+			android:visibility="gone"
+			app:backgroundTint="?attr/colorTertiaryContainer"
+			app:srcCompat="@drawable/ic_translate"
+			app:fabSize="normal"
+			app:elevation="6dp"
+			app:pressedTranslationZ="12dp"
+			app:tint="?attr/colorOnTertiaryContainer" />
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_timer"
+			style="?materialIconButtonOutlinedStyle"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			app:backgroundTint="?attr/colorSurfaceContainerHigh"
+			app:icon="@drawable/ic_timelapse" />
+
+	</LinearLayout>
 
 	<org.koitharu.kotatsu.core.ui.widgets.ZoomControl
 		android:id="@+id/zoomControl"
