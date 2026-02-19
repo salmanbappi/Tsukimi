@@ -515,9 +515,9 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Allow bubbles to expand reasonably based on text size
-			val maxExpandX = (textRect.width() * 0.3).toInt().coerceAtMost(width / 8).coerceAtLeast(15)
-			val maxExpandY = (textRect.height() * 0.2).toInt().coerceAtMost(height / 10).coerceAtLeast(15)
+			// Allow bubbles to expand reasonably based on text size (Widened after bench testing)
+			val maxExpandX = (textRect.width() * 0.6).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
+			val maxExpandY = (textRect.height() * 0.5).toInt().coerceAtMost(height / 8).coerceAtLeast(30)
 
 			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
 				var x = startX
@@ -547,25 +547,34 @@ class AiFeatureManager @Inject constructor(
 				return lastValidDist
 			}
 
+			// Dense scanning (5 points) for better irregular bubble fitting
 			val leftDist = maxOf(
+				scan(textRect.left, textRect.top, -1, 0, maxExpandX),
 				scan(textRect.left, textRect.top + textRect.height() / 4, -1, 0, maxExpandX),
 				scan(textRect.left, centerY, -1, 0, maxExpandX),
-				scan(textRect.left, textRect.bottom - textRect.height() / 4, -1, 0, maxExpandX)
+				scan(textRect.left, textRect.bottom - textRect.height() / 4, -1, 0, maxExpandX),
+				scan(textRect.left, textRect.bottom, -1, 0, maxExpandX)
 			)
 			val rightDist = maxOf(
+				scan(textRect.right, textRect.top, 1, 0, maxExpandX),
 				scan(textRect.right, textRect.top + textRect.height() / 4, 1, 0, maxExpandX),
 				scan(textRect.right, centerY, 1, 0, maxExpandX),
-				scan(textRect.right, textRect.bottom - textRect.height() / 4, 1, 0, maxExpandX)
+				scan(textRect.right, textRect.bottom - textRect.height() / 4, 1, 0, maxExpandX),
+				scan(textRect.right, textRect.bottom, 1, 0, maxExpandX)
 			)
 			val topDist = maxOf(
+				scan(textRect.left, textRect.top, 0, -1, maxExpandY),
 				scan(textRect.left + textRect.width() / 4, textRect.top, 0, -1, maxExpandY),
 				scan(centerX, textRect.top, 0, -1, maxExpandY),
-				scan(textRect.right - textRect.width() / 4, textRect.top, 0, -1, maxExpandY)
+				scan(textRect.right - textRect.width() / 4, textRect.top, 0, -1, maxExpandY),
+				scan(textRect.right, textRect.top, 0, -1, maxExpandY)
 			)
 			val bottomDist = maxOf(
+				scan(textRect.left, textRect.bottom, 0, 1, maxExpandY),
 				scan(textRect.left + textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY),
 				scan(centerX, textRect.bottom, 0, 1, maxExpandY),
-				scan(textRect.right - textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY)
+				scan(textRect.right - textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY),
+				scan(textRect.right, textRect.bottom, 0, 1, maxExpandY)
 			)
 
 			return Rect(
@@ -642,7 +651,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 170 // Relaxed threshold to include more varied bubbles
+			return luminance >= 210 // Stricter threshold after bench testing
 		} catch (e: Exception) {
 			return false
 		}
