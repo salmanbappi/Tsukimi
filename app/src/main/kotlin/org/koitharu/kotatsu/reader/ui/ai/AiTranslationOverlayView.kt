@@ -184,14 +184,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val vRight = sourceRect.right * currentScale + tx
 			val vBottom = sourceRect.bottom * currentScale + ty
 			
-			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.45f).coerceAtMost(80f)
-			
-			if (isSeamlessMode) {
-				seamlessPaint.color = prep.backgroundColor
-				canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, seamlessPaint)
-			} else {
-				canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, backgroundPaint)
-			}
+			// Use the sampled background color to "erase" the Japanese text
+			seamlessPaint.color = prep.backgroundColor
+			// No corner radius for a more precise "erased" look instead of a "bubble"
+			canvas.drawRect(vLeft, vTop, vRight, vBottom, seamlessPaint)
 
 			canvas.save()
 			// Move to the padding-inset start position
@@ -201,24 +197,14 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			
 			val layoutPaint = prep.layout.paint
 			
-			if (isSeamlessMode) {
-				// Stroke for readability on varied backgrounds
-				layoutPaint.style = Paint.Style.STROKE
-				layoutPaint.strokeWidth = prep.layout.paint.textSize * 0.1f
-				layoutPaint.color = prep.backgroundColor
-				prep.layout.draw(canvas)
-				
-				val r = Color.red(prep.backgroundColor)
-				val g = Color.green(prep.backgroundColor)
-				val b = Color.blue(prep.backgroundColor)
-				val lum = 0.299 * r + 0.587 * g + 0.114 * b
-				
-				layoutPaint.style = Paint.Style.FILL
-				layoutPaint.color = if (lum > 150) Color.BLACK else Color.WHITE
-			} else {
-				layoutPaint.style = Paint.Style.FILL
-				layoutPaint.color = Color.BLACK
-			}
+			// Determine text color based on background luminance
+			val r = Color.red(prep.backgroundColor)
+			val g = Color.green(prep.backgroundColor)
+			val b = Color.blue(prep.backgroundColor)
+			val lum = 0.299 * r + 0.587 * g + 0.114 * b
+			
+			layoutPaint.style = Paint.Style.FILL
+			layoutPaint.color = if (lum > 160) Color.BLACK else Color.WHITE
 			
 			prep.layout.draw(canvas)
 			canvas.restore()
