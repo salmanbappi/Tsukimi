@@ -166,6 +166,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val ssiv = this.ssiv ?: return
 		if (!ssiv.isReady || preparedBlocks.isEmpty()) return
 
+		val currentScale = ssiv.scale
+		val center = ssiv.getCenter() ?: return
+		
+		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
+		val tx = -origin.x * currentScale
+		val ty = -origin.y * currentScale
+
 		val count = preparedBlocks.size
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
