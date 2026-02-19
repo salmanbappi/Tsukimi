@@ -5,26 +5,17 @@ import sys
 
 class MangaTestBench:
     def __init__(self):
-        self.luminance_threshold = 210
-        self.scan_tolerance = 2
+        self.scan_tolerance = 3
         
-    def is_pixel_light(self, r, g, b):
-        lum = 0.299 * r + 0.587 * g + 0.114 * b
-        return lum >= self.luminance_threshold
-
-    def enhance_for_ocr(self, img_np):
-        alpha = 1.8
-        beta = -60
-        enhanced = np.clip(img_np.astype(np.float32) * alpha + beta, 0, 255).astype(np.uint8)
-        return enhanced
+    def get_luminance(self, r, g, b):
+        return 0.299 * r + 0.587 * g + 0.114 * b
 
     def find_text_candidates(self, img):
         from scipy.ndimage import label, find_objects, binary_dilation
         gray = img.convert("L")
-        # Find dark strokes (Japanese text is usually dark)
+        # Find dark strokes
         mask = np.array(gray) < 110
-        # Aggressively dilate to group nearby strokes/characters into solid blocks
-        # This is key for completely "erasing" the text area
+        # Group strokes into blocks
         mask = binary_dilation(mask, iterations=18)
         
         labeled, num = label(mask)
@@ -35,9 +26,39 @@ class MangaTestBench:
             h = y_slice.stop - y_slice.start
             w = x_slice.stop - x_slice.start
             if h > 15 and w > 10:
-                # Add a safe margin to ensure no stroke edges are visible
-                boxes.append([x_slice.start - 8, y_slice.start - 8, w + 16, h + 16])
+                boxes.append([x_slice.start, y_slice.start, w, h])
         return boxes
+
+    def are_blocks_close(self, b1, b2):
+        """Python implementation of the refined Kotlin areBlocksClose."""
+        x1, y1, w1, h1 = b1
+        x2, y2, w2, h2 = b2
+        
+        # Vertical column check (Manga style)
+        is_vertical = h1 > w1 * 1.2
+        
+        if is_vertical:
+            # Overlap on shared axis?
+            if min(y1+h1, y2+h2) - max(y1, y2) < 0: return False
+            avg_h = (h1 + h2) / 2.0
+            threshold_x = max(10, min(45, avg_h * 0.45))
+            threshold_y = max(2, min(12, avg_h * 0.15))
+        else:
+            if min(x1+w1, x2+w2) - max(x1, x2) < 0: return False
+            avg_w = (w1 + w2) / 2.0
+            threshold_x = max(2, min(12, avg_w * 0.15))
+            threshold_y = max(10, min(45, avg_w * 0.45))
+            
+        # Check intersection with expansion
+        ex1, ey1 = x1 - threshold_x, y1 - threshold_y
+        ew1, eh1 = w1 + 2*threshold_x, h1 + 2*threshold_y
+        
+        ix = max(ex1, x2)
+        iy = max(ey1, y2)
+        iw = min(ex1+ew1, x2+w2) - ix
+        ih = min(ey1+eh1, y2+h2) - iy
+        
+        return iw > 0 and ih > 0
 
     def resolve_overlapping_blocks(self, boxes):
         if not boxes: return []
@@ -45,72 +66,90 @@ class MangaTestBench:
         resolved = []
         for box in boxes:
             merged = False
-            bx, by, bw, bh = box
             for i in range(len(resolved)):
-                ex, ey, ew, eh = resolved[i]
-                ix = max(bx, ex)
-                iy = max(by, ey)
-                iw = min(bx+bw, ex+ew) - ix
-                ih = min(by+bh, ey+eh) - iy
-                if iw > 0 and ih > 0:
-                    overlap_area = iw * ih
-                    box_area = bw * bh
-                    if overlap_area > box_area * 0.3:
-                        nx = min(bx, ex)
-                        ny = min(by, ey)
-                        nw = max(bx+bw, ex+ew) - nx
-                        nh = max(by+bh, ey+eh) - ny
-                        resolved[i] = [nx, ny, nw, nh]
-                        merged = True
-                        break
+                if self.are_blocks_close(resolved[i], box):
+                    ex, ey, ew, eh = resolved[i]
+                    bx, by, bw, bh = box
+                    nx = min(bx, ex)
+                    ny = min(by, ey)
+                    nw = max(bx+bw, ex+ew) - nx
+                    nh = max(by+bh, ey+eh) - ny
+                    resolved[i] = [nx, ny, nw, nh]
+                    merged = True
+                    break
             if not merged:
                 resolved.append(box)
         return resolved
 
+    def scan(self, img_np, start_x, start_y, dx, dy, max_dist, threshold):
+        h, w = img_np.shape[:2]
+        x, y = start_x, start_y
+        dist = 0
+        tolerance = self.scan_tolerance
+        last_valid_dist = 0
+        while dist < max_dist:
+            x += dx
+            y += dy
+            if x < 0 or x >= w or y < 0 or y >= h: break
+            r, g, b = img_np[y, x][:3]
+            if self.get_luminance(r, g, b) >= threshold:
+                dist += 1
+                last_valid_dist = dist
+                tolerance = self.scan_tolerance
+            else:
+                if tolerance > 0:
+                    dist += 1
+                    tolerance -= 1
+                else: break
+        return last_valid_dist
+
+    def detect_bubble_bounds(self, img_np, text_rect):
+        h, w = img_np.shape[:2]
+        tx, ty, tw, th = text_rect 
+        
+        # ADAPTIVE: Sample center luminance
+        cx, cy = tx + tw//2, ty + th//2
+        if 0 <= cx < w and 0 <= cy < h:
+            cp = img_np[cy, cx]
+            center_lum = self.get_luminance(cp[0], cp[1], cp[2])
+            local_threshold = max(180.0, min(215.0, center_lum * 0.92))
+        else:
+            local_threshold = 210.0
+
+        max_expand_x = max(40, min(w//4, int(tw * 0.7)))
+        max_expand_y = max(40, min(h//6, int(th * 0.6)))
+
+        # 5-point scan
+        pxs = [tx + int(tw * p) for p in [0, 0.25, 0.5, 0.75, 1.0]]
+        pys = [ty + int(th * p) for p in [0, 0.25, 0.5, 0.75, 1.0]]
+        
+        ld = max([self.scan(img_np, tx, py, -1, 0, max_expand_x, local_threshold) for py in pys])
+        rd = max([self.scan(img_np, tx+tw, py, 1, 0, max_expand_x, local_threshold) for py in pys])
+        td = max([self.scan(img_np, px, ty, 0, -1, max_expand_y, local_threshold) for px in pxs])
+        bd = max([self.scan(img_np, px, ty+th, 0, 1, max_expand_y, local_threshold) for px in pxs])
+
+        safety = 8
+        return [tx-ld-safety, ty-td-safety, tw+ld+rd+2*safety, th+td+bd+2*safety]
+
     def run_test(self, image_path, output_path):
-        try:
-            img = Image.open(image_path).convert("RGB")
-        except Exception as e:
-            print(f"Error loading {image_path}: {e}")
-            return
+        img = Image.open(image_path).convert("RGB")
+        img_np = np.array(img)
         
-        # 1. Detect text regions via morphological grouping
-        ocr_boxes = self.find_text_candidates(img)
-        
-        # 2. Resolve overlapping regions into final masks
-        final_bubbles = self.resolve_overlapping_blocks(ocr_boxes)
+        candidates = self.find_text_candidates(img)
+        bubbles = [self.detect_bubble_bounds(img_np, c) for c in candidates]
+        final_bubbles = self.resolve_overlapping_blocks(bubbles)
         
         draw = ImageDraw.Draw(img)
-        for bubble in final_bubbles:
-            bx, by, bw, bh = bubble
-            
-            # Sample background color from edge (to avoid the text itself)
-            # Sampling 4 pixels from the corners of the bounding box
-            try:
-                c1 = img.getpixel((max(0, bx), max(0, by)))
-                c2 = img.getpixel((min(img.width-1, bx+bw-1), max(0, by)))
-                c3 = img.getpixel((max(0, bx), min(img.height-1, by+bh-1)))
-                c4 = img.getpixel((min(img.width-1, bx+bw-1), min(img.height-1, by+bh-1)))
-                
-                avg_r = (c1[0] + c2[0] + c3[0] + c4[0]) // 4
-                avg_g = (c1[1] + c2[1] + c3[1] + c4[1]) // 4
-                avg_b = (c1[2] + c2[2] + c3[2] + c4[2]) // 4
-                bg_color = (avg_r, avg_g, avg_b)
-            except:
-                bg_color = (255, 255, 255)
-            
-            # 3. DRAW SOLID MASK (The "Erased" look - 100% Opaque)
-            draw.rectangle([bx, by, bx+bw, by+bh], fill=bg_color)
-            
-            # 4. DRAW PLACEHOLDER TEXT
-            lum = 0.299 * bg_color[0] + 0.587 * bg_color[1] + 0.114 * bg_color[2]
-            text_color = "black" if lum > 160 else "white"
-            draw.text((bx + 5, by + 5), "TRANSLATED", fill=text_color)
+        for b in final_bubbles:
+            bx, by, bw, bh = b
+            c1 = img.getpixel((max(0, bx), max(0, by)))
+            draw.rectangle([bx, by, bx+bw, by+bh], fill=c1)
+            lum = self.get_luminance(*c1)
+            draw.text((bx+5, by+5), "TEST", fill="black" if lum > 160 else "white")
             
         img.save(output_path)
-        print(f"Processed {image_path} -> {output_path} (Resolved into {len(final_bubbles)} clean masks)")
+        print(f"Processed {image_path} -> {output_path} ({len(final_bubbles)} blocks)")
 
 if __name__ == "__main__":
-    import sys
     bench = MangaTestBench()
     bench.run_test(sys.argv[1], sys.argv[2])
