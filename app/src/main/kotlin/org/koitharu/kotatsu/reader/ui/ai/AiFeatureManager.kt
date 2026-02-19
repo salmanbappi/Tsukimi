@@ -133,6 +133,11 @@ class AiFeatureManager @Inject constructor(
 						val cleanText = it.text.toString().replace(Regex("[\\n\\s]+"), "")
 						if (cleanText.isBlank()) return@async null
 
+						// Skip sound effects (short Japanese-only strings)
+						val isLikelySFX = cleanText.length <= 4 && 
+							cleanText.all { c -> c in '\u30A0'..'\u30FF' || c in '\u3040'..'\u309F' || c == 'っ' || c == 'ッ' || c == 'ー' }
+						if (isLikelySFX) return@async null
+
 						val translatedText = translatedTexts?.getOrNull(index) ?: try {
 							when (engine) {
 								TranslationEngine.ML_KIT -> mlKitTranslator?.translate(cleanText)?.await()
@@ -389,15 +394,15 @@ class AiFeatureManager @Inject constructor(
 		
 		return if (isVertical) {
 			// Manga: Tight vertical, even tighter horizontal (don't cross panels)
-			val thresholdX = (avgH * 0.8f).toInt().coerceAtLeast(20)
-			val thresholdY = (avgH * 0.5f).toInt().coerceAtLeast(10)
+			val thresholdX = (avgH * 0.3f).toInt().coerceIn(8, 40)
+			val thresholdY = (avgH * 0.2f).toInt().coerceIn(5, 25)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
 		} else {
 			// Webtoon: Tight horizontal, tight vertical
-			val thresholdX = (avgW * 0.5f).toInt().coerceAtLeast(10)
-			val thresholdY = (avgW * 0.8f).toInt().coerceAtLeast(20)
+			val thresholdX = (avgW * 0.2f).toInt().coerceIn(5, 25)
+			val thresholdY = (avgW * 0.3f).toInt().coerceIn(8, 40)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
@@ -413,9 +418,9 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Conservative expansion to avoid leaking into page background
-			val maxExpandX = (textRect.width() * 0.4).toInt().coerceAtMost(width / 8).coerceAtLeast(20)
-			val maxExpandY = (textRect.height() * 0.4).toInt().coerceAtMost(height / 8).coerceAtLeast(20)
+			// Allow bubbles to expand reasonably based on text size
+			val maxExpandX = (textRect.width() * 0.8).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
+			val maxExpandY = (textRect.height() * 0.8).toInt().coerceAtMost(height / 5).coerceAtLeast(30)
 
 			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
 				var x = startX
@@ -445,22 +450,22 @@ class AiFeatureManager @Inject constructor(
 				return lastValidDist
 			}
 
-			val leftDist = minOf(
+			val leftDist = maxOf(
 				scan(textRect.left, textRect.top + textRect.height() / 4, -1, 0, maxExpandX),
 				scan(textRect.left, centerY, -1, 0, maxExpandX),
 				scan(textRect.left, textRect.bottom - textRect.height() / 4, -1, 0, maxExpandX)
 			)
-			val rightDist = minOf(
+			val rightDist = maxOf(
 				scan(textRect.right, textRect.top + textRect.height() / 4, 1, 0, maxExpandX),
 				scan(textRect.right, centerY, 1, 0, maxExpandX),
 				scan(textRect.right, textRect.bottom - textRect.height() / 4, 1, 0, maxExpandX)
 			)
-			val topDist = minOf(
+			val topDist = maxOf(
 				scan(textRect.left + textRect.width() / 4, textRect.top, 0, -1, maxExpandY),
 				scan(centerX, textRect.top, 0, -1, maxExpandY),
 				scan(textRect.right - textRect.width() / 4, textRect.top, 0, -1, maxExpandY)
 			)
-			val bottomDist = minOf(
+			val bottomDist = maxOf(
 				scan(textRect.left + textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY),
 				scan(centerX, textRect.bottom, 0, 1, maxExpandY),
 				scan(textRect.right - textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY)

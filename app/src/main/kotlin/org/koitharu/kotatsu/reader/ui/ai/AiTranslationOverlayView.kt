@@ -101,10 +101,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 			val words = text.split(Regex("\\s+"))
 			
-			// Auto-size font based on source pixels
-			// Manga bubbles are roughly 1/20th to 1/10th of page height.
-			// Let's assume 1000px as a baseline for 12pt font.
-			var textSize = (sourceH * 0.7f).coerceAtMost(sourceW * 0.8f)
+			// Auto-size font based on source pixels (starting at a more reasonable size)
+			var textSize = (sourceH * 0.25f).coerceAtMost(sourceW * 0.35f).coerceAtMost(48f)
 			val minTextSize = 12f
 			val step = 1f
 			
@@ -124,7 +122,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
-					.setLineSpacing(0f, 0.85f) // Natural manga line spacing
+					.setLineSpacing(0f, 1.0f) // Standard line spacing to prevent clipping
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 
