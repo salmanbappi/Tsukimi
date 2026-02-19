@@ -73,7 +73,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	fun setTranslatedBlocks(newBlocks: List<TranslatedBlock>) {
 		blocks = newBlocks.sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
 		prepareLayouts()
-		invalidate()
+		invalidate() // Start the smart redraw loop
 	}
 
 	fun clear() {
@@ -83,17 +83,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	}
 
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
-		if (this.ssiv == ssiv) return
 		this.ssiv = ssiv
-		ssiv.setOnStateChangedListener(object : SubsamplingScaleImageView.OnStateChangedListener {
-			override fun onScaleChanged(newScale: Float, origin: Int) {
-				postInvalidateOnAnimation()
-			}
-
-			override fun onCenterChanged(newCenter: PointF?, origin: Int) {
-				postInvalidateOnAnimation()
-			}
-		})
 	}
 
 	private fun prepareLayouts() {
