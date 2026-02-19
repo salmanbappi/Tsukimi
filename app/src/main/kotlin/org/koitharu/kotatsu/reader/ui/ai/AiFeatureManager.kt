@@ -1,6 +1,7 @@
 package org.koitharu.kotatsu.reader.ui.ai
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
@@ -53,7 +54,7 @@ class AiFeatureManager @Inject constructor(
 	@ApplicationContext private val context: Context,
 	private val settings: AppSettings,
 	@BaseHttpClient private val client: OkHttpClient
-) {
+) : SharedPreferences.OnSharedPreferenceChangeListener {
 
 	private val json = Json { ignoreUnknownKeys = true }
 	private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
@@ -61,6 +62,21 @@ class AiFeatureManager @Inject constructor(
 	private val translationCache = LruCache<String, List<TranslatedBlock>>(50)
 	private val translationMutexes = mutableMapOf<String, Mutex>()
 	private val globalMutex = Mutex()
+
+	init {
+		settings.subscribe(this)
+	}
+
+	override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+		when (key) {
+			AppSettings.KEY_AI_TRANSLATION,
+			AppSettings.KEY_AI_AUTO_TRANSLATION,
+			AppSettings.KEY_AI_TRANSLATION_ENGINE,
+			AppSettings.KEY_AI_TRANSLATION_DEEPL_KEY,
+			AppSettings.KEY_AI_TRANSLATION_GROQ_KEY,
+			AppSettings.KEY_AI_SEAMLESS_TRANSLATION -> clearCache()
+		}
+	}
 
 	fun isCached(pageKey: String): Boolean = translationCache.get(pageKey) != null
 	
