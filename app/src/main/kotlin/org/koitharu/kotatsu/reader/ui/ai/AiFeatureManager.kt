@@ -66,6 +66,10 @@ class AiFeatureManager @Inject constructor(
 	
 	fun getFromCache(pageKey: String): List<TranslatedBlock>? = translationCache.get(pageKey)
 
+	fun clearCache() {
+		translationCache.evictAll()
+	}
+
 	suspend fun translatePage(
 		pageKey: String,
 		bitmap: Bitmap,
@@ -184,7 +188,13 @@ class AiFeatureManager @Inject constructor(
 						if (sourceRect.width() > srcW * 0.65f || 
 							sourceRect.height() > srcH * 0.45f) return@async null
 
-						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
+						val bubbleRectInOriginal = Rect(
+							(bubbleRect.left / ocrScale).toInt(),
+							(bubbleRect.top / ocrScale).toInt(),
+							(bubbleRect.right / ocrScale).toInt(),
+							(bubbleRect.bottom / ocrScale).toInt()
+						)
+						val backgroundColor = detectBackgroundColor(bubbleRectInOriginal, bitmap)
 
 						TranslatedBlock(
 							text = translatedText,
@@ -386,6 +396,15 @@ class AiFeatureManager @Inject constructor(
 	}
 
 	private fun areBlocksClose(r1: Rect, r2: Rect, isVertical: Boolean): Boolean {
+		// Don't merge blocks with no overlap on their shared axis
+		if (isVertical) {
+			val verticalOverlap = minOf(r1.bottom, r2.bottom) - maxOf(r1.top, r2.top)
+			if (verticalOverlap < 0) return false
+		} else {
+			val horizontalOverlap = minOf(r1.right, r2.right) - maxOf(r1.left, r2.left)
+			if (horizontalOverlap < 0) return false
+		}
+
 		val h1 = r1.height()
 		val h2 = r2.height()
 		val w1 = r1.width()
@@ -428,7 +447,7 @@ class AiFeatureManager @Inject constructor(
 				var x = startX
 				var y = startY
 				var dist = 0
-				var tolerance = 1 // Tight tolerance: only allow 1 dark pixel (e.g. noise)
+				var tolerance = 3 // Increased tolerance to skip small artifacts/hair
 				var lastValidDist = 0
 				
 				while (dist < maxDist) {
@@ -439,7 +458,7 @@ class AiFeatureManager @Inject constructor(
 					if (isPixelLight(bitmap, x, y)) {
 						dist++
 						lastValidDist = dist
-						tolerance = 1 // Reset tolerance
+						tolerance = 3 // Reset tolerance
 					} else {
 						if (tolerance > 0) {
 							dist++
