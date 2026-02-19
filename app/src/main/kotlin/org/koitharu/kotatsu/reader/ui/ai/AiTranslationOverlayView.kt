@@ -13,7 +13,6 @@ import android.text.TextPaint
 import android.util.AttributeSet
 import android.view.View
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
-import javax.inject.Inject
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import kotlin.math.max
 
@@ -29,17 +28,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	private var settings: AppSettings? = null
 	
-	// Pre-allocated PointF to ensure zero object creation in onDraw loop
-	private val vPoint = PointF()
-	
-	// State tracking for performance
+	// State tracking for smart invalidation
 	private var lastScale = -1f
 	private var lastCenterX = -1f
 	private var lastCenterY = -1f
-	
-	companion object {
-		private const val REFERENCE_SCALE = 1.5f
-	}
 	
 	init {
 		setLayerType(LAYER_TYPE_HARDWARE, null)
@@ -47,7 +39,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
-		alpha = 240 
+		alpha = 245 
 		style = Paint.Style.FILL
 		isAntiAlias = true
 	}
@@ -62,20 +54,10 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		isAntiAlias = true
 		typeface = Typeface.DEFAULT_BOLD
 	}
-	
-	private val strokePaint = TextPaint().apply {
-		color = Color.WHITE
-		style = Paint.Style.STROKE
-		strokeWidth = 3f * REFERENCE_SCALE
-		isAntiAlias = true
-		typeface = Typeface.DEFAULT_BOLD
-		strokeJoin = Paint.Join.ROUND
-	}
 
 	private data class PreparedBlock(
 		val sourceRect: RectF,
 		val layout: StaticLayout,
-		val textSize: Float,
 		val paddingX: Float,
 		val paddingY: Float,
 		val yOffset: Float,
@@ -105,27 +87,29 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val text = block.text
 			if (text.isBlank()) continue
 			
-			val refWidth = block.boundingBox.width() * REFERENCE_SCALE
-			val refHeight = block.boundingBox.height() * REFERENCE_SCALE
+			val sourceRect = block.boundingBox
+			val sourceW = sourceRect.width()
+			val sourceH = sourceRect.height()
 			
-			if (refWidth <= 0 || refHeight <= 0) continue
+			if (sourceW <= 0 || sourceH <= 0) continue
 
-			// Tighter padding to maximize space usage
-			val paddingX = refWidth * 0.05f
-			val paddingY = refHeight * 0.05f
-			val availableWidth = (refWidth - 2 * paddingX).toInt().coerceAtLeast(1)
-			val availableHeight = (refHeight - 2 * paddingY).toInt().coerceAtLeast(1)
+			// Calculate padding in source pixels (tighter for better fit)
+			val paddingX = sourceW * 0.04f
+			val paddingY = sourceH * 0.04f
+			val availableWidth = (sourceW - 2 * paddingX).toInt().coerceAtLeast(1)
+			val availableHeight = (sourceH - 2 * paddingY).toInt().coerceAtLeast(1)
 
 			val words = text.split(Regex("\\s+"))
 			
-			// Start with a large font size and shrink until it fits
-			var textSize = (refHeight * 0.8f).coerceAtMost(48f * REFERENCE_SCALE)
-			val minTextSize = 10f * REFERENCE_SCALE
+			// Auto-size font based on source pixels
+			// Manga bubbles are roughly 1/20th to 1/10th of page height.
+			// Let's assume 1000px as a baseline for 12pt font.
+			var textSize = (sourceH * 0.7f).coerceAtMost(sourceW * 0.8f)
+			val minTextSize = 12f
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null
 			var finalYOffset = 0f
-			var finalTextSize = minTextSize
 
 			val paint = TextPaint(baseTextPaint)
 
@@ -133,7 +117,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				paint.textSize = textSize
 				val maxWordWidth = words.maxOfOrNull { paint.measureText(it) } ?: 0f
 				
-				// Ensure no word is wider than available space
 				if (maxWordWidth > availableWidth) {
 					textSize -= step
 					continue
@@ -141,15 +124,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 				val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, availableWidth)
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
-					.setLineSpacing(0f, 0.9f) // Tighter line spacing for more efficient space usage
+					.setLineSpacing(0f, 0.85f) // Natural manga line spacing
 					.setIncludePad(false)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
-					.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
 
 				val layout = builder.build()
 				if (layout.height <= availableHeight) {
 					finalLayout = layout
-					finalTextSize = textSize
 					finalYOffset = (availableHeight - layout.height) / 2f
 					break
 				}
@@ -162,17 +143,15 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 					.setAlignment(Layout.Alignment.ALIGN_CENTER)
 					.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED)
 					.build()
-				finalTextSize = minTextSize
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
 			preparedBlocks.add(PreparedBlock(
-				sourceRect = block.boundingBox,
+				sourceRect = sourceRect,
 				layout = finalLayout,
-				textSize = finalTextSize,
-				paddingX = paddingX / REFERENCE_SCALE,
-				paddingY = paddingY / REFERENCE_SCALE,
-				yOffset = finalYOffset / REFERENCE_SCALE,
+				paddingX = paddingX,
+				paddingY = paddingY,
+				yOffset = finalYOffset,
 				backgroundColor = block.backgroundColor
 			))
 		}
@@ -191,7 +170,6 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		lastCenterX = center.x
 		lastCenterY = center.y
 		
-		// Calculate global translation once per frame to avoid matrix math in the loop
 		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
 		val tx = -origin.x * currentScale
 		val ty = -origin.y * currentScale
@@ -201,13 +179,13 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val prep = preparedBlocks[i]
 			val sourceRect = prep.sourceRect
 			
-			// Faster manual coordinate mapping
+			// View coordinates for the bubble box
 			val vLeft = sourceRect.left * currentScale + tx
 			val vTop = sourceRect.top * currentScale + ty
 			val vRight = sourceRect.right * currentScale + tx
 			val vBottom = sourceRect.bottom * currentScale + ty
 			
-			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.4f).coerceAtMost(60f)
+			val cornerRadius = ((vRight - vLeft).coerceAtMost(vBottom - vTop) * 0.45f).coerceAtMost(80f)
 			
 			if (isSeamlessMode) {
 				seamlessPaint.color = prep.backgroundColor
@@ -217,41 +195,41 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			}
 
 			canvas.save()
-			canvas.translate(vLeft + prep.paddingX * currentScale, vTop + prep.paddingY * currentScale + prep.yOffset * currentScale)
-			canvas.scale(currentScale / REFERENCE_SCALE, currentScale / REFERENCE_SCALE)
+			// Move to the padding-inset start position
+			canvas.translate(vLeft + prep.paddingX * currentScale, vTop + (prep.paddingY + prep.yOffset) * currentScale)
+			// Scale the canvas so we can draw the layout using source-pixel dimensions
+			canvas.scale(currentScale, currentScale)
 			
 			val layoutPaint = prep.layout.paint
 			
-			layoutPaint.style = Paint.Style.STROKE
-			layoutPaint.color = if (isSeamlessMode) prep.backgroundColor else Color.WHITE
-			prep.layout.draw(canvas)
-			
-			layoutPaint.style = Paint.Style.FILL
 			if (isSeamlessMode) {
+				// Stroke for readability on varied backgrounds
+				layoutPaint.style = Paint.Style.STROKE
+				layoutPaint.strokeWidth = prep.layout.paint.textSize * 0.1f
+				layoutPaint.color = prep.backgroundColor
+				prep.layout.draw(canvas)
+				
 				val r = Color.red(prep.backgroundColor)
 				val g = Color.green(prep.backgroundColor)
 				val b = Color.blue(prep.backgroundColor)
 				val lum = 0.299 * r + 0.587 * g + 0.114 * b
-				layoutPaint.color = if (lum > 128) Color.BLACK else Color.WHITE
+				
+				layoutPaint.style = Paint.Style.FILL
+				layoutPaint.color = if (lum > 150) Color.BLACK else Color.WHITE
 			} else {
+				layoutPaint.style = Paint.Style.FILL
 				layoutPaint.color = Color.BLACK
 			}
-			prep.layout.draw(canvas)
 			
+			prep.layout.draw(canvas)
 			canvas.restore()
 		}
 		
-		// SMART REDRAW: Only request another frame if the image is still moving/zooming.
-		// Use a small threshold to avoid constant redraws due to tiny floating point changes.
+		// Smart redraw check
 		val newScale = ssiv.scale
 		val newCenter = ssiv.getCenter()
-		val scaleChanged = Math.abs(newScale - lastScale) > 0.001f
-		val centerChanged = newCenter != null && (Math.abs(newCenter.x - lastCenterX) > 0.5f || Math.abs(newCenter.y - lastCenterY) > 0.5f)
-		
-		if (scaleChanged || centerChanged) {
-			lastScale = newScale
-			lastCenterX = newCenter?.x ?: -1f
-			lastCenterY = newCenter?.y ?: -1f
+		if (Math.abs(newScale - lastScale) > 0.001f || 
+			(newCenter != null && (Math.abs(newCenter.x - lastCenterX) > 0.5f || Math.abs(newCenter.y - lastCenterY) > 0.5f))) {
 			postInvalidateOnAnimation()
 		}
 	}

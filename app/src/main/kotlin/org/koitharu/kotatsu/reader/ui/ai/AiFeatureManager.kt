@@ -172,9 +172,10 @@ class AiFeatureManager @Inject constructor(
 							(rectInView.bottom - vTranslateY) / viewScale
 						)
 						
-						// Safety guard: skip giant broken OCR blocks (>99% of captured area)
-						if (rectInBitmap.width() > bitmap.width * 0.99f || 
-							rectInBitmap.height() > bitmap.height * 0.99f) return@async null
+						// Safety guard: skip giant broken OCR blocks (>60% width or >40% height)
+						// Real speech bubbles are rarely this large compared to the page.
+						if (rectInBitmap.width() > bitmap.width * 0.6f || 
+							rectInBitmap.height() > bitmap.height * 0.4f) return@async null
 
 						val backgroundColor = detectBackgroundColor(bubbleRect, ocrBitmap)
 
@@ -387,16 +388,16 @@ class AiFeatureManager @Inject constructor(
 		val avgW = (w1 + w2) / 2f
 		
 		return if (isVertical) {
-			// Manga: Tight vertical, wider horizontal (columns)
-			val thresholdX = (avgH * 1.8f).toInt().coerceAtLeast(40)
-			val thresholdY = (avgH * 0.7f).toInt().coerceAtLeast(15)
+			// Manga: Tight vertical, even tighter horizontal (don't cross panels)
+			val thresholdX = (avgH * 0.8f).toInt().coerceAtLeast(20)
+			val thresholdY = (avgH * 0.5f).toInt().coerceAtLeast(10)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
 		} else {
-			// Webtoon: Tight horizontal, wider vertical (rows)
-			val thresholdX = (avgW * 0.7f).toInt().coerceAtLeast(15)
-			val thresholdY = (avgW * 1.2f).toInt().coerceAtLeast(30)
+			// Webtoon: Tight horizontal, tight vertical
+			val thresholdX = (avgW * 0.5f).toInt().coerceAtLeast(10)
+			val thresholdY = (avgW * 0.8f).toInt().coerceAtLeast(20)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
