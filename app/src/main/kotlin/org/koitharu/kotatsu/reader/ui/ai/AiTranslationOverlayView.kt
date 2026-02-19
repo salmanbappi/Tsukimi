@@ -185,8 +185,11 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val vBottom = sourceRect.bottom * currentScale + ty
 			
 			// Use the sampled background color to "erase" the Japanese text
+			// Ensure 100% opacity to hide original text completely
 			seamlessPaint.color = prep.backgroundColor
-			// No corner radius for a more precise "erased" look instead of a "bubble"
+			seamlessPaint.alpha = 255
+			
+			// Draw a solid rectangle to mask the Japanese text
 			canvas.drawRect(vLeft, vTop, vRight, vBottom, seamlessPaint)
 
 			canvas.save()

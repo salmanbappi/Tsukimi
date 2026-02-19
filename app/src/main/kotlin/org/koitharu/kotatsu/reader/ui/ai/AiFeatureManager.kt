@@ -611,26 +611,25 @@ class AiFeatureManager @Inject constructor(
 
 	private fun detectBackgroundColor(rect: Rect, bitmap: Bitmap): Int {
 		// Sample pixels just inside the detected bounds to find the bubble color
+		// AVOID the center to prevent sampling the original text itself
 		val samples = mutableListOf<Int>()
-		val startX = (rect.left + rect.width() * 0.1).toInt()
-		val endX = (rect.right - rect.width() * 0.1).toInt()
-		val startY = (rect.top + rect.height() * 0.1).toInt()
-		val endY = (rect.bottom - rect.height() * 0.1).toInt()
+		val insetX = (rect.width() * 0.05).toInt().coerceAtLeast(1)
+		val insetY = (rect.height() * 0.05).toInt().coerceAtLeast(1)
 		
 		try {
-			// Sample 5 points: center and 4 corners (inset)
-			samples.add(bitmap.getPixel(rect.centerX(), rect.centerY()))
-			samples.add(bitmap.getPixel(startX, startY))
-			samples.add(bitmap.getPixel(endX, startY))
-			samples.add(bitmap.getPixel(startX, endY))
-			samples.add(bitmap.getPixel(endX, endY))
+			// Sample corners and mid-edges (8 points total)
+			samples.add(bitmap.getPixel(rect.left + insetX, rect.top + insetY))
+			samples.add(bitmap.getPixel(rect.right - insetX, rect.top + insetY))
+			samples.add(bitmap.getPixel(rect.left + insetX, rect.bottom - insetY))
+			samples.add(bitmap.getPixel(rect.right - insetX, rect.bottom - insetY))
+			samples.add(bitmap.getPixel(rect.centerX(), rect.top + insetY))
+			samples.add(bitmap.getPixel(rect.centerX(), rect.bottom - insetY))
+			samples.add(bitmap.getPixel(rect.left + insetX, rect.centerY()))
+			samples.add(bitmap.getPixel(rect.right - insetX, rect.centerY()))
 		} catch (e: Exception) {
 			return Color.WHITE
 		}
 
-		// Calculate average luminance to decide if we should use white or the sampled color
-		// Most manga bubbles are white or very light grey.
-		// If distinct colors found, average them.
 		var r = 0; var g = 0; var b = 0
 		for (c in samples) {
 			r += Color.red(c)
@@ -641,6 +640,7 @@ class AiFeatureManager @Inject constructor(
 		g /= samples.size
 		b /= samples.size
 		
+		// Force 100% opacity (no transparent Japanese text leakage)
 		return Color.rgb(r, g, b)
 	}
 
