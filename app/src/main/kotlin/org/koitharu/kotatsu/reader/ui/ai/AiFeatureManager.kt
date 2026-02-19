@@ -412,15 +412,15 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// More generous expansion for modern high-res displays
-			val maxExpandX = (textRect.width() * 0.6).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
-			val maxExpandY = (textRect.height() * 0.6).toInt().coerceAtMost(height / 5).coerceAtLeast(30)
+			// Conservative expansion to avoid leaking into page background
+			val maxExpandX = (textRect.width() * 0.4).toInt().coerceAtMost(width / 8).coerceAtLeast(20)
+			val maxExpandY = (textRect.height() * 0.4).toInt().coerceAtMost(height / 8).coerceAtLeast(20)
 
 			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
 				var x = startX
 				var y = startY
 				var dist = 0
-				var tolerance = 3 // Allow up to 3 dark pixels (screentone noise)
+				var tolerance = 1 // Tight tolerance: only allow 1 dark pixel (e.g. noise)
 				var lastValidDist = 0
 				
 				while (dist < maxDist) {
@@ -431,7 +431,7 @@ class AiFeatureManager @Inject constructor(
 					if (isPixelLight(bitmap, x, y)) {
 						dist++
 						lastValidDist = dist
-						tolerance = 3 // Reset tolerance
+						tolerance = 1 // Reset tolerance
 					} else {
 						if (tolerance > 0) {
 							dist++
@@ -444,10 +444,26 @@ class AiFeatureManager @Inject constructor(
 				return lastValidDist
 			}
 
-			val leftDist = scan(textRect.left, centerY, -1, 0, maxExpandX)
-			val rightDist = scan(textRect.right, centerY, 1, 0, maxExpandX)
-			val topDist = scan(centerX, textRect.top, 0, -1, maxExpandY)
-			val bottomDist = scan(centerX, textRect.bottom, 0, 1, maxExpandY)
+			val leftDist = minOf(
+				scan(textRect.left, textRect.top + textRect.height() / 4, -1, 0, maxExpandX),
+				scan(textRect.left, centerY, -1, 0, maxExpandX),
+				scan(textRect.left, textRect.bottom - textRect.height() / 4, -1, 0, maxExpandX)
+			)
+			val rightDist = minOf(
+				scan(textRect.right, textRect.top + textRect.height() / 4, 1, 0, maxExpandX),
+				scan(textRect.right, centerY, 1, 0, maxExpandX),
+				scan(textRect.right, textRect.bottom - textRect.height() / 4, 1, 0, maxExpandX)
+			)
+			val topDist = minOf(
+				scan(textRect.left + textRect.width() / 4, textRect.top, 0, -1, maxExpandY),
+				scan(centerX, textRect.top, 0, -1, maxExpandY),
+				scan(textRect.right - textRect.width() / 4, textRect.top, 0, -1, maxExpandY)
+			)
+			val bottomDist = minOf(
+				scan(textRect.left + textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY),
+				scan(centerX, textRect.bottom, 0, 1, maxExpandY),
+				scan(textRect.right - textRect.width() / 4, textRect.bottom, 0, 1, maxExpandY)
+			)
 
 			return Rect(
 				textRect.left - leftDist,
@@ -523,7 +539,7 @@ class AiFeatureManager @Inject constructor(
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 190 // Relaxed threshold for better detection on screentones
+			return luminance >= 215 // Stricter threshold for better bubble detection
 		} catch (e: Exception) {
 			return false
 		}
