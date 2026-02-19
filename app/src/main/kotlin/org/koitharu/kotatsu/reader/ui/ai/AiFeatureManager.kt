@@ -295,7 +295,16 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese texts into natural $langName. Maintain consistent tone across all texts. Return a JSON object with a 'translations' array containing the translated strings in the same order as the input.")
+					put("content", """
+						You are an expert manga translator and OCR corrector. 
+						The following Japanese texts were extracted using a basic OCR tool that often mixes furigana into the kanji (e.g., reading 漢字 as 漢か字んじ) and fragments sentences.
+						
+						Step 1: Mentally strip out the misplaced furigana and fix the Japanese grammar.
+						Step 2: Translate the corrected text into natural $langName.
+						Step 3: Keep the tone casual and appropriate for manga.
+						
+						Return a JSON object with a 'translations' array containing ONLY the final translated strings in the same order as the input.
+					""".trimIndent())
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -359,7 +368,16 @@ class AiFeatureManager @Inject constructor(
 			putJsonArray("messages") {
 				add(buildJsonObject {
 					put("role", "system")
-					put("content", "You are a professional manga translator. Translate the following Japanese text to natural $langName. Keep it concise and preserve the tone. Only return the translated text.")
+					put("content", """
+						You are an expert manga translator and OCR corrector. 
+						The following Japanese text was extracted using a basic OCR tool that often mixes furigana into the kanji (e.g., reading 漢字 as 漢か字んじ).
+						
+						Step 1: Mentally strip out the misplaced furigana and fix the Japanese grammar.
+						Step 2: Translate the corrected text into natural $langName.
+						Step 3: Keep the tone casual and appropriate for manga.
+						
+						Only return the translated text.
+					""".trimIndent())
 				})
 				add(buildJsonObject {
 					put("role", "user")
@@ -498,8 +516,8 @@ class AiFeatureManager @Inject constructor(
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
 			// Allow bubbles to expand reasonably based on text size
-			val maxExpandX = (textRect.width() * 0.8).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
-			val maxExpandY = (textRect.height() * 0.8).toInt().coerceAtMost(height / 5).coerceAtLeast(30)
+			val maxExpandX = (textRect.width() * 0.3).toInt().coerceAtMost(width / 8).coerceAtLeast(15)
+			val maxExpandY = (textRect.height() * 0.2).toInt().coerceAtMost(height / 10).coerceAtLeast(15)
 
 			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
 				var x = startX
