@@ -220,7 +220,9 @@ class AiFeatureManager @Inject constructor(
 					}
 				}
 				
-				result.addAll(translationJobs.awaitAll().filterNotNull())
+				val rawBlocks = translationJobs.awaitAll().filterNotNull()
+				val cleanedBlocks = resolveOverlappingBlocks(rawBlocks)
+				result.addAll(cleanedBlocks)
 				
 				if (result.isNotEmpty()) {
 					translationCache.put(pageKey, result)
@@ -235,6 +237,46 @@ class AiFeatureManager @Inject constructor(
 			
 			result
 		}
+	}
+
+	private fun resolveOverlappingBlocks(blocks: List<TranslatedBlock>): List<TranslatedBlock> {
+		if (blocks.size <= 1) return blocks
+		
+		val resolved = mutableListOf<TranslatedBlock>()
+		// Sort by area descending so we process the largest expanded bubbles first
+		val sorted = blocks.sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
+		
+		for (block in sorted) {
+			var merged = false
+			for (i in resolved.indices) {
+				val existing = resolved[i]
+				val intersection = RectF(existing.boundingBox)
+				
+				if (intersection.intersect(block.boundingBox)) {
+					val overlapArea = intersection.width() * intersection.height()
+					val blockArea = block.boundingBox.width() * block.boundingBox.height()
+					
+					// If the new block is highly engulfed by an existing bubble (e.g., > 40%), merge them
+					if (overlapArea > blockArea * 0.4f) {
+						val newBounds = RectF(existing.boundingBox).apply { union(block.boundingBox) }
+						// Combine the text before caching
+						val newText = if (existing.text.contains(block.text) || block.text.contains(existing.text)) {
+							// Simple deduplication if one text is a subset of another (common with OCR fragments)
+							if (existing.text.length >= block.text.length) existing.text else block.text
+						} else {
+							existing.text + " " + block.text
+						}
+						resolved[i] = existing.copy(text = newText, boundingBox = newBounds)
+						merged = true
+						break
+					}
+				}
+			}
+			if (!merged) {
+				resolved.add(block)
+			}
+		}
+		return resolved
 	}
 
 	private suspend fun translateBatchWithGroq(texts: List<String>, targetLanguage: String): List<String>? = withContext(Dispatchers.IO) {

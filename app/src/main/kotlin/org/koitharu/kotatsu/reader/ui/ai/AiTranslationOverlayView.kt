@@ -39,7 +39,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	
 	private val backgroundPaint = Paint().apply {
 		color = Color.WHITE
-		alpha = 245 
+		alpha = 250 
 		style = Paint.Style.FILL
 		isAntiAlias = true
 	}
@@ -76,8 +76,24 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		invalidate()
 	}
 
+	fun clear() {
+		blocks = emptyList()
+		preparedBlocks.clear()
+		invalidate()
+	}
+
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
+		if (this.ssiv == ssiv) return
 		this.ssiv = ssiv
+		ssiv.setOnStateChangeListener(object : SubsamplingScaleImageView.OnStateChangeListener {
+			override fun onScaleChanged(newScale: Float, origin: Int) {
+				postInvalidateOnAnimation()
+			}
+
+			override fun onCenterChanged(newCenter: PointF?, origin: Int) {
+				postInvalidateOnAnimation()
+			}
+		})
 	}
 
 	private fun prepareLayouts() {
@@ -102,8 +118,8 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val words = text.split(Regex("\\s+"))
 			
 			// Auto-size font based on source pixels (starting at a more reasonable size)
-			var textSize = (sourceH * 0.25f).coerceAtMost(sourceW * 0.35f).coerceAtMost(48f)
-			val minTextSize = 12f
+			var textSize = (sourceH * 0.18f).coerceAtMost(sourceW * 0.25f).coerceAtMost(40f)
+			val minTextSize = 10f
 			val step = 1f
 			
 			var finalLayout: StaticLayout? = null

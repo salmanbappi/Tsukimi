@@ -544,8 +544,11 @@ class ReaderActivity :
             } ?: return@launch
             
             for (holder in holders) {
-                val ssiv = holder.itemView.findViewById<SubsamplingScaleImageView>(R.id.ssiv) ?: continue
                 val overlay = holder.itemView.findViewById<AiTranslationOverlayView>(R.id.translationOverlay) ?: continue
+                withContext(Dispatchers.Main) {
+                    overlay.clear()
+                }
+                val ssiv = holder.itemView.findViewById<SubsamplingScaleImageView>(R.id.ssiv) ?: continue
                 val page = holder.boundData ?: continue
                 val pageKey = "${page.chapterId}_${page.index}"
 
