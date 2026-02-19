@@ -490,16 +490,17 @@ class AiFeatureManager @Inject constructor(
 		val avgW = (w1 + w2) / 2f
 		
 		return if (isVertical) {
-			// Manga: Tight vertical, even tighter horizontal (don't cross panels)
-			val thresholdX = (avgH * 0.3f).toInt().coerceIn(5, 28)
-			val thresholdY = (avgH * 0.2f).toInt().coerceIn(3, 18)
+			// Manga: Bridge the gap between vertical columns (Horizontal gap)
+			// Character spacing (Vertical) is usually very tight.
+			val thresholdX = (avgH * 0.45f).toInt().coerceIn(10, 45) // Wider to catch nearby columns
+			val thresholdY = (avgH * 0.15f).toInt().coerceIn(2, 12)  // Tighter vertical
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
 		} else {
-			// Webtoon: Tight horizontal, tight vertical
-			val thresholdX = (avgW * 0.2f).toInt().coerceIn(3, 18)
-			val thresholdY = (avgW * 0.3f).toInt().coerceIn(5, 28)
+			// Webtoon: Bridge the gap between horizontal lines (Vertical gap)
+			val thresholdX = (avgW * 0.15f).toInt().coerceIn(2, 12)
+			val thresholdY = (avgW * 0.45f).toInt().coerceIn(10, 45)
 			val expanded = Rect(r1)
 			expanded.inset(-thresholdX, -thresholdY)
 			Rect.intersects(expanded, r2)
@@ -515,15 +516,20 @@ class AiFeatureManager @Inject constructor(
 
 			if (centerX !in 0 until width || centerY !in 0 until height) return textRect
 
-			// Allow bubbles to expand reasonably based on text size (Widened after bench testing)
-			val maxExpandX = (textRect.width() * 0.6).toInt().coerceAtMost(width / 5).coerceAtLeast(30)
-			val maxExpandY = (textRect.height() * 0.5).toInt().coerceAtMost(height / 8).coerceAtLeast(30)
+			// Determine local "lightness" to handle off-white pages
+			val centerPixel = bitmap.getPixel(centerX, centerY)
+			val centerLum = 0.299 * Color.red(centerPixel) + 0.587 * Color.green(centerPixel) + 0.114 * Color.blue(centerPixel)
+			val localThreshold = (centerLum * 0.92).coerceAtLeast(180.0).coerceAtMost(215.0)
+
+			// Allow bubbles to expand reasonably based on text size
+			val maxExpandX = (textRect.width() * 0.7).toInt().coerceAtMost(width / 4).coerceAtLeast(40)
+			val maxExpandY = (textRect.height() * 0.6).toInt().coerceAtMost(height / 6).coerceAtLeast(40)
 
 			fun scan(startX: Int, startY: Int, dx: Int, dy: Int, maxDist: Int): Int {
 				var x = startX
 				var y = startY
 				var dist = 0
-				var tolerance = 3 // Increased tolerance to skip small artifacts/hair
+				var tolerance = 3 
 				var lastValidDist = 0
 				
 				while (dist < maxDist) {
@@ -531,10 +537,10 @@ class AiFeatureManager @Inject constructor(
 					y += dy
 					if (x !in 0 until width || y !in 0 until height) break
 					
-					if (isPixelLight(bitmap, x, y)) {
+					if (isPixelLight(bitmap, x, y, localThreshold)) {
 						dist++
 						lastValidDist = dist
-						tolerance = 3 // Reset tolerance
+						tolerance = 3
 					} else {
 						if (tolerance > 0) {
 							dist++
@@ -546,6 +552,8 @@ class AiFeatureManager @Inject constructor(
 				}
 				return lastValidDist
 			}
+
+			// ... (scanning logic remains the same)
 
 			// Dense scanning (5 points) for better irregular bubble fitting
 			val leftDist = maxOf(
@@ -645,14 +653,14 @@ class AiFeatureManager @Inject constructor(
 		return Color.rgb(r, g, b)
 	}
 
-	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int): Boolean {
+	private fun isPixelLight(bitmap: Bitmap, x: Int, y: Int, threshold: Double = 210.0): Boolean {
 		try {
 			val pixel = bitmap.getPixel(x, y)
 			val red = Color.red(pixel)
 			val green = Color.green(pixel)
 			val blue = Color.blue(pixel)
 			val luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-			return luminance >= 210 // Stricter threshold after bench testing
+			return luminance >= threshold
 		} catch (e: Exception) {
 			return false
 		}
