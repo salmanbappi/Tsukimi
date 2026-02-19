@@ -85,7 +85,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	fun setupWithSSIV(ssiv: SubsamplingScaleImageView) {
 		if (this.ssiv == ssiv) return
 		this.ssiv = ssiv
-		ssiv.setOnStateChangeListener(object : SubsamplingScaleImageView.OnStateChangeListener {
+		ssiv.setOnStateChangedListener(object : SubsamplingScaleImageView.OnStateChangedListener {
 			override fun onScaleChanged(newScale: Float, origin: Int) {
 				postInvalidateOnAnimation()
 			}
