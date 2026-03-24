@@ -154,7 +154,7 @@ dependencies {
         parsersVersion = System.getProperty('parsersVersionOverride')
     }
     //noinspection UseTomlInstead
-    implementation("com.github.YakaTeam:kotatsu-parsers:$parsersVersion") {
+    implementation("com.github.Kotatsu-Redo:kotatsu-parsers-redo:$parsersVersion") {
         exclude group: 'org.json', module: 'json'
     }
 
