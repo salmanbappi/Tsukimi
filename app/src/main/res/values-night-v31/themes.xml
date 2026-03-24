@@ -4,7 +4,6 @@
 	<style name="Base.V31.Kotatsu" parent="Base.V27.Kotatsu">
 		<item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
 		<item name="android:windowSplashScreenAnimationDuration">@integer/splash_screen_duration</item>
-		<item name="android:windowSplashScreenBackground">@color/m3_sys_color_dynamic_dark_surface</item>
 	</style>
 
 	<style name="Theme.Kotatsu.AppWidgetContainer" parent="@android:style/Theme.DeviceDefault.DayNight">
