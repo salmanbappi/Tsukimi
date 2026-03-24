@@ -75,7 +75,7 @@ class ListSelectionController(
 	}
 
 	fun onItemClick(id: Long): Boolean {
-		if (decoration.checkedItemsCount != 0) {
+		if (decoration.checkedItemsCount != 0 || actionMode != null) {
 			decoration.toggleItemChecked(id)
 			if (decoration.checkedItemsCount == 0) {
 				actionMode?.finish()
