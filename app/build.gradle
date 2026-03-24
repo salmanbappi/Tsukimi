@@ -33,6 +33,24 @@ android {
             localProperties.load(new FileInputStream(localPropertiesFile))
         }
         resValue 'string', 'tg_backup_bot_token', localProperties.getProperty('tg_backup_bot_token', '')
+
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+    }
+
+    splits {
+        abi {
+            enable true
+            reset()
+            if (project.hasProperty("abiFilter")) {
+                include project.property("abiFilter").split(",")
+                universalApk false
+            } else {
+                include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                universalApk true
+            }
+        }
     }
 
     signingConfigs {

@@ -6,8 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.text.method.LinkMovementMethodCompat
+import androidx.core.os.bundleOf
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
@@ -43,6 +45,7 @@ class PreviewFragment : BaseFragment<FragmentPreviewBinding>(), View.OnClickList
 		binding.imageViewCover.setOnClickListener(this)
 		binding.buttonOpen.setOnClickListener(this)
 		binding.buttonRead.setOnClickListener(this)
+		binding.buttonSelect.setOnClickListener(this)
 
 		viewModel.manga.observe(viewLifecycleOwner, ::onMangaUpdated)
 		viewModel.footer.observe(viewLifecycleOwner, ::onFooterUpdated)
@@ -53,11 +56,16 @@ class PreviewFragment : BaseFragment<FragmentPreviewBinding>(), View.OnClickList
 	override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat = insets
 
 	override fun onClick(v: View) {
-		val manga = viewModel.manga.value
+		val manga = viewModel.manga.value ?: return
 		when (v.id) {
 			R.id.button_close -> closeSelf()
 			R.id.button_open -> router.openDetails(manga)
 			R.id.button_read -> router.openReader(manga)
+			R.id.button_select -> {
+				val fm = (parentFragment as? MangaPreviewSheet)?.parentFragmentManager ?: parentFragmentManager
+				fm.setFragmentResult(REQUEST_SELECT_MANGA, bundleOf(KEY_MANGA_ID to manga.id))
+				closeSelf()
+			}
 
 			R.id.textView_author -> router.showAuthorDialog(
 				author = manga.authors.firstOrNull() ?: return,
@@ -136,5 +144,10 @@ class PreviewFragment : BaseFragment<FragmentPreviewBinding>(), View.OnClickList
 			return
 		}
 		(parentFragment as? MangaPreviewSheet)?.dismiss()
+	}
+
+	companion object {
+		const val REQUEST_SELECT_MANGA = "request_select_manga"
+		const val KEY_MANGA_ID = "manga_id"
 	}
 }
