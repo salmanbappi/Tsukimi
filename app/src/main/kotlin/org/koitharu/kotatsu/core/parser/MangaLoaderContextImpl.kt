@@ -44,9 +44,9 @@ class MangaLoaderContextImpl @Inject constructor(
 
 	@Deprecated("Provide a base url")
 	@SuppressLint("SetJavaScriptEnabled")
-	override suspend fun evaluateJs(script: String): String? = evaluateJs("", script)
+	override suspend fun evaluateJs(script: String): String? = evaluateJs("", script, jsTimeout)
 
-	override suspend fun evaluateJs(baseUrl: String, script: String): String? = withTimeout(jsTimeout) {
+	override suspend fun evaluateJs(baseUrl: String, script: String, timeout: Long): String? = withTimeout(timeout) {
 		webViewExecutor.evaluateJs(baseUrl, script)
 	}
 
