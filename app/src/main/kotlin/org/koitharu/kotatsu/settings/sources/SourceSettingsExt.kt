@@ -101,10 +101,23 @@ private fun PreferenceFragmentCompat.addPreferencesFromParserRepository(reposito
 					summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
 				}
 			}
+
+			is ConfigKey.DisableUpdateChecking -> {
+				SwitchPreferenceCompat(screen.context).apply {
+					setDefaultValue(key.defaultValue)
+					setTitle("Disable chapter update checking")
+				}
+			}
+
+			is ConfigKey.InterceptCloudflare -> {
+				SwitchPreferenceCompat(screen.context).apply {
+					setDefaultValue(key.defaultValue)
+					setTitle("Intercept Cloudflare automatically")
+				}
+			}
 		}
-		preference.isIconSpaceReserved = false
 		preference.key = key.key
-		preference.order = 10
+		preference.isPersistent = true
 		screen.addPreference(preference)
 	}
 }
