@@ -11,12 +11,21 @@ on:
     - cron: '0 0 * * *' # Daily at midnight
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
+    name: Build & Public Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -25,72 +34,141 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Version
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
           python3 .github/scripts/bump_version.py app/build.gradle
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           git add app/build.gradle
           git commit -m "chore: automated version bump [skip ci]" || echo "No changes to commit"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          java-version: 17
+          distribution: temurin
+          cache: gradle
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build APK
-        id: build
+      - name: Generate AI Context
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            RANGE="origin/${{ github.event.pull_request.base.ref }}..HEAD"
+          elif [ "${{ github.event_name }}" == "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..${{ github.sha }}"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          
+          mkdir -p .github/ai
+          git log --pretty=format:"- %s" $RANGE | grep -v "chore: automated version bump" > .github/ai/commits.txt || echo "New version release." > .github/ai/commits.txt
+          git diff --stat $RANGE > .github/ai/files.txt || echo "" > .github/ai/files.txt
+          git diff -U1 $RANGE | head -n 200 > .github/ai/diff.txt || echo "" > .github/ai/diff.txt
+
+      - name: Generate Changelog with AI
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          COMMITS=$(cat .github/ai/commits.txt)
+          FILES=$(cat .github/ai/files.txt)
+          DIFF=$(cat .github/ai/diff.txt)
+
+          cat > .github/ai/full_prompt.txt <<EOF
+          You are an excited team member of Tsukimi! Write a friendly and hyped 'Changelog' for our fans. 
+          Summarize WHAT IS NEW and WHAT CHANGED.
+          Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
+          CRITICAL: Do NOT mention technical terms like 'code', 'commits', or 'diff'. Focus on improvements!
+          
+          NEW CHANGES:
+          COMMITS:
+          $COMMITS
+          
+          FILE STATS:
+          $FILES
+          
+          DIFF SNIPPET:
+          $DIFF
+          EOF
+          
+          PAYLOAD=$(jq -n \
+            --rawfile prompt .github/ai/full_prompt.txt \
+            --arg model "llama-3.3-70b-versatile" \
+            '{\
+              model: $model,\
+              messages: [{role: "user", content: $prompt}],\
+              temperature: 0.7,\
+              max_tokens: 1024\
+            }')
+          
+          echo "Requesting AI summary from Groq (llama-3.3-70b-versatile)..."
+          RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+          
+          if [ -z "$SUMMARY" ] || [ "$SUMMARY" == "null" ]; then
+            SUMMARY="We've made some secret improvements under the hood to make your experience better! ✨"
+          fi
+          
+          echo "AI_CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Build Release APK
         run: |
           ./gradlew assembleRelease --no-daemon
           VERSION=$(grep "versionName" app/build.gradle | head -n 1 | sed -E "s/.*'([0-9]+\.[0-9]+\.[0-9]+)'.*/\1/")
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
 
       - name: Finalize Version Bump
-        if: success()
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         run: |
           git push origin devel || echo "Push skipped"
 
       - name: Rename APKs
         run: |
           mkdir -p release-apks
-          cp app/build/outputs/apk/release/*.apk release-apks/
-          cd release-apks
-          # Rename ABI-specific APKs
-          for f in app-*-release.apk; do
+          VERSION="${{ env.APP_VERSION }}"
+          cd app/build/outputs/apk/release/
+          for f in *.apk; do
             [ -f "$f" ] || continue
             ABI=$(echo "$f" | sed -E 's/app-(.*)-release.apk/\1/')
-            mv "$f" "Tsukimi-v${{ github.run_number }}-${ABI}.apk"
+            if [[ "$ABI" == "$f" ]]; then
+              # Universal or fallback
+              mv "$f" "../../../../release-apks/Tsukimi-v$VERSION-universal.apk"
+            else
+              mv "$f" "../../../../release-apks/Tsukimi-v$VERSION-$ABI.apk"
+            fi
           done
-          # Rename universal APK (could be app-release.apk or app-universal-release.apk)
-          if [ -f "app-release.apk" ]; then
-            mv "app-release.apk" "Tsukimi-v${{ github.run_number }}-universal.apk"
-          elif [ -f "app-universal-release.apk" ]; then
-            mv "app-universal-release.apk" "Tsukimi-v${{ github.run_number }}-universal.apk"
-          fi
 
       - name: Upload APKs
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks
+          name: release-apks-v${{ env.APP_VERSION }}
           path: release-apks/*.apk
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release ${{ github.run_number }} (v${{ env.APP_VERSION }})
+          tag_name: v${{ env.APP_VERSION }}
+          name: Tsukimi Release v${{ env.APP_VERSION }}
           body: |
-            ### Automated Build #${{ github.run_number }}
-            - **App Version:** v${{ env.APP_VERSION }}
-            - **Status:** Build Successful
-            - **Commit:** ${{ github.sha }}
+            ## 🚀 Tsukimi v${{ env.APP_VERSION }}
             
+            ${{ env.AI_CHANGELOG }}
+            
+            ---
             **Included Builds:**
             - Universal
             - arm64-v8a
