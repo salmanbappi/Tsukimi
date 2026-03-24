@@ -69,6 +69,7 @@
 
 		<activity
 			android:name="org.koitharu.kotatsu.main.ui.MainActivity"
+			android:theme="@style/Theme.Kotatsu.SplashScreen"
 			android:exported="true">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
