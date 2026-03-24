@@ -22,6 +22,11 @@ class MangaListMenuProvider(
 	}
 
 	override fun onMenuItemSelected(menuItem: MenuItem): Boolean = when (menuItem.itemId) {
+		R.id.action_select -> {
+			(fragment as? MangaListFragment)?.startSelectionMode()
+			true
+		}
+		
 		R.id.action_list_mode -> {
 			val section: ListConfigSection = when (fragment) {
 				is HistoryListFragment -> ListConfigSection.History

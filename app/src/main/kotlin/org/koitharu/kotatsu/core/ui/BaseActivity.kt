@@ -54,7 +54,18 @@ abstract class BaseActivity<B : ViewBinding> :
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 			AppCompatDelegate.setApplicationLocales(entryPoint.settings.appLocales)
 		}
-		super.attachBaseContext(newBase)
+		
+		val isTabletForced = entryPoint.settings.isTabletUiForced
+		val contextToAttach = if (isTabletForced) {
+			val config = android.content.res.Configuration(newBase.resources.configuration)
+			config.smallestScreenWidthDp = 600
+			config.screenWidthDp = 600
+			newBase.createConfigurationContext(config)
+		} else {
+			newBase
+		}
+		
+		super.attachBaseContext(contextToAttach)
 	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {

@@ -68,6 +68,9 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	val isAmoledTheme: Boolean
 		get() = prefs.getBoolean(KEY_THEME_AMOLED, false)
 
+	val isTabletUiForced: Boolean
+		get() = prefs.getBoolean(KEY_FORCE_TABLET_UI, false)
+
 	var mainNavItems: List<NavItem>
 		get() {
 			val raw = prefs.getString(KEY_NAV_MAIN, null)?.split(',')
@@ -893,6 +896,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_DISCORD_TOKEN = "discord_token"
 		const val KEY_CONCURRENT_SOURCE_DOWNLOADS = "concurrent_source_downloads"
 		const val KEY_CONCURRENT_PAGE_DOWNLOADS = "concurrent_page_downloads"
+		const val KEY_FORCE_TABLET_UI = "force_tablet_ui"
 
 		// keys for non-persistent preferences
 		const val KEY_APP_VERSION = "app_version"

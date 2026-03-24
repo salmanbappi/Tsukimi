@@ -140,6 +140,10 @@ class ListSelectionController(
 		actionMode = null
 	}
 
+	fun enterSelectionMode(): Boolean {
+		return startActionMode() != null
+	}
+
 	private fun startActionMode(): ActionMode? {
 		focusedItemId = null
 		return actionMode ?: appCompatDelegate.startSupportActionMode(this).also {

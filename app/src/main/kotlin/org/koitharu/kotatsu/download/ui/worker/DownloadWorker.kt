@@ -554,7 +554,6 @@ class DownloadWorker @AssistedInject constructor(
 					.setConstraints(constraints)
 					.addTag(TAG)
 					.setId(work.id)
-					.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
 					.build()
 				workManager.awaitUpdateWork(request)
 			}
@@ -572,7 +571,6 @@ class DownloadWorker @AssistedInject constructor(
 					.keepResultsForAtLeast(30, TimeUnit.DAYS)
 					.setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
 					.setInputData(task.toData())
-					.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
 					.build()
 			}
 			workManager.enqueue(requests).await()

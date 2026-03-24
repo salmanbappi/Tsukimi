@@ -26,6 +26,12 @@
         android:key="app_locale"
         android:title="@string/language" />
 
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="force_tablet_ui"
+        android:title="Force Tablet UI"
+        android:summary="Force tablet layout even on smaller screens or portrait orientation" />
+
     <PreferenceCategory android:title="@string/manga_list">
 
         <ListPreference
