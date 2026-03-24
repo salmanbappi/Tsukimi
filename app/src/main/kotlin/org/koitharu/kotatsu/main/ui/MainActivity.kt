@@ -108,6 +108,7 @@ class MainActivity : BaseActivity<ActivityMainBinding>(), AppBarOwner, BottomNav
 		get() = viewBinding.bottomNav
 
 	override fun onCreate(savedInstanceState: Bundle?) {
+		androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen()
 		super.onCreate(savedInstanceState)
 		setContentView(ActivityMainBinding.inflate(layoutInflater))
 		setSupportActionBar(viewBinding.searchBar)

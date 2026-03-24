@@ -42,6 +42,7 @@ room = "2.7.2"
 serialization = "1.9.0"
 ssiv = "376930523c"
 swiperefreshlayout = "1.1.0"
+splashscreen = "1.0.1"
 testRules = "1.7.0"
 testRunner = "1.7.0"
 transition = "1.6.0"
@@ -77,6 +78,7 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 androidx-rules = { module = "androidx.test:rules", version.ref = "testRules" }
 androidx-runner = { module = "androidx.test:runner", version.ref = "testRunner" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
+androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "testRules" }
 androidx-transition = { module = "androidx.transition:transition-ktx", version.ref = "transition" }
 androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
