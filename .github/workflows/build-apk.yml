@@ -54,17 +54,30 @@ jobs:
         run: |
           git push origin devel || echo "Push skipped"
 
-      - name: Rename APK
+      - name: Rename APKs
         run: |
-          # With debug signing, the output is app-release.apk, not unsigned
-          mv app/build/outputs/apk/release/app-release.apk Tsukimi-v${{ github.run_number }}.apk
+          mkdir -p release-apks
+          cp app/build/outputs/apk/release/*.apk release-apks/
+          cd release-apks
+          # Rename ABI-specific APKs
+          for f in app-*-release.apk; do
+            [ -f "$f" ] || continue
+            ABI=$(echo "$f" | sed -E 's/app-(.*)-release.apk/\1/')
+            mv "$f" "Tsukimi-v${{ github.run_number }}-${ABI}.apk"
+          done
+          # Rename universal APK (could be app-release.apk or app-universal-release.apk)
+          if [ -f "app-release.apk" ]; then
+            mv "app-release.apk" "Tsukimi-v${{ github.run_number }}-universal.apk"
+          elif [ -f "app-universal-release.apk" ]; then
+            mv "app-universal-release.apk" "Tsukimi-v${{ github.run_number }}-universal.apk"
+          fi
 
-      - name: Upload APK
+      - name: Upload APKs
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: Tsukimi-v${{ github.run_number }}.apk
+          name: release-apks
+          path: release-apks/*.apk
 
       - name: Create Release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
@@ -77,6 +90,13 @@ jobs:
             - **App Version:** v${{ env.APP_VERSION }}
             - **Status:** Build Successful
             - **Commit:** ${{ github.sha }}
-          files: Tsukimi-v${{ github.run_number }}.apk
+            
+            **Included Builds:**
+            - Universal
+            - arm64-v8a
+            - armeabi-v7a
+            - x86
+            - x86_64
+          files: release-apks/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

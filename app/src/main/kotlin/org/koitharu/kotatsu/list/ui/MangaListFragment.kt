@@ -131,6 +131,15 @@ abstract class MangaListFragment :
 		viewModel.content.observe(viewLifecycleOwner, ::onListChanged)
 		viewModel.onError.observeEvent(viewLifecycleOwner, SnackbarErrorObserver(binding.recyclerView, this))
 		viewModel.onActionDone.observeEvent(viewLifecycleOwner, ReversibleActionObserver(binding.recyclerView))
+
+		childFragmentManager.setFragmentResultListener(PreviewFragment.REQUEST_SELECT_MANGA, viewLifecycleOwner) { _, bundle ->
+			val mangaId = bundle.getLong(PreviewFragment.KEY_MANGA_ID)
+			selectionController?.startSelection(mangaId)
+		}
+		parentFragmentManager.setFragmentResultListener(PreviewFragment.REQUEST_SELECT_MANGA, viewLifecycleOwner) { _, bundle ->
+			val mangaId = bundle.getLong(PreviewFragment.KEY_MANGA_ID)
+			selectionController?.startSelection(mangaId)
+		}
 	}
 
 	override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat {

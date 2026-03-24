@@ -1,0 +1,68 @@
+name: Preview Build (Nightly)
+
+on:
+  push:
+    branches:
+      - preview
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build arm64-v8a Nightly
+        run: ./gradlew assembleNightly -PabiFilter=arm64-v8a --no-daemon
+
+      - name: Prepare APK
+        run: |
+          VERSION_NAME=$(grep "versionName" app/build.gradle | head -n 1 | sed -E "s/.*'([0-9]+\.[0-9]+\.[0-9]+)'.*/\1/")
+          # Nightly builds have a custom version name generated in build.gradle
+          # We'll just find the generated apk
+          APK_PATH=$(find app/build/outputs/apk/nightly -name "*.apk" | head -n 1)
+          cp "$APK_PATH" Tsukimi-preview-arm64-v8a.apk
+          echo "APK_FILE=Tsukimi-preview-arm64-v8a.apk" >> $GITHUB_ENV
+          echo "APP_VERSION=$VERSION_NAME" >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-apk
+          path: Tsukimi-preview-arm64-v8a.apk
+
+      - name: Send to Telegram
+        run: |
+          curl -F document=@"Tsukimi-preview-arm64-v8a.apk" \
+               -F caption="🚀 *Tsukimi Preview Build*
+          
+          *Version:* \`${{ env.APP_VERSION }}\`
+          *ABI:* \`arm64-v8a\`
+          *Branch:* \`${{ github.ref_name }}\`
+          *Commit:* [\`${{ github.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" \
+               -F parse_mode="Markdown" \
+               "https://api.telegram.org/bot8150859050:AAHcs-9yp2NryZfyEa80-PIkowdGHcrX09k/sendDocument?chat_id=-1002538136245"
+
+      - name: Push to Preview Repository
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git clone https://x-access-token:${{ secrets.PREVIEW_REPO_TOKEN }}@github.com/salmanbappi/tsukimi-preview.git preview-repo
+          cd preview-repo
+          cp ../Tsukimi-preview-arm64-v8a.apk .
+          git add .
+          git commit -m "Preview Build v${{ env.APP_VERSION }} - $(date +'%Y-%m-%d %H:%M')"
+          git push origin main
