@@ -93,21 +93,21 @@ jobs:
           $DIFF
           EOF
           
-          PAYLOAD=$(jq -n \
+          jq -n \
             --rawfile prompt .github/ai/full_prompt.txt \
             --arg model "llama-3.3-70b-versatile" \
-            '{\
-              model: $model,\
-              messages: [{role: "user", content: $prompt}],\
-              temperature: 0.7,\
-              max_tokens: 1024\
-            }')
+            '{
+              model: $model,
+              messages: [{role: "user", content: $prompt}],
+              temperature: 0.7,
+              max_tokens: 1024
+            }' > .github/ai/payload.json
           
           echo "Requesting AI summary from Groq (llama-3.3-70b-versatile)..."
           RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
+            -d @.github/ai/payload.json)
           
           SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
           
