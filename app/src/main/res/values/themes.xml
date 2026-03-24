@@ -156,4 +156,14 @@
 		<item name="android:colorBackground">@color/kotatsu_background</item>
 		<item name="android:panelColorBackground">@color/kotatsu_primaryContainer</item>
 	</style>
+	<!--== Splash Theme ==-->
+	<style name="Theme.Kotatsu.SplashScreen" parent="Theme.SplashScreen">
+		<item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+		<item name="windowSplashScreenBackground">?android:attr/colorBackground</item>
+		<item name="postSplashScreenTheme">@style/Theme.Kotatsu</item>
+		<item name="android:statusBarColor">@android:color/transparent</item>
+		<item name="android:navigationBarColor">@android:color/transparent</item>
+		<item name="android:windowLightStatusBar">false</item>
+		<item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+	</style>
 </resources>
