@@ -90,6 +90,10 @@ abstract class MangaListFragment :
 	protected val selectedItems: Set<Manga>
 		get() = collectSelectedItems()
 
+	fun startSelectionMode() {
+		selectionController?.enterSelectionMode()
+	}
+
 	override val recyclerView: RecyclerView?
 		get() = viewBinding?.recyclerView
 

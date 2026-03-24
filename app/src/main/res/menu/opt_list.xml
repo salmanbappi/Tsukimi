@@ -4,6 +4,12 @@
 	xmlns:app="http://schemas.android.com/apk/res-auto">
 
 	<item
+		android:id="@+id/action_select"
+		android:orderInCategory="39"
+		android:title="@string/action_select_all"
+		app:showAsAction="never" />
+
+	<item
 		android:id="@+id/action_list_mode"
 		android:orderInCategory="40"
 		android:title="@string/list_options"
