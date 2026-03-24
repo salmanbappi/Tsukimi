@@ -179,7 +179,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           repository: salmanbappi/tsukimi-preview
-          token: ${{ secrets.GH_PAT || github.token }}
+          token: ${{ secrets.PREVIEW_REPO_TOKEN }}
           tag_name: ${{ env.TAG }}
           name: Tsukimi Preview ${{ env.TAG }}
           body: |
