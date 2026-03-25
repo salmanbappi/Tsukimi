@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import org.koitharu.kotatsu.backups.data.model.BackupIndex
 import org.koitharu.kotatsu.backups.domain.BackupSection
+import org.koitharu.kotatsu.backups.domain.mihon.MihonBackupDecoder
 import org.koitharu.kotatsu.core.nav.AppRouter
 import org.koitharu.kotatsu.core.ui.BaseViewModel
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
@@ -44,21 +45,43 @@ class RestoreViewModel @Inject constructor(
 	private suspend fun loadBackupInfo() {
 		val sections = runInterruptible(Dispatchers.IO) {
 			if (uri == null) throw FileNotFoundException()
-			ZipInputStream(contentResolver.openInputStream(uri)).use { stream ->
-				val result = EnumSet.noneOf(BackupSection::class.java)
-				var entry = stream.nextEntry
-				while (entry != null) {
-					val s = BackupSection.of(entry)
-					if (s != null) {
-						result.add(s)
-						if (s == BackupSection.INDEX) {
-							backupDate.value = stream.readDate()
+			if (uri.toString().endsWith(".tachibk")) {
+				contentResolver.openInputStream(uri)?.use { input ->
+					val backup = MihonBackupDecoder.decode(input)
+					val result = EnumSet.noneOf(BackupSection::class.java)
+					if (backup.backupManga.isNotEmpty()) {
+						result.add(BackupSection.MANGA)
+						if (backup.backupManga.any { it.favorite == true }) {
+							result.add(BackupSection.FAVOURITES)
+						}
+						if (backup.backupManga.any { it.history.isNotEmpty() }) {
+							result.add(BackupSection.HISTORY)
 						}
 					}
-					stream.closeEntry()
-					entry = stream.nextEntry
+					if (backup.backupCategories.isNotEmpty()) {
+						result.add(BackupSection.CATEGORIES)
+					}
+					// Mihon backups don't have a clear date field in the protobuf, 
+					// so we'll leave backupDate as null for now.
+					result
+				} ?: throw FileNotFoundException()
+			} else {
+				ZipInputStream(contentResolver.openInputStream(uri)).use { stream ->
+					val result = EnumSet.noneOf(BackupSection::class.java)
+					var entry = stream.nextEntry
+					while (entry != null) {
+						val s = BackupSection.of(entry)
+						if (s != null) {
+							result.add(s)
+							if (s == BackupSection.INDEX) {
+								backupDate.value = stream.readDate()
+							}
+						}
+						stream.closeEntry()
+						entry = stream.nextEntry
+					}
+					result
 				}
-				result
 			}
 		}
 		availableEntries.value = BackupSection.entries.mapNotNull { entry ->

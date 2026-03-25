@@ -19,9 +19,9 @@ object MihonBackupDecoder {
         bufferedStream.reset()
 
         val bytes = if (read == 2 && header[0] == 0x1f.toByte() && header[1] == 0x8b.toByte()) {
-            GZIPInputStream(bufferedStream).use { it.readBytes() }
+            GZIPInputStream(bufferedStream).readBytes()
         } else {
-            bufferedStream.use { it.readBytes() }
+            bufferedStream.readBytes()
         }
 
         return ProtoBuf.decodeFromByteArray(MihonBackup.serializer(), bytes)
