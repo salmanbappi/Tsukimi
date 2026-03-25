@@ -41,7 +41,7 @@ object MihonRestoreHandler {
 
         } catch (e: Exception) {
             e.printStackTrace()
-            result += CompositeResult.error(e)
+            result += CompositeResult.failure(e)
         }
 
         return result
