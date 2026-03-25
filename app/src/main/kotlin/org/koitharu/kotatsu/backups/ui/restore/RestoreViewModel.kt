@@ -61,6 +61,12 @@ class RestoreViewModel @Inject constructor(
 					if (backup.backupCategories.isNotEmpty()) {
 						result.add(BackupSection.CATEGORIES)
 					}
+					if (backup.backupSources.isNotEmpty()) {
+						result.add(BackupSection.SOURCES)
+					}
+					if (backup.backupManga.any { it.tracking.isNotEmpty() }) {
+						result.add(BackupSection.SCROBBLING)
+					}
 					// Mihon backups don't have a clear date field in the protobuf, 
 					// so we'll leave backupDate as null for now.
 					result

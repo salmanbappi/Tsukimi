@@ -27,6 +27,9 @@ object MihonRestoreHandler {
             val categories = mapper.mapCategories()
             val (mangas, favourites) = mapper.mapMangaAndFavourites()
             val history = mapper.mapHistory()
+            val readChapters = mapper.mapReadChapters()
+            val scrobbling = mapper.mapScrobbling()
+            val sources = mapper.mapSources()
 
             // Pass this data to BackupRepository. We'll need to modify BackupRepository
             // to accept these pre-mapped lists.
@@ -36,6 +39,9 @@ object MihonRestoreHandler {
                 mangas = mangas,
                 favourites = favourites,
                 history = history,
+                readChapters = readChapters,
+                scrobbling = scrobbling,
+                sources = sources,
                 progress = progress
             )
 

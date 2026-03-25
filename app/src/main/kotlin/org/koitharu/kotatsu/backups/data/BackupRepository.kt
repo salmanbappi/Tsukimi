@@ -225,6 +225,9 @@ class BackupRepository @Inject constructor(
         mangas: List<MangaBackup>,
         favourites: List<FavouriteBackup>,
         history: List<HistoryBackup>,
+        readChapters: List<ReadChapterBackup>,
+        scrobbling: List<ScrobblingBackup>,
+        sources: List<SourceBackup>,
         progress: FlowCollector<Progress>?,
     ): CompositeResult {
         var commonProgress = Progress(0, sections.size)
@@ -232,6 +235,12 @@ class BackupRepository @Inject constructor(
 
         if (sections.contains(BackupSection.CATEGORIES)) {
             result += categories.asSequence().restoreToDb { getFavouriteCategoriesDao().upsert(it.toEntity()) }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.SOURCES)) {
+            result += sources.asSequence().restoreToDb { getSourcesDao().upsert(it.toEntity()) }
             commonProgress++
             progress?.emit(commonProgress)
         }
@@ -255,6 +264,22 @@ class BackupRepository @Inject constructor(
                     upsertManga(manga)
                     getHistoryDao().upsert(hist.toEntity())
                 }
+            }
+            // Also restore read chapters if history is selected
+            result += readChapters.asSequence().restoreToDb { read ->
+                val manga = mangas.find { it.id == read.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getReadChaptersDao().upsert(read.toEntity())
+                }
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.SCROBBLING)) {
+            result += scrobbling.asSequence().restoreToDb {
+                getScrobblingDao().upsert(it.toEntity())
             }
             commonProgress++
             progress?.emit(commonProgress)
