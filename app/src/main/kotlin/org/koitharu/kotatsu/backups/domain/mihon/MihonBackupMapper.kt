@@ -77,7 +77,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     fun mapCategories(): List<CategoryBackup> {
         return backup.backupCategories.map {
             CategoryBackup(
-                // Kotatsu uses Int for categoryId and ID 0 is not used (reserved for \"All\").
+                // Kotatsu uses Int for categoryId and ID 0 is not used (reserved for "All").
                 // We hash the Mihon ID to avoid Int overflow and ensure it's > 0.
                 categoryId = if (it.id == null || it.id == 0L) {
                     (it.order?.toInt()?.plus(1) ?: 1)
@@ -101,26 +101,26 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             // Clean URL for Kotatsu parsers
             // Mangadex expects UUID, Manganato expects full URL or path without leading slash
             var cleanUrl = mihonManga.url
-            if (sourceName == \"MANGADEX\") {
-                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
-            } else if (sourceName == \"MANGANATO\") {
-                cleanUrl = cleanUrl.removePrefix(\"/\")
+            if (sourceName == "MANGADEX") {
+                cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
+            } else if (sourceName == "MANGANATO") {
+                cleanUrl = cleanUrl.removePrefix("/")
             }
             
             val mangaId = generateMangaId(sourceName, cleanUrl)
 
             val mangaBackup = MangaBackup(
                 id = mangaId,
-                title = mihonManga.title ?: \"Unknown\",
+                title = mihonManga.title ?: "Unknown",
                 url = cleanUrl,
                 publicUrl = cleanUrl,
-                coverUrl = mihonManga.thumbnailUrl ?: \"\",
+                coverUrl = mihonManga.thumbnailUrl ?: "",
                 largeCoverUrl = mihonManga.thumbnailUrl,
                 source = sourceName,
                 authors = mihonManga.author,
                 state = null,
-                contentRating = if (mihonManga.genre.any { it.contains(\"Adult\") || it.contains(\"Hentai\") }) ContentRating.ADULT.name else null,
-                isNsfw = mihonManga.genre.any { it.contains(\"Adult\") || it.contains(\"Hentai\") },
+                contentRating = if (mihonManga.genre.any { it.contains("Adult") || it.contains("Hentai") }) ContentRating.ADULT.name else null,
+                isNsfw = mihonManga.genre.any { it.contains("Adult") || it.contains("Hentai") },
                 rating = RATING_UNKNOWN,
             )
             mangas.add(mangaBackup)
@@ -147,7 +147,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         )
                     }
                 } else {
-                    // If no categories in Mihon, it's in the \"Read later\" category (ID 1 in Kotatsu by default)
+                    // If no categories in Mihon, it's in the "Read later" category (ID 1 in Kotatsu by default)
                     favourites.add(
                         FavouriteBackup(
                             mangaId = mangaId,
@@ -170,10 +170,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
             var cleanUrl = mihonManga.url
-            if (sourceName == \"MANGADEX\") {
-                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
-            } else if (sourceName == \"MANGANATO\") {
-                cleanUrl = cleanUrl.removePrefix(\"/\")
+            if (sourceName == "MANGADEX") {
+                cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
+            } else if (sourceName == "MANGANATO") {
+                cleanUrl = cleanUrl.removePrefix("/")
             }
             val mangaId = generateMangaId(sourceName, cleanUrl)
 
@@ -193,10 +193,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         chaptersCount = mihonManga.chapters.size,
                         manga = MangaBackup(
                             id = mangaId,
-                            title = mihonManga.title ?: \"Unknown\",
+                            title = mihonManga.title ?: "Unknown",
                             url = cleanUrl,
                             publicUrl = cleanUrl,
-                            coverUrl = mihonManga.thumbnailUrl ?: \"\",
+                            coverUrl = mihonManga.thumbnailUrl ?: "",
                             source = sourceName
                         )
                     )
@@ -211,10 +211,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
             var cleanUrl = mihonManga.url
-            if (sourceName == \"MANGADEX\") {
-                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
-            } else if (sourceName == \"MANGANATO\") {
-                cleanUrl = cleanUrl.removePrefix(\"/\")
+            if (sourceName == "MANGADEX") {
+                cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
+            } else if (sourceName == "MANGANATO") {
+                cleanUrl = cleanUrl.removePrefix("/")
             }
             val mangaId = generateMangaId(sourceName, cleanUrl)
             
@@ -239,10 +239,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
             var cleanUrl = mihonManga.url
-            if (sourceName == \"MANGADEX\") {
-                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
-            } else if (sourceName == \"MANGANATO\") {
-                cleanUrl = cleanUrl.removePrefix(\"/\")
+            if (sourceName == "MANGADEX") {
+                cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
+            } else if (sourceName == "MANGANATO") {
+                cleanUrl = cleanUrl.removePrefix("/")
             }
             val mangaId = generateMangaId(sourceName, cleanUrl)
             
