@@ -219,6 +219,50 @@ class BackupRepository @Inject constructor(
         return result
     }
 
+    suspend fun restoreMihonData(
+        sections: Set<BackupSection>,
+        categories: List<CategoryBackup>,
+        mangas: List<MangaBackup>,
+        favourites: List<FavouriteBackup>,
+        history: List<HistoryBackup>,
+        progress: FlowCollector<Progress>?,
+    ): CompositeResult {
+        var commonProgress = Progress(0, sections.size)
+        var result = CompositeResult.EMPTY
+
+        if (sections.contains(BackupSection.CATEGORIES)) {
+            result += categories.asSequence().restoreToDb { getFavouriteCategoriesDao().upsert(it.toEntity()) }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.FAVOURITES)) {
+            result += favourites.asSequence().restoreToDb { fav ->
+                val manga = mangas.find { it.id == fav.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getFavouritesDao().upsert(fav.toEntity())
+                }
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.HISTORY)) {
+            result += history.asSequence().restoreToDb { hist ->
+                val manga = mangas.find { it.id == hist.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getHistoryDao().upsert(hist.toEntity())
+                }
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        return result
+    }
+
     private suspend fun <T> ZipOutputStream.writeJsonArray(
         section: BackupSection,
         data: Flow<T>,

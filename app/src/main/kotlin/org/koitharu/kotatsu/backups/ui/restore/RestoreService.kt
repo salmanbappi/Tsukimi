@@ -61,8 +61,14 @@ class RestoreService : BaseBackupRestoreService() {
 			} else {
 				null
 			}
-			val result = ZipInputStream(contentResolver.openInputStream(source)).use { input ->
-				repository.restoreBackup(input, sections, progress)
+			val result = if (source.toString().endsWith(".tachibk")) {
+				contentResolver.openInputStream(source)?.use { input ->
+					MihonRestoreHandler.restore(input, repository, sections, progress)
+				} ?: CompositeResult.EMPTY
+			} else {
+				ZipInputStream(contentResolver.openInputStream(source)).use { input ->
+					repository.restoreBackup(input, sections, progress)
+				}
 			}
 			progressUpdateJob?.cancelAndJoin()
 			showResultNotification(source, result)
