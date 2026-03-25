@@ -144,9 +144,9 @@ jobs:
             ABI=$(echo "$f" | sed -E 's/app-(.*)-release.apk/\1/')
             if [[ "$ABI" == "$f" ]]; then
               # Universal or fallback
-              mv "$f" "../../../../release-apks/Tsukimi-v$VERSION-universal.apk"
+              mv "$f" "$GITHUB_WORKSPACE/release-apks/Tsukimi-v$VERSION-universal.apk"
             else
-              mv "$f" "../../../../release-apks/Tsukimi-v$VERSION-$ABI.apk"
+              mv "$f" "$GITHUB_WORKSPACE/release-apks/Tsukimi-v$VERSION-$ABI.apk"
             fi
           done
 
