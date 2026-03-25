@@ -10,10 +10,10 @@
 		android:summary="@string/check_for_updates" />
 
 	<Preference
-		android:key="gemini_optimized"
+		android:key="dump_crash_log"
 		android:persistent="false"
-		android:title="Gemini Optimized"
-		android:summary="This build has been automatically optimized by Gemini CLI"
+		android:title="Dump crash log"
+		android:summary="Save or share the most recent crash log"
 		app:iconSpaceReserved="false" />
 
 	<SwitchPreferenceCompat

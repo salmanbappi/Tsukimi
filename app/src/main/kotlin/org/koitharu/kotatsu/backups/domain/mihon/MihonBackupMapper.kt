@@ -29,14 +29,18 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         -4966601429443657573L to "MANGAKAKALOT",
         -7333621419443657573L to "MANGASEE",
         -1966601429443657573L to "MANGALIFE",
-        138345115167097L to "NENTAI",
+        138345115167097L to "NHENTAI",
         -5534211419443657573L to "READMANGA",
         -5433621419443657573L to "MANGALIB",
         // Popular Madara/WordPress sources
         8113546738590150117L to "MANGAGREAT",
         -4074212345115167097L to "MANGAREBORN",
         -2342342342342342342L to "MANGAROCK", // Dead but for history
-        // Add more common ones if known
+        // Keiyoushi / common ones
+        58711419443657573L to "MANGATOWN",
+        -1234567890123456789L to "ASURASCANS",
+        82345115167097L to "MANGASHOOT",
+        -512345115167097L to "REAPER_SCANS",
     )
 
     private fun mapSource(mihonSourceId: Long): String {
@@ -55,6 +59,11 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             name.contains("ReadManga", ignoreCase = true) -> "READMANGA"
             name.contains("MangaLib", ignoreCase = true) -> "MANGALIB"
             name.contains("NHentai", ignoreCase = true) -> "NHENTAI"
+            name.contains("MangaFire", ignoreCase = true) -> "MANGAFIRE"
+            name.contains("MangaReader", ignoreCase = true) -> "MANGAREADER"
+            name.contains("MangaHub", ignoreCase = true) -> "MANGAHUB"
+            name.contains("Bato", ignoreCase = true) -> "BATO"
+            name.contains("Comick", ignoreCase = true) -> "COMICK"
             else -> name.uppercase().replace(" ", "_")
                 .replace("(", "").replace(")", "").replace("-", "_")
                 .replace(".", "_").replace("'", "")
@@ -103,12 +112,17 @@ class MihonBackupMapper(private val backup: MihonBackup) {
 
             if (mihonManga.favorite == true) {
                 if (mihonManga.categories.isNotEmpty()) {
-                    mihonManga.categories.forEach { categoryId ->
+                    mihonManga.categories.forEach { mihonCategoryId ->
+                        // We need to find the category in backupCategories to get its ID mapping
+                        val category = backup.backupCategories.find { it.id == mihonCategoryId }
+                        val kotatsuCategoryId = category?.id?.toInt() 
+                            ?: category?.order?.toInt()?.plus(1)
+                            ?: mihonCategoryId.toInt() // fallback to direct cast if not found in list
+
                         favourites.add(
                             FavouriteBackup(
                                 mangaId = mangaId,
-                                // Mihon category IDs match the ones we mapped in mapCategories
-                                categoryId = categoryId,
+                                categoryId = kotatsuCategoryId.toLong(),
                                 sortKey = 0,
                                 isPinned = false,
                                 createdAt = mihonManga.dateAdded ?: System.currentTimeMillis(),
