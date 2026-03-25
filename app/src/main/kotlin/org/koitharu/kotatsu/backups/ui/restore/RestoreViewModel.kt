@@ -119,17 +119,8 @@ class RestoreViewModel @Inject constructor(
 	 * Favorites cannot be restored without categories
 	 */
 	private fun MutableMap<BackupSection, BackupSectionModel>.validate() {
-		val favorites = this[BackupSection.FAVOURITES] ?: return
-		val categories = this[BackupSection.CATEGORIES]
-		if (categories?.isChecked == true) {
-			if (!favorites.isEnabled) {
-				this[BackupSection.FAVOURITES] = favorites.copy(isEnabled = true)
-			}
-		} else {
-			if (favorites.isEnabled) {
-				this[BackupSection.FAVOURITES] = favorites.copy(isEnabled = false, isChecked = false)
-			}
-		}
+		// Favourites can be restored even without categories (they go to the default category)
+		// No strict validation needed anymore
 	}
 
 	private fun InputStream.readDate(): Date? = runCatching {

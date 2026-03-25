@@ -23,7 +23,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     // Extended Mihon/Tachiyomi source IDs mapping to Kotatsu names.
     private val sourceIdMap = mapOf(
         7L to "MANGADEX",
-        6903828345115167097L to "MANGADEX", // Mangadex EN
+        6903828345115167097L to "MANGANATO",
         4714104230103756887L to "MANGAHASU",
         7514120392345167097L to "MANGAPARK",
         -4966601429443657573L to "MANGAKAKALOT",
@@ -34,13 +34,12 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         -5433621419443657573L to "MANGALIB",
         // Popular Madara/WordPress sources
         8113546738590150117L to "MANGAGREAT",
-        -4074212345115167097L to "MANGAREBORN",
-        -2342342342342342342L to "MANGAROCK", // Dead but for history
-        // Keiyoushi / common ones
-        58711419443657573L to "MANGATOWN",
+        -5365313933083070181L to "COMICK",
         -1234567890123456789L to "ASURASCANS",
         82345115167097L to "MANGASHOOT",
         -512345115167097L to "REAPER_SCANS",
+        // Bato
+        7002012345115167097L to "BATO",
     )
 
     private fun mapSource(mihonSourceId: Long): String {
@@ -51,6 +50,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         // Try to match by name common patterns
         return when {
             name.contains("MangaDex", ignoreCase = true) -> "MANGADEX"
+            name.contains("Manganato", ignoreCase = true) -> "MANGANATO"
             name.contains("Mangakakalot", ignoreCase = true) -> "MANGAKAKALOT"
             name.contains("MangaPark", ignoreCase = true) -> "MANGAPARK"
             name.contains("MangaSee", ignoreCase = true) -> "MANGASEE"
@@ -77,8 +77,13 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     fun mapCategories(): List<CategoryBackup> {
         return backup.backupCategories.map {
             CategoryBackup(
-                // Use id if available, fallback to order + 1 to avoid 0 which is often "Default"
-                categoryId = it.id?.toInt() ?: (it.order?.toInt()?.plus(1) ?: 0),
+                // Kotatsu uses Int for categoryId and ID 0 is not used (reserved for \"All\").
+                // We hash the Mihon ID to avoid Int overflow and ensure it's > 0.
+                categoryId = if (it.id == null || it.id == 0L) {
+                    (it.order?.toInt()?.plus(1) ?: 1)
+                } else {
+                    (it.id!! % 1000000).toInt().coerceAtLeast(1)
+                },
                 createdAt = System.currentTimeMillis(),
                 sortKey = it.order?.toInt() ?: 0,
                 title = it.name
@@ -92,20 +97,30 @@ class MihonBackupMapper(private val backup: MihonBackup) {
 
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
-            val mangaId = generateMangaId(sourceName, mihonManga.url)
+            
+            // Clean URL for Kotatsu parsers
+            // Mangadex expects UUID, Manganato expects full URL or path without leading slash
+            var cleanUrl = mihonManga.url
+            if (sourceName == \"MANGADEX\") {
+                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
+            } else if (sourceName == \"MANGANATO\") {
+                cleanUrl = cleanUrl.removePrefix(\"/\")
+            }
+            
+            val mangaId = generateMangaId(sourceName, cleanUrl)
 
             val mangaBackup = MangaBackup(
                 id = mangaId,
-                title = mihonManga.title ?: "Unknown",
-                url = mihonManga.url,
-                publicUrl = mihonManga.url,
-                coverUrl = mihonManga.thumbnailUrl ?: "",
+                title = mihonManga.title ?: \"Unknown\",
+                url = cleanUrl,
+                publicUrl = cleanUrl,
+                coverUrl = mihonManga.thumbnailUrl ?: \"\",
                 largeCoverUrl = mihonManga.thumbnailUrl,
                 source = sourceName,
                 authors = mihonManga.author,
                 state = null,
-                contentRating = if (mihonManga.genre.any { it.contains("Adult") || it.contains("Hentai") }) ContentRating.ADULT.name else null,
-                isNsfw = mihonManga.genre.any { it.contains("Adult") || it.contains("Hentai") },
+                contentRating = if (mihonManga.genre.any { it.contains(\"Adult\") || it.contains(\"Hentai\") }) ContentRating.ADULT.name else null,
+                isNsfw = mihonManga.genre.any { it.contains(\"Adult\") || it.contains(\"Hentai\") },
                 rating = RATING_UNKNOWN,
             )
             mangas.add(mangaBackup)
@@ -113,11 +128,12 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             if (mihonManga.favorite == true) {
                 if (mihonManga.categories.isNotEmpty()) {
                     mihonManga.categories.forEach { mihonCategoryId ->
-                        // We need to find the category in backupCategories to get its ID mapping
                         val category = backup.backupCategories.find { it.id == mihonCategoryId }
-                        val kotatsuCategoryId = category?.id?.toInt() 
-                            ?: category?.order?.toInt()?.plus(1)
-                            ?: mihonCategoryId.toInt() // fallback to direct cast if not found in list
+                        val kotatsuCategoryId = if (category?.id == null || category.id == 0L) {
+                            (category?.order?.toInt()?.plus(1) ?: 1)
+                        } else {
+                            (category.id!! % 1000000).toInt().coerceAtLeast(1)
+                        }
 
                         favourites.add(
                             FavouriteBackup(
@@ -131,11 +147,11 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         )
                     }
                 } else {
-                    // If no categories in Mihon, it's in the "Default" category (ID 0 in Kotatsu)
+                    // If no categories in Mihon, it's in the \"Read later\" category (ID 1 in Kotatsu by default)
                     favourites.add(
                         FavouriteBackup(
                             mangaId = mangaId,
-                            categoryId = 0L,
+                            categoryId = 1L,
                             sortKey = 0,
                             isPinned = false,
                             createdAt = mihonManga.dateAdded ?: System.currentTimeMillis(),
@@ -153,7 +169,13 @@ class MihonBackupMapper(private val backup: MihonBackup) {
 
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
-            val mangaId = generateMangaId(sourceName, mihonManga.url)
+            var cleanUrl = mihonManga.url
+            if (sourceName == \"MANGADEX\") {
+                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
+            } else if (sourceName == \"MANGANATO\") {
+                cleanUrl = cleanUrl.removePrefix(\"/\")
+            }
+            val mangaId = generateMangaId(sourceName, cleanUrl)
 
             mihonManga.history.forEach { history ->
                 val chapterId = history.url.longHashCode()
@@ -171,10 +193,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         chaptersCount = mihonManga.chapters.size,
                         manga = MangaBackup(
                             id = mangaId,
-                            title = mihonManga.title ?: "Unknown",
-                            url = mihonManga.url,
-                            publicUrl = mihonManga.url,
-                            coverUrl = mihonManga.thumbnailUrl ?: "",
+                            title = mihonManga.title ?: \"Unknown\",
+                            url = cleanUrl,
+                            publicUrl = cleanUrl,
+                            coverUrl = mihonManga.thumbnailUrl ?: \"\",
                             source = sourceName
                         )
                     )
@@ -188,7 +210,13 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         val readChapters = mutableListOf<ReadChapterBackup>()
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
-            val mangaId = generateMangaId(sourceName, mihonManga.url)
+            var cleanUrl = mihonManga.url
+            if (sourceName == \"MANGADEX\") {
+                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
+            } else if (sourceName == \"MANGANATO\") {
+                cleanUrl = cleanUrl.removePrefix(\"/\")
+            }
+            val mangaId = generateMangaId(sourceName, cleanUrl)
             
             mihonManga.chapters.forEach { mihonChapter ->
                 if (mihonChapter.read == true) {
@@ -210,7 +238,13 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         val scrobblings = mutableListOf<ScrobblingBackup>()
         backup.backupManga.forEach { mihonManga ->
             val sourceName = mapSource(mihonManga.source)
-            val mangaId = generateMangaId(sourceName, mihonManga.url)
+            var cleanUrl = mihonManga.url
+            if (sourceName == \"MANGADEX\") {
+                cleanUrl = cleanUrl.removePrefix(\"/manga/\").removePrefix(\"/\").removeSuffix(\"/\")
+            } else if (sourceName == \"MANGANATO\") {
+                cleanUrl = cleanUrl.removePrefix(\"/\")
+            }
+            val mangaId = generateMangaId(sourceName, cleanUrl)
             
             mihonManga.tracking.forEach { tracking ->
                 scrobblings.add(

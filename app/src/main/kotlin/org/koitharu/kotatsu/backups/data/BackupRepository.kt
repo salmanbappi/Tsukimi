@@ -247,11 +247,36 @@ class BackupRepository @Inject constructor(
         }
 
         if (sections.contains(BackupSection.FAVOURITES)) {
+            // Ensure a default category exists for uncategorized manga or if category insertion fails
+            result += runCatchingCancellable {
+                database.getFavouriteCategoriesDao().upsert(
+                    FavouriteCategoryEntity(
+                        categoryId = 1,
+                        title = "Read later",
+                        createdAt = System.currentTimeMillis(),
+                        sortKey = 0,
+                        order = "NEWEST",
+                        track = true,
+                        isVisibleInLibrary = true,
+                        deletedAt = 0L
+                    )
+                )
+            }.let { CompositeResult.EMPTY } // Ignore if already exists
+
             result += favourites.asSequence().restoreToDb { fav: FavouriteBackup ->
                 val manga = mangas.find { it.id == fav.mangaId }
                 if (manga != null) {
                     upsertManga(manga)
                     getFavouritesDao().upsert(fav.toEntity())
+                }
+            }
+            
+            // Also restore read chapters if favourites are restored, to preserve read status
+            result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
+                val manga = mangas.find { it.id == read.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getReadChaptersDao().insert(read.toEntity())
                 }
             }
             commonProgress++
@@ -266,12 +291,14 @@ class BackupRepository @Inject constructor(
                     getHistoryDao().upsert(hist.toEntity())
                 }
             }
-            // Also restore read chapters if history is selected
-            result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
-                val manga = mangas.find { it.id == read.mangaId }
-                if (manga != null) {
-                    upsertManga(manga)
-                    getReadChaptersDao().insert(read.toEntity())
+            // Read chapters are already handled in FAVOURITES or can be restored here too
+            if (!sections.contains(BackupSection.FAVOURITES)) {
+                result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
+                    val manga = mangas.find { it.id == read.mangaId }
+                    if (manga != null) {
+                        upsertManga(manga)
+                        getReadChaptersDao().insert(read.toEntity())
+                    }
                 }
             }
             commonProgress++

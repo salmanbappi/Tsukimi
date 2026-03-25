@@ -20,7 +20,9 @@ object MihonRestoreHandler {
         var result = CompositeResult.EMPTY
 
         try {
+            android.util.Log.d("MihonRestore", "Starting decode...")
             val mihonBackup = MihonBackupDecoder.decode(inputStream)
+            android.util.Log.d("MihonRestore", "Decoded backup with ${mihonBackup.backupManga.size} manga")
             val mapper = MihonBackupMapper(mihonBackup)
             
             // Extract the mapped data
@@ -30,6 +32,8 @@ object MihonRestoreHandler {
             val readChapters = mapper.mapReadChapters()
             val scrobbling = mapper.mapScrobbling()
             val sources = mapper.mapSources()
+
+            android.util.Log.d("MihonRestore", "Mapped: ${categories.size} categories, ${favourites.size} favourites, ${readChapters.size} read chapters")
 
             // Pass this data to BackupRepository. We'll need to modify BackupRepository
             // to accept these pre-mapped lists.
@@ -44,8 +48,10 @@ object MihonRestoreHandler {
                 sources = sources,
                 progress = progress
             )
+            android.util.Log.d("MihonRestore", "Restore completed with result: $result")
 
         } catch (e: Exception) {
+            android.util.Log.e("MihonRestore", "Failed to restore", e)
             e.printStackTrace()
             result += CompositeResult.failure(e)
         }
