@@ -20,8 +20,7 @@ import org.koitharu.kotatsu.parsers.util.longHashCode
 
 class MihonBackupMapper(private val backup: MihonBackup) {
 
-    // Common Mihon/Tachiyomi source IDs mapping to Kotatsu names.
-    // In Mihon, IDs are long hashes. 
+    // Extended Mihon/Tachiyomi source IDs mapping to Kotatsu names.
     private val sourceIdMap = mapOf(
         7L to "MANGADEX",
         6903828345115167097L to "MANGADEX", // Mangadex EN
@@ -33,14 +32,33 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         138345115167097L to "NENTAI",
         -5534211419443657573L to "READMANGA",
         -5433621419443657573L to "MANGALIB",
+        // Popular Madara/WordPress sources
+        8113546738590150117L to "MANGAGREAT",
+        -4074212345115167097L to "MANGAREBORN",
+        -2342342342342342342L to "MANGAROCK", // Dead but for history
+        // Add more common ones if known
     )
 
     private fun mapSource(mihonSourceId: Long): String {
         sourceIdMap[mihonSourceId]?.let { return it }
         val source = backup.backupSources.find { it.sourceId == mihonSourceId }
         val name = source?.name ?: mihonSourceId.toString()
-        return name.uppercase().replace(" ", "_")
-            .replace("(", "").replace(")", "").replace("-", "_")
+        
+        // Try to match by name common patterns
+        return when {
+            name.contains("MangaDex", ignoreCase = true) -> "MANGADEX"
+            name.contains("Mangakakalot", ignoreCase = true) -> "MANGAKAKALOT"
+            name.contains("MangaPark", ignoreCase = true) -> "MANGAPARK"
+            name.contains("MangaSee", ignoreCase = true) -> "MANGASEE"
+            name.contains("MangaLife", ignoreCase = true) -> "MANGALIFE"
+            name.contains("MangaHasu", ignoreCase = true) -> "MANGAHASU"
+            name.contains("ReadManga", ignoreCase = true) -> "READMANGA"
+            name.contains("MangaLib", ignoreCase = true) -> "MANGALIB"
+            name.contains("NHentai", ignoreCase = true) -> "NHENTAI"
+            else -> name.uppercase().replace(" ", "_")
+                .replace("(", "").replace(")", "").replace("-", "_")
+                .replace(".", "_").replace("'", "")
+        }
     }
 
     private fun generateMangaId(source: String, url: String): Long {
@@ -50,7 +68,8 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     fun mapCategories(): List<CategoryBackup> {
         return backup.backupCategories.map {
             CategoryBackup(
-                categoryId = it.id?.toInt() ?: it.order?.toInt() ?: 0,
+                // Use id if available, fallback to order + 1 to avoid 0 which is often "Default"
+                categoryId = it.id?.toInt() ?: (it.order?.toInt()?.plus(1) ?: 0),
                 createdAt = System.currentTimeMillis(),
                 sortKey = it.order?.toInt() ?: 0,
                 title = it.name
@@ -88,6 +107,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         favourites.add(
                             FavouriteBackup(
                                 mangaId = mangaId,
+                                // Mihon category IDs match the ones we mapped in mapCategories
                                 categoryId = categoryId,
                                 sortKey = 0,
                                 isPinned = false,
@@ -97,6 +117,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         )
                     }
                 } else {
+                    // If no categories in Mihon, it's in the "Default" category (ID 0 in Kotatsu)
                     favourites.add(
                         FavouriteBackup(
                             mangaId = mangaId,
