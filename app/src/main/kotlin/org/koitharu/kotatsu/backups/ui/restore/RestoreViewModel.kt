@@ -45,7 +45,8 @@ class RestoreViewModel @Inject constructor(
 	private suspend fun loadBackupInfo() {
 		val sections = runInterruptible(Dispatchers.IO) {
 			if (uri == null) throw FileNotFoundException()
-			if (uri.toString().endsWith(".tachibk")) {
+			val isMihon = contentResolver.openInputStream(uri)?.use { MihonBackupDecoder.isMihonBackup(it) } ?: false
+			if (isMihon) {
 				contentResolver.openInputStream(uri)?.use { input ->
 					val backup = MihonBackupDecoder.decode(input)
 					val result = EnumSet.noneOf(BackupSection::class.java)
