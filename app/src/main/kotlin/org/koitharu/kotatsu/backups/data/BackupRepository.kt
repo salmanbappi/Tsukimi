@@ -26,6 +26,7 @@ import org.koitharu.kotatsu.backups.data.model.CategoryBackup
 import org.koitharu.kotatsu.backups.data.model.FavouriteBackup
 import org.koitharu.kotatsu.backups.data.model.HistoryBackup
 import org.koitharu.kotatsu.backups.data.model.MangaBackup
+import org.koitharu.kotatsu.backups.data.model.ReadChapterBackup
 import org.koitharu.kotatsu.backups.data.model.ScrobblingBackup
 import org.koitharu.kotatsu.backups.data.model.SourceBackup
 import org.koitharu.kotatsu.backups.data.model.StatisticBackup
@@ -234,19 +235,19 @@ class BackupRepository @Inject constructor(
         var result = CompositeResult.EMPTY
 
         if (sections.contains(BackupSection.CATEGORIES)) {
-            result += categories.asSequence().restoreToDb { getFavouriteCategoriesDao().upsert(it.toEntity()) }
+            result += categories.asSequence().restoreToDb { it: CategoryBackup -> getFavouriteCategoriesDao().upsert(it.toEntity()) }
             commonProgress++
             progress?.emit(commonProgress)
         }
 
         if (sections.contains(BackupSection.SOURCES)) {
-            result += sources.asSequence().restoreToDb { getSourcesDao().upsert(it.toEntity()) }
+            result += sources.asSequence().restoreToDb { it: SourceBackup -> getSourcesDao().upsert(it.toEntity()) }
             commonProgress++
             progress?.emit(commonProgress)
         }
 
         if (sections.contains(BackupSection.FAVOURITES)) {
-            result += favourites.asSequence().restoreToDb { fav ->
+            result += favourites.asSequence().restoreToDb { fav: FavouriteBackup ->
                 val manga = mangas.find { it.id == fav.mangaId }
                 if (manga != null) {
                     upsertManga(manga)
@@ -258,7 +259,7 @@ class BackupRepository @Inject constructor(
         }
 
         if (sections.contains(BackupSection.HISTORY)) {
-            result += history.asSequence().restoreToDb { hist ->
+            result += history.asSequence().restoreToDb { hist: HistoryBackup ->
                 val manga = mangas.find { it.id == hist.mangaId }
                 if (manga != null) {
                     upsertManga(manga)
@@ -266,11 +267,11 @@ class BackupRepository @Inject constructor(
                 }
             }
             // Also restore read chapters if history is selected
-            result += readChapters.asSequence().restoreToDb { read ->
+            result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
                 val manga = mangas.find { it.id == read.mangaId }
                 if (manga != null) {
                     upsertManga(manga)
-                    getReadChaptersDao().upsert(read.toEntity())
+                    getReadChaptersDao().insert(read.toEntity())
                 }
             }
             commonProgress++
@@ -278,7 +279,7 @@ class BackupRepository @Inject constructor(
         }
 
         if (sections.contains(BackupSection.SCROBBLING)) {
-            result += scrobbling.asSequence().restoreToDb {
+            result += scrobbling.asSequence().restoreToDb { it: ScrobblingBackup ->
                 getScrobblingDao().upsert(it.toEntity())
             }
             commonProgress++

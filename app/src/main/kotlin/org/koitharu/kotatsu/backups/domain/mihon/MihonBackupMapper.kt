@@ -199,6 +199,9 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         return backup.backupSources.map {
             SourceBackup(
                 source = mapSource(it.sourceId),
+                sortKey = 0,
+                lastUsedAt = System.currentTimeMillis(),
+                addedIn = 0,
                 isEnabled = true
             )
         }
