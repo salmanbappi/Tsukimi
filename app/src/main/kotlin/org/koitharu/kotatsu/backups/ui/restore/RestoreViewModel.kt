@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import org.koitharu.kotatsu.backups.data.model.BackupIndex
 import org.koitharu.kotatsu.backups.domain.BackupSection
+import org.koitharu.kotatsu.backups.domain.mihon.MihonBackupDecoder
 import org.koitharu.kotatsu.core.nav.AppRouter
 import org.koitharu.kotatsu.core.ui.BaseViewModel
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
@@ -44,21 +45,49 @@ class RestoreViewModel @Inject constructor(
 	private suspend fun loadBackupInfo() {
 		val sections = runInterruptible(Dispatchers.IO) {
 			if (uri == null) throw FileNotFoundException()
-			ZipInputStream(contentResolver.openInputStream(uri)).use { stream ->
-				val result = EnumSet.noneOf(BackupSection::class.java)
-				var entry = stream.nextEntry
-				while (entry != null) {
-					val s = BackupSection.of(entry)
-					if (s != null) {
-						result.add(s)
-						if (s == BackupSection.INDEX) {
-							backupDate.value = stream.readDate()
+			val isMihon = contentResolver.openInputStream(uri)?.use { MihonBackupDecoder.isMihonBackup(it) } ?: false
+			if (isMihon) {
+				contentResolver.openInputStream(uri)?.use { input ->
+					val backup = MihonBackupDecoder.decode(input)
+					val result = EnumSet.noneOf(BackupSection::class.java)
+					if (backup.backupManga.isNotEmpty()) {
+						if (backup.backupManga.any { it.favorite }) {
+							result.add(BackupSection.FAVOURITES)
+						}
+						if (backup.backupManga.any { it.history.isNotEmpty() || it.historyAniyomi.isNotEmpty() }) {
+							result.add(BackupSection.HISTORY)
 						}
 					}
-					stream.closeEntry()
-					entry = stream.nextEntry
+					if (backup.backupCategories.isNotEmpty()) {
+						result.add(BackupSection.CATEGORIES)
+					}
+					if (backup.backupSources.isNotEmpty()) {
+						result.add(BackupSection.SOURCES)
+					}
+					if (backup.backupManga.any { it.tracking.isNotEmpty() }) {
+						result.add(BackupSection.SCROBBLING)
+					}
+					// Mihon backups don't have a clear date field in the protobuf, 
+					// so we'll leave backupDate as null for now.
+					result
+				} ?: throw FileNotFoundException()
+			} else {
+				ZipInputStream(contentResolver.openInputStream(uri)).use { stream ->
+					val result = EnumSet.noneOf(BackupSection::class.java)
+					var entry = stream.nextEntry
+					while (entry != null) {
+						val s = BackupSection.of(entry)
+						if (s != null) {
+							result.add(s)
+							if (s == BackupSection.INDEX) {
+								backupDate.value = stream.readDate()
+							}
+						}
+						stream.closeEntry()
+						entry = stream.nextEntry
+					}
+					result
 				}
-				result
 			}
 		}
 		availableEntries.value = BackupSection.entries.mapNotNull { entry ->
@@ -90,17 +119,8 @@ class RestoreViewModel @Inject constructor(
 	 * Favorites cannot be restored without categories
 	 */
 	private fun MutableMap<BackupSection, BackupSectionModel>.validate() {
-		val favorites = this[BackupSection.FAVOURITES] ?: return
-		val categories = this[BackupSection.CATEGORIES]
-		if (categories?.isChecked == true) {
-			if (!favorites.isEnabled) {
-				this[BackupSection.FAVOURITES] = favorites.copy(isEnabled = true)
-			}
-		} else {
-			if (favorites.isEnabled) {
-				this[BackupSection.FAVOURITES] = favorites.copy(isEnabled = false, isChecked = false)
-			}
-		}
+		// Favourites can be restored even without categories (they go to the default category)
+		// No strict validation needed anymore
 	}
 
 	private fun InputStream.readDate(): Date? = runCatching {

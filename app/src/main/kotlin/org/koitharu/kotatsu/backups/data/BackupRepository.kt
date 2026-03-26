@@ -26,11 +26,13 @@ import org.koitharu.kotatsu.backups.data.model.CategoryBackup
 import org.koitharu.kotatsu.backups.data.model.FavouriteBackup
 import org.koitharu.kotatsu.backups.data.model.HistoryBackup
 import org.koitharu.kotatsu.backups.data.model.MangaBackup
+import org.koitharu.kotatsu.backups.data.model.ReadChapterBackup
 import org.koitharu.kotatsu.backups.data.model.ScrobblingBackup
 import org.koitharu.kotatsu.backups.data.model.SourceBackup
 import org.koitharu.kotatsu.backups.data.model.StatisticBackup
 import org.koitharu.kotatsu.backups.domain.BackupSection
 import org.koitharu.kotatsu.core.db.MangaDatabase
+import org.koitharu.kotatsu.favourites.data.FavouriteCategoryEntity
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.util.CompositeResult
 import org.koitharu.kotatsu.core.util.progress.Progress
@@ -219,6 +221,102 @@ class BackupRepository @Inject constructor(
         return result
     }
 
+    suspend fun restoreMihonData(
+        sections: Set<BackupSection>,
+        categories: List<CategoryBackup>,
+        mangas: List<MangaBackup>,
+        favourites: List<FavouriteBackup>,
+        history: List<HistoryBackup>,
+        readChapters: List<ReadChapterBackup>,
+        scrobbling: List<ScrobblingBackup>,
+        sources: List<SourceBackup>,
+        progress: FlowCollector<Progress>?,
+    ): CompositeResult {
+        var commonProgress = Progress(0, sections.size)
+        var result = CompositeResult.EMPTY
+
+        if (sections.contains(BackupSection.CATEGORIES) || sections.contains(BackupSection.FAVOURITES)) {
+            result += categories.asSequence().restoreToDb { it: CategoryBackup -> getFavouriteCategoriesDao().upsert(it.toEntity()) }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.SOURCES)) {
+            result += sources.asSequence().restoreToDb { it: SourceBackup -> getSourcesDao().upsert(it.toEntity()) }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.FAVOURITES)) {
+            // Ensure a default category exists for uncategorized manga or if category insertion fails
+            result += runCatchingCancellable {
+                database.getFavouriteCategoriesDao().upsert(
+                    FavouriteCategoryEntity(
+                        categoryId = 1,
+                        title = "Read later",
+                        createdAt = System.currentTimeMillis(),
+                        sortKey = 0,
+                        order = "NEWEST",
+                        track = true,
+                        isVisibleInLibrary = true,
+                        deletedAt = 0L
+                    )
+                )
+            }.let { CompositeResult.EMPTY } // Ignore if already exists
+
+            result += favourites.asSequence().restoreToDb { fav: FavouriteBackup ->
+                val manga = mangas.find { it.id == fav.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getFavouritesDao().upsert(fav.toEntity())
+                }
+            }
+            
+            // Also restore read chapters if favourites are restored, to preserve read status
+            result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
+                val manga = mangas.find { it.id == read.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getReadChaptersDao().insert(read.toEntity())
+                }
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.HISTORY)) {
+            result += history.asSequence().restoreToDb { hist: HistoryBackup ->
+                val manga = mangas.find { it.id == hist.mangaId }
+                if (manga != null) {
+                    upsertManga(manga)
+                    getHistoryDao().upsert(hist.toEntity())
+                }
+            }
+            // Read chapters are already handled in FAVOURITES or can be restored here too
+            if (!sections.contains(BackupSection.FAVOURITES)) {
+                result += readChapters.asSequence().restoreToDb { read: ReadChapterBackup ->
+                    val manga = mangas.find { it.id == read.mangaId }
+                    if (manga != null) {
+                        upsertManga(manga)
+                        getReadChaptersDao().insert(read.toEntity())
+                    }
+                }
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        if (sections.contains(BackupSection.SCROBBLING)) {
+            result += scrobbling.asSequence().restoreToDb { it: ScrobblingBackup ->
+                getScrobblingDao().upsert(it.toEntity())
+            }
+            commonProgress++
+            progress?.emit(commonProgress)
+        }
+
+        return result
+    }
+
     private suspend fun <T> ZipOutputStream.writeJsonArray(
         section: BackupSection,
         data: Flow<T>,
@@ -295,10 +393,12 @@ class BackupRepository @Inject constructor(
     }
 
     private suspend inline fun <T> Sequence<T>.restoreToDb(crossinline block: suspend MangaDatabase.(T) -> Unit): CompositeResult {
-        return fold(CompositeResult.EMPTY) { result, item ->
+        return chunked(100).fold(CompositeResult.EMPTY) { result, chunk ->
             result + runCatchingCancellable {
                 database.withTransaction {
-                    database.block(item)
+                    for (item in chunk) {
+                        database.block(item)
+                    }
                 }
             }
         }

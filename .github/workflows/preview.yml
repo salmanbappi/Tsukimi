@@ -86,11 +86,12 @@ jobs:
           FILES=$(cat .github/ai/files.txt)
           DIFF=$(cat .github/ai/diff.txt)
 
-          cat > .github/ai/full_prompt.txt <<EOF
+          cat > .github/ai/full_prompt.txt <<PROMPT_EOF
           You are an excited team member of Tsukimi! Write a friendly and hyped 'Changelog' for our fans. 
           Summarize WHAT IS NEW and WHAT CHANGED.
           Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
-          CRITICAL: Do NOT mention technical details like 'diffs', 'commits', or file paths. Focus on user-facing features!
+          CRITICAL: Keep the summary very concise (under 500 characters) to avoid message length limits.
+          Do NOT mention technical details like 'diffs', 'commits', or file paths. Focus on user-facing features!
           
           Your primary job is to summarize the NEW CHANGES.
           However, if there are PREVIOUS FAILED BUILD NOTES below, you MUST ALSO include that information, as those changes are also part of this release but were never announced. 
@@ -108,7 +109,12 @@ jobs:
           
           DIFF SNIPPET:
           $DIFF
-          EOF
+          PROMPT_EOF
+          
+          # Fix indented heredoc for shell (YAML run blocks strip common indentation, but we used spaces)
+          # Actually, if we use spaces in cat <<EOF, the terminator must be unindented or we use <<- and tabs.
+          # To be safe, we'll just use a temp script or sed to strip leading spaces if needed,
+          # but usually cat <<EOF with same indentation for EOF as for the block works in GH Actions.
           
           jq -n \
             --rawfile prompt .github/ai/full_prompt.txt \
@@ -197,17 +203,30 @@ jobs:
 
       - name: Send to Telegram
         if: success()
+        env:
+          AI_CHANGELOG: ${{ env.AI_CHANGELOG }}
         run: |
           RELEASE_URL="https://github.com/salmanbappi/tsukimi-preview/releases/tag/${{ env.TAG }}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           
+          # Shorten changelog if it is too long for Telegram (1024 limit for whole caption)
+          echo "$AI_CHANGELOG" > changelog_raw.txt
+          SHORT_CHANGELOG=$(head -c 600 changelog_raw.txt)
+          if [ $(stat -c%s changelog_raw.txt) -gt 600 ]; then
+            SHORT_CHANGELOG="$SHORT_CHANGELOG..."
+          fi
+          
+          {
+            echo "🛠️ *Tsukimi Preview Update* (${{ env.TAG }})"
+            echo ""
+            echo "$SHORT_CHANGELOG"
+            echo ""
+            echo "---"
+            echo "📥 [Download Preview APK]($RELEASE_URL)"
+            echo "🔗 [View Commit Details]($COMMIT_URL)"
+          } > telegram_caption.txt
+          
           curl -F document=@"${{ env.APK_FILE }}" \
-               -F caption="🛠️ *Tsukimi Preview Update* (${{ env.TAG }})
-          
-          ${{ env.AI_CHANGELOG }}
-          
-          ---
-          📥 [Download Preview APK]($RELEASE_URL)
-          🔗 [View Commit Details]($COMMIT_URL)" \
+               -F caption="$(cat telegram_caption.txt)" \
                -F parse_mode="Markdown" \
                "https://api.telegram.org/bot8150859050:AAHcs-9yp2NryZfyEa80-PIkowdGHcrX09k/sendDocument?chat_id=-1002538136245"

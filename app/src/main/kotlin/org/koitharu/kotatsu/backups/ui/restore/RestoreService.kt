@@ -16,8 +16,10 @@ import kotlinx.coroutines.launch
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.backups.data.BackupRepository
 import org.koitharu.kotatsu.backups.domain.BackupSection
+import org.koitharu.kotatsu.backups.domain.mihon.MihonBackupDecoder
 import org.koitharu.kotatsu.backups.ui.BaseBackupRestoreService
 import org.koitharu.kotatsu.core.nav.AppRouter
+import org.koitharu.kotatsu.core.util.CompositeResult
 import org.koitharu.kotatsu.core.util.ext.checkNotificationPermission
 import org.koitharu.kotatsu.core.util.ext.getSerializableExtraCompat
 import org.koitharu.kotatsu.core.util.ext.powerManager
@@ -61,8 +63,15 @@ class RestoreService : BaseBackupRestoreService() {
 			} else {
 				null
 			}
-			val result = ZipInputStream(contentResolver.openInputStream(source)).use { input ->
-				repository.restoreBackup(input, sections, progress)
+			val isMihon = contentResolver.openInputStream(source)?.use { MihonBackupDecoder.isMihonBackup(it) } ?: false
+			val result = if (isMihon) {
+				contentResolver.openInputStream(source)?.use { input ->
+					MihonRestoreHandler.restore(input, repository, sections, progress)
+				} ?: CompositeResult.EMPTY
+			} else {
+				ZipInputStream(contentResolver.openInputStream(source)).use { input ->
+					repository.restoreBackup(input, sections, progress)
+				}
 			}
 			progressUpdateJob?.cancelAndJoin()
 			showResultNotification(source, result)

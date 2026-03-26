@@ -900,6 +900,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 		// keys for non-persistent preferences
 		const val KEY_APP_VERSION = "app_version"
+		const val KEY_DUMP_CRASH_LOG = "dump_crash_log"
 		const val KEY_IGNORE_DOZE = "ignore_dose"
 		const val KEY_TRACKER_DEBUG = "tracker_debug"
 		const val KEY_LINK_WEBLATE = "about_app_translation"
