@@ -16,6 +16,7 @@ import androidx.appcompat.widget.PopupMenu
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import org.koitharu.kotatsu.R
@@ -95,17 +96,13 @@ class ChaptersFragment :
 		}
 		binding.chipsFilter.onChipClickListener = this
 		viewModel.isLoading.observe(viewLifecycleOwner, this::onLoadingStateChanged)
-		combine(
-			viewModel.chapters,
-			viewModel.isChaptersGroupingEnabled,
-		) { chapters, grouping ->
+		viewModel.chapters.combine(viewModel.isChaptersGroupingEnabled) { chapters, grouping ->
 			if (grouping) {
 				chapters.withVolumeHeaders(requireContext())
 			} else {
 				chapters.toMutableList<ListModel>()
 			}
-		}.flowOn(Dispatchers.Default)
-			.observe(viewLifecycleOwner, this::onChaptersChanged)
+		}.observe(viewLifecycleOwner, this::onChaptersChanged)
 		viewModel.quickFilter.observe(viewLifecycleOwner, this::onFilterChanged)
 		viewModel.emptyReason.observe(viewLifecycleOwner) {
 			binding.textViewHolder.setTextAndVisible(it?.msgResId ?: 0)

@@ -122,7 +122,7 @@ class AboutSettingsFragment : BasePreferenceFragment(R.string.about) {
 					sb.append("Device: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.PRODUCT})\n")
 					sb.append("\n--- Logcat ---\n")
 					
-					val process = Runtime.getRuntime().exec("logcat -d *:E")
+					val process = Runtime.getRuntime().exec("logcat -d MihonRestore:D BackupRepository:D *:E")
 					val reader = BufferedReader(InputStreamReader(process.inputStream))
 					var line: String?
 					while (reader.readLine().also { line = it } != null) {
