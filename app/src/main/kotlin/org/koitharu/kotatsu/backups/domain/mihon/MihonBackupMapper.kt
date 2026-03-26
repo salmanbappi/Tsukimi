@@ -44,6 +44,11 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         541234115167097L to "MANGAPLUS",
         -7333621419443657574L to "MANGAMY",
         1L to "MANGASEE",
+        -7607718917849419131L to "MANGAHASU",
+        -8833621419443657573L to "MANGALIB",
+        228138345115167097L to "NINEMANGA_EN",
+        6064115167097L to "GUYA",
+        8064115167097L to "GENKAN",
     )
 
     private fun mapScrobbler(mihonSyncId: Int): Int {
@@ -62,22 +67,28 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         val name = source?.name ?: mihonSourceId.toString()
         
         // Try to match by name common patterns
+        val cleanName = name.replace(Regex("[^A-Za-z0-9]"), "").uppercase()
         return when {
-            name.contains("MangaDex", ignoreCase = true) -> "MANGADEX"
-            name.contains("Manganato", ignoreCase = true) -> "MANGANATO"
-            name.contains("Mangakakalot", ignoreCase = true) -> "MANGAKAKALOT"
-            name.contains("MangaPark", ignoreCase = true) -> "MANGAPARK"
-            name.contains("MangaSee", ignoreCase = true) -> "MANGASEE"
-            name.contains("MangaLife", ignoreCase = true) -> "MANGALIFE"
-            name.contains("MangaHasu", ignoreCase = true) -> "MANGAHASU"
-            name.contains("ReadManga", ignoreCase = true) -> "READMANGA"
-            name.contains("MangaLib", ignoreCase = true) -> "MANGALIB"
-            name.contains("NHentai", ignoreCase = true) -> "NHENTAI"
-            name.contains("MangaFire", ignoreCase = true) -> "MANGAFIRE"
-            name.contains("MangaReader", ignoreCase = true) -> "MANGAREADER"
-            name.contains("MangaHub", ignoreCase = true) -> "MANGAHUB"
-            name.contains("Bato", ignoreCase = true) -> "BATO"
-            name.contains("Comick", ignoreCase = true) -> "COMICK"
+            cleanName.contains("MANGADEX") -> "MANGADEX"
+            cleanName.contains("MANGANATO") -> "MANGANATO"
+            cleanName.contains("MANGAKAKALOT") -> "MANGAKAKALOT"
+            cleanName.contains("MANGAPARK") -> "MANGAPARK"
+            cleanName.contains("MANGASEE") -> "MANGASEE"
+            cleanName.contains("MANGALIFE") -> "MANGALIFE"
+            cleanName.contains("MANGAHASU") -> "MANGAHASU"
+            cleanName.contains("READMANGA") -> "READMANGA"
+            cleanName.contains("MANGALIB") -> "MANGALIB"
+            cleanName.contains("NHENTAI") -> "NHENTAI"
+            cleanName.contains("MANGAFIRE") -> "MANGAFIRE"
+            cleanName.contains("MANGAREADER") -> "MANGAREADER"
+            cleanName.contains("MANGAHUB") -> "MANGAHUB"
+            cleanName.contains("BATO") -> "BATO"
+            cleanName.contains("COMICK") -> "COMICK"
+            cleanName.contains("ASURA") -> "ASURASCANS"
+            cleanName.contains("REAPER") -> "REAPER_SCANS"
+            cleanName.contains("FLAME") -> "FLAMESCANS"
+            cleanName.contains("LUMINOUS") -> "LUMINOUS_SCANS"
+            cleanName.contains("VOID") -> "VOID_SCANS"
             else -> name.uppercase().replace(" ", "_")
                 .replace("(", "").replace(")", "").replace("-", "_")
                 .replace(".", "_").replace("'", "")

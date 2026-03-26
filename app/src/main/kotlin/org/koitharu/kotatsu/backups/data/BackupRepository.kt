@@ -393,10 +393,12 @@ class BackupRepository @Inject constructor(
     }
 
     private suspend inline fun <T> Sequence<T>.restoreToDb(crossinline block: suspend MangaDatabase.(T) -> Unit): CompositeResult {
-        return fold(CompositeResult.EMPTY) { result, item ->
+        return chunked(100).fold(CompositeResult.EMPTY) { result, chunk ->
             result + runCatchingCancellable {
                 database.withTransaction {
-                    database.block(item)
+                    for (item in chunk) {
+                        database.block(item)
+                    }
                 }
             }
         }
