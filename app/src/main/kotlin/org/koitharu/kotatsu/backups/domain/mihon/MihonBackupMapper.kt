@@ -40,7 +40,21 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         -512345115167097L to "REAPER_SCANS",
         // Bato
         7002012345115167097L to "BATO",
+        // Added more
+        541234115167097L to "MANGAPLUS",
+        -7333621419443657574L to "MANGAMY",
+        1L to "MANGASEE",
     )
+
+    private fun mapScrobbler(mihonSyncId: Int): Int {
+        return when (mihonSyncId) {
+            1 -> 3 // MAL
+            2 -> 2 // AniList
+            3 -> 4 // Kitsu
+            4 -> 1 // Shikimori
+            else -> mihonSyncId // Fallback
+        }
+    }
 
     private fun mapSource(mihonSourceId: Long): String {
         sourceIdMap[mihonSourceId]?.let { return it }
@@ -75,19 +89,25 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     }
 
     fun mapCategories(): List<CategoryBackup> {
-        return backup.backupCategories.map {
+        return backup.backupCategories.mapIndexed { index, it ->
             CategoryBackup(
                 // Kotatsu uses Int for categoryId and ID 0 is not used (reserved for "All").
-                // We use a stable hash of the Mihon ID to avoid Int overflow and ensure it's > 0.
-                categoryId = if (it.id == null || it.id == 0L) {
-                    (it.order?.toInt()?.plus(1) ?: 1)
-                } else {
-                    (it.id.toString().hashCode() and 0x7FFFFFFF) % 1000000 + 1
-                },
+                // We use a stable hash of the Mihon ID if available, otherwise fallback to index.
+                categoryId = getKotatsuCategoryId(it, index),
                 createdAt = System.currentTimeMillis(),
-                sortKey = it.order?.toInt() ?: 0,
+                sortKey = it.order ?: index,
                 title = it.name
             )
+        }
+    }
+
+    private fun getKotatsuCategoryId(category: org.koitharu.kotatsu.backups.data.model.mihon.MihonBackupCategory?, index: Int): Int {
+        if (category == null) return 1 // Default category
+        val id = category.id
+        return if (id == null || id == 0L) {
+            index + 1 // Use 1-based index if no ID
+        } else {
+            (id.toString().hashCode() and 0x7FFFFFFF) % 1000000 + 1
         }
     }
 
@@ -99,11 +119,10 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             val sourceName = mapSource(mihonManga.source)
             
             // Clean URL for Kotatsu parsers
-            // Mangadex expects UUID, Manganato expects full URL or path without leading slash
             var cleanUrl = mihonManga.url
             if (sourceName == "MANGADEX") {
                 cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
-            } else if (sourceName == "MANGANATO") {
+            } else if (sourceName == "MANGANATO" || sourceName == "MANGAKAKALOT") {
                 cleanUrl = cleanUrl.removePrefix("/")
             }
             
@@ -125,15 +144,18 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             )
             mangas.add(mangaBackup)
 
-            if (mihonManga.favorite == true) {
+            if (mihonManga.favorite) {
                 if (mihonManga.categories.isNotEmpty()) {
                     mihonManga.categories.forEach { mihonCategoryId ->
-                        val category = backup.backupCategories.find { it.id == mihonCategoryId }
-                        val kotatsuCategoryId = if (category?.id == null || category.id == 0L) {
-                            (category?.order?.toInt()?.plus(1) ?: 1)
-                        } else {
-                            (category.id.toString().hashCode() and 0x7FFFFFFF) % 1000000 + 1
-                        }
+                        // Try to find category by ID, then by order, then treat ID as index
+                        val categoryIndex = backup.backupCategories.indexOfFirst { it.id == mihonCategoryId }
+                            .takeIf { it >= 0 }
+                            ?: backup.backupCategories.indexOfFirst { it.order?.toLong() == mihonCategoryId }
+                            .takeIf { it >= 0 }
+                            ?: mihonCategoryId.toInt().takeIf { it < backup.backupCategories.size }
+
+                        val category = categoryIndex?.let { backup.backupCategories[it] }
+                        val kotatsuCategoryId = getKotatsuCategoryId(category, categoryIndex ?: -1)
 
                         favourites.add(
                             FavouriteBackup(
@@ -177,7 +199,8 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             }
             val mangaId = generateMangaId(sourceName, cleanUrl)
 
-            mihonManga.history.forEach { history ->
+            val combinedHistory = mihonManga.history + mihonManga.historyAniyomi
+            combinedHistory.forEach { history ->
                 val chapterId = history.url.longHashCode()
 
                 historyList.add(
@@ -241,7 +264,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             var cleanUrl = mihonManga.url
             if (sourceName == "MANGADEX") {
                 cleanUrl = cleanUrl.removePrefix("/manga/").removePrefix("/").removeSuffix("/")
-            } else if (sourceName == "MANGANATO") {
+            } else if (sourceName == "MANGANATO" || sourceName == "MANGAKAKALOT") {
                 cleanUrl = cleanUrl.removePrefix("/")
             }
             val mangaId = generateMangaId(sourceName, cleanUrl)
@@ -249,7 +272,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
             mihonManga.tracking.forEach { tracking ->
                 scrobblings.add(
                     ScrobblingBackup(
-                        scrobbler = tracking.syncId, // Note: Mihon syncId might need mapping to Kotatsu scrobbler IDs
+                        scrobbler = mapScrobbler(tracking.syncId),
                         id = tracking.mediaId?.toInt() ?: tracking.mediaIdInt ?: 0,
                         mangaId = mangaId,
                         targetId = tracking.libraryId,

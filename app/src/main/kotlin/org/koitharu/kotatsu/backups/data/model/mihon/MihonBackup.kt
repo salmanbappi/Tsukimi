@@ -26,8 +26,9 @@ data class MihonBackupManga(
     @ProtoNumber(16) val chapters: List<MihonBackupChapter> = emptyList(),
     @ProtoNumber(17) val categories: List<Long> = emptyList(),
     @ProtoNumber(18) val tracking: List<MihonBackupTracking> = emptyList(),
-    @ProtoNumber(100) val favorite: Boolean? = null,
-    @ProtoNumber(104) val history: List<MihonBackupHistory> = emptyList(),
+    @ProtoNumber(100) val favorite: Boolean = true,
+    @ProtoNumber(102) val history: List<MihonBackupHistory> = emptyList(),
+    @ProtoNumber(104) val historyAniyomi: List<MihonBackupHistory> = emptyList(),
     @ProtoNumber(110) val notes: String? = null,
     @ProtoNumber(111) val initialized: Boolean? = null
 )
@@ -43,16 +44,16 @@ data class MihonBackupChapter(
     @ProtoNumber(7) val dateFetch: Long? = null,
     @ProtoNumber(8) val dateUpload: Long? = null,
     @ProtoNumber(9) val chapterNumber: Float? = null,
-    @ProtoNumber(10) val sourceOrder: Long? = null,
+    @ProtoNumber(10) val sourceOrder: Int? = null,
     @ProtoNumber(11) val lastModifiedAt: Long? = null
 )
 
 @Serializable
 data class MihonBackupCategory(
     @ProtoNumber(1) val name: String,
-    @ProtoNumber(2) val order: Long? = null,
+    @ProtoNumber(2) val order: Int? = null,
     @ProtoNumber(3) val id: Long? = null,
-    @ProtoNumber(100) val flags: Long? = null
+    @ProtoNumber(100) val flags: Int? = null
 )
 
 @Serializable

@@ -51,10 +51,10 @@ class RestoreViewModel @Inject constructor(
 					val backup = MihonBackupDecoder.decode(input)
 					val result = EnumSet.noneOf(BackupSection::class.java)
 					if (backup.backupManga.isNotEmpty()) {
-						if (backup.backupManga.any { it.favorite == true }) {
+						if (backup.backupManga.any { it.favorite }) {
 							result.add(BackupSection.FAVOURITES)
 						}
-						if (backup.backupManga.any { it.history.isNotEmpty() }) {
+						if (backup.backupManga.any { it.history.isNotEmpty() || it.historyAniyomi.isNotEmpty() }) {
 							result.add(BackupSection.HISTORY)
 						}
 					}
