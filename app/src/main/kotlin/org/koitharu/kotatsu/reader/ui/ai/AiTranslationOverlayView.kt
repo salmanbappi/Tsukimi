@@ -62,9 +62,12 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val paddingX: Float,
 		val paddingY: Float,
 		val yOffset: Float,
-		val backgroundColor: Int
+		val backgroundColor: Int,
+		val textColor: Int,
+		val sourceCornerRadius: Float
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
+	private val vRect = RectF() // Reusable RectF to avoid allocations in onDraw
 
 	fun setSettings(appSettings: AppSettings) {
 		this.settings = appSettings
@@ -151,13 +154,22 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 				finalYOffset = max(0f, (availableHeight - finalLayout.height) / 2f)
 			}
 
+			// Pre-calculate text color based on background luminance
+			val r = Color.red(block.backgroundColor)
+			val g = Color.green(block.backgroundColor)
+			val b = Color.blue(block.backgroundColor)
+			val lum = 0.299 * r + 0.587 * g + 0.114 * b
+			val textColor = if (lum > 160) Color.BLACK else Color.WHITE
+
 			preparedBlocks.add(PreparedBlock(
 				sourceRect = sourceRect,
 				layout = finalLayout,
 				paddingX = paddingX,
 				paddingY = paddingY,
 				yOffset = finalYOffset,
-				backgroundColor = block.backgroundColor
+				backgroundColor = block.backgroundColor,
+				textColor = textColor,
+				sourceCornerRadius = min(sourceW, sourceH) * 0.20f
 			))
 		}
 	}
@@ -170,46 +182,41 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val currentScale = ssiv.scale
 		val center = ssiv.getCenter() ?: return
 		
-		val origin = ssiv.viewToSourceCoord(0f, 0f) ?: return
-		val tx = -origin.x * currentScale
-		val ty = -origin.y * currentScale
+		// Use sourceToViewCoord(0,0) as a direct anchor to prevent coordinate drift/jitter
+		val vOrigin = ssiv.sourceToViewCoord(0f, 0f) ?: return
+		val tx = vOrigin.x
+		val ty = vOrigin.y
 
 		val count = preparedBlocks.size
+		seamlessPaint.alpha = 255
+		seamlessPaint.style = Paint.Style.FILL
+
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
 			val sourceRect = prep.sourceRect
 			
-			// View coordinates for the bubble box
-			val vLeft = sourceRect.left * currentScale + tx
-			val vTop = sourceRect.top * currentScale + ty
-			val vRight = sourceRect.right * currentScale + tx
-			val vBottom = sourceRect.bottom * currentScale + ty
+			// Map source coordinates to view coordinates
+			vRect.set(
+				sourceRect.left * currentScale + tx,
+				sourceRect.top * currentScale + ty,
+				sourceRect.right * currentScale + tx,
+				sourceRect.bottom * currentScale + ty
+			)
 			
-			// Use the sampled background color to "erase" the Japanese text
-			// Ensure 100% opacity to hide original text completely
+			// Use pre-calculated background and corner radius
 			seamlessPaint.color = prep.backgroundColor
-			seamlessPaint.alpha = 255
-			
-			// Draw a rounded rectangle to mask the Japanese text
-			val cornerRadius = min(vRight - vLeft, vBottom - vTop) * 0.20f
-			canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, seamlessPaint)
+			val cornerRadius = prep.sourceCornerRadius * currentScale
+			canvas.drawRoundRect(vRect, cornerRadius, cornerRadius, seamlessPaint)
 
 			canvas.save()
 			// Move to the padding-inset start position
-			canvas.translate(vLeft + prep.paddingX * currentScale, vTop + (prep.paddingY + prep.yOffset) * currentScale)
+			canvas.translate(vRect.left + prep.paddingX * currentScale, vRect.top + (prep.paddingY + prep.yOffset) * currentScale)
 			// Scale the canvas so we can draw the layout using source-pixel dimensions
 			canvas.scale(currentScale, currentScale)
 			
 			val layoutPaint = prep.layout.paint
-			
-			// Determine text color based on background luminance
-			val r = Color.red(prep.backgroundColor)
-			val g = Color.green(prep.backgroundColor)
-			val b = Color.blue(prep.backgroundColor)
-			val lum = 0.299 * r + 0.587 * g + 0.114 * b
-			
 			layoutPaint.style = Paint.Style.FILL
-			layoutPaint.color = if (lum > 160) Color.BLACK else Color.WHITE
+			layoutPaint.color = prep.textColor
 			
 			prep.layout.draw(canvas)
 			canvas.restore()
