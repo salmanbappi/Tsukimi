@@ -78,11 +78,11 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         return backup.backupCategories.map {
             CategoryBackup(
                 // Kotatsu uses Int for categoryId and ID 0 is not used (reserved for "All").
-                // We hash the Mihon ID to avoid Int overflow and ensure it's > 0.
+                // We use a stable hash of the Mihon ID to avoid Int overflow and ensure it's > 0.
                 categoryId = if (it.id == null || it.id == 0L) {
                     (it.order?.toInt()?.plus(1) ?: 1)
                 } else {
-                    (it.id!! % 1000000).toInt().coerceAtLeast(1)
+                    (it.id.toString().hashCode() and 0x7FFFFFFF) % 1000000 + 1
                 },
                 createdAt = System.currentTimeMillis(),
                 sortKey = it.order?.toInt() ?: 0,
@@ -132,7 +132,7 @@ class MihonBackupMapper(private val backup: MihonBackup) {
                         val kotatsuCategoryId = if (category?.id == null || category.id == 0L) {
                             (category?.order?.toInt()?.plus(1) ?: 1)
                         } else {
-                            (category.id!! % 1000000).toInt().coerceAtLeast(1)
+                            (category.id.toString().hashCode() and 0x7FFFFFFF) % 1000000 + 1
                         }
 
                         favourites.add(

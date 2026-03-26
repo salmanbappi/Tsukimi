@@ -96,13 +96,10 @@ class ChaptersFragment :
 		}
 		binding.chipsFilter.onChipClickListener = this
 		viewModel.isLoading.observe(viewLifecycleOwner, this::onLoadingStateChanged)
-		viewModel.chapters.combine(viewModel.isChaptersGroupingEnabled) { chapters, grouping ->
-			if (grouping) {
-				chapters.withVolumeHeaders(requireContext())
-			} else {
-				chapters.toMutableList<ListModel>()
-			}
-		}.observe(viewLifecycleOwner, this::onChaptersChanged)
+		viewModel.chapters
+			.map { it.withVolumeHeaders(requireContext()) }
+			.flowOn(Dispatchers.Default)
+			.observe(viewLifecycleOwner, this::onChaptersChanged)
 		viewModel.quickFilter.observe(viewLifecycleOwner, this::onFilterChanged)
 		viewModel.emptyReason.observe(viewLifecycleOwner) {
 			binding.textViewHolder.setTextAndVisible(it?.msgResId ?: 0)

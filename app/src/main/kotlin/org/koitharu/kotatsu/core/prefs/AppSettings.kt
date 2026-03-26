@@ -295,10 +295,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_REVERSE_CHAPTERS, false)
 		set(value) = prefs.edit { putBoolean(KEY_REVERSE_CHAPTERS, value) }
 
-	var isChaptersGroupingEnabled: Boolean
-		get() = prefs.getBoolean(KEY_CHAPTER_GROUPING, true)
-		set(value) = prefs.edit { putBoolean(KEY_CHAPTER_GROUPING, value) }
-
 	var isChaptersGridView: Boolean
 		get() = prefs.getBoolean(KEY_GRID_VIEW_CHAPTERS, false)
 		set(value) = prefs.edit { putBoolean(KEY_GRID_VIEW_CHAPTERS, value) }
@@ -794,7 +790,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_UPDATED_GROUPING = "updated_grouping"
 		const val KEY_PROGRESS_INDICATORS = "progress_indicators"
 		const val KEY_REVERSE_CHAPTERS = "reverse_chapters"
-		const val KEY_CHAPTER_GROUPING = "chapter_grouping"
 		const val KEY_GRID_VIEW_CHAPTERS = "grid_view_chapters"
 		const val KEY_INCOGNITO_NSFW = "incognito_nsfw"
 		const val KEY_PAGES_NUMBERS = "pages_numbers"

@@ -28,13 +28,6 @@
 		app:showAsAction="never" />
 
 	<item
-		android:id="@+id/action_group_by_season"
-		android:checkable="true"
-		android:orderInCategory="25"
-		android:title="@string/group_by_season"
-		app:showAsAction="never" />
-
-	<item
 		android:id="@+id/action_grid_view"
 		android:checkable="true"
 		android:orderInCategory="30"

@@ -89,18 +89,20 @@ fun MangaDetails.mapChapters(
 }
 
 fun List<ChapterListItem>.withVolumeHeaders(context: Context): MutableList<ListModel> {
-	val grouped = groupBy { it.chapter.volume }
-	val sortedVolumes = grouped.keys.sorted()
+	var prevVolume = 0
 	val result = ArrayList<ListModel>((size * 1.4).toInt())
-	for (volume in sortedVolumes) {
-		val chapters = grouped[volume] ?: continue
-		val text = if (volume == 0) {
-			context.getString(R.string.volume_unknown)
-		} else {
-			context.getString(R.string.volume_, volume)
+	for (item in this) {
+		val chapter = item.chapter
+		if (chapter.volume != prevVolume) {
+			val text = if (chapter.volume == 0) {
+				context.getString(R.string.volume_unknown)
+			} else {
+				context.getString(R.string.volume_, chapter.volume)
+			}
+			result.add(ListHeader(text))
+			prevVolume = chapter.volume
 		}
-		result.add(ListHeader(text))
-		result.addAll(chapters)
+		result.add(item)
 	}
 	return result
 }
