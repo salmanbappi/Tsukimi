@@ -62,7 +62,12 @@ class MihonBackupMapper(private val backup: MihonBackup) {
     }
 
     private fun mapSource(mihonSourceId: Long): String {
+        // Try global translator first (from Mihon/Tachiyomi extension index)
+        MihonSourceTranslator.getSourceName(mihonSourceId)?.let { return it.uppercase().replace(" ", "_") }
+        
+        // Try local override map
         sourceIdMap[mihonSourceId]?.let { return it }
+        
         val source = backup.backupSources.find { it.sourceId == mihonSourceId }
         val name = source?.name ?: mihonSourceId.toString()
         
