@@ -15,6 +15,7 @@ import android.view.View
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import kotlin.math.max
+import kotlin.math.min
 
 class AiTranslationOverlayView @JvmOverloads constructor(
 	context: Context,
@@ -189,8 +190,9 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			seamlessPaint.color = prep.backgroundColor
 			seamlessPaint.alpha = 255
 			
-			// Draw a solid rectangle to mask the Japanese text
-			canvas.drawRect(vLeft, vTop, vRight, vBottom, seamlessPaint)
+			// Draw a rounded rectangle to mask the Japanese text
+			val cornerRadius = min(vRight - vLeft, vBottom - vTop) * 0.20f
+			canvas.drawRoundRect(vLeft, vTop, vRight, vBottom, cornerRadius, cornerRadius, seamlessPaint)
 
 			canvas.save()
 			// Move to the padding-inset start position
