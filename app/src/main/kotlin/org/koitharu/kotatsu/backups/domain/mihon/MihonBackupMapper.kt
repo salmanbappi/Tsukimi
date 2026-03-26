@@ -15,6 +15,7 @@ import org.koitharu.kotatsu.history.data.HistoryWithManga
 import org.koitharu.kotatsu.list.domain.ReadingProgress
 import org.koitharu.kotatsu.parsers.model.ContentRating
 import org.koitharu.kotatsu.parsers.model.Manga
+import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.model.RATING_UNKNOWN
 import org.koitharu.kotatsu.parsers.util.longHashCode
 
@@ -61,43 +62,45 @@ class MihonBackupMapper(private val backup: MihonBackup) {
         }
     }
 
-    private fun mapSource(mihonSourceId: Long): String {
-        // Try global translator first (from Mihon/Tachiyomi extension index)
-        MihonSourceTranslator.getSourceName(mihonSourceId)?.let { return it.uppercase().replace(" ", "_") }
+    private fun findMatchingKotatsuSource(mihonName: String): String {
+        val cleanMihonName = mihonName.replace(Regex("[^A-Za-z0-9]"), "").lowercase()
         
-        // Try local override map
+        // 1. Exact match on enum name
+        MangaParserSource.entries.find { it.name.equals(mihonName, ignoreCase = true) }?.let { return it.name }
+        
+        // 2. Exact match on title
+        MangaParserSource.entries.find { it.title.equals(mihonName, ignoreCase = true) }?.let { return it.name }
+        
+        // 3. Clean alphanumeric match on title
+        MangaParserSource.entries.find { 
+            it.title.replace(Regex("[^A-Za-z0-9]"), "").lowercase() == cleanMihonName
+        }?.let { return it.name }
+        
+        // 4. Substring match
+        val possibleMatches = MangaParserSource.entries.filter {
+            val cleanKotatsuName = it.title.replace(Regex("[^A-Za-z0-9]"), "").lowercase()
+            cleanKotatsuName.isNotEmpty() && (cleanMihonName.contains(cleanKotatsuName) || cleanKotatsuName.contains(cleanMihonName))
+        }
+        
+        if (possibleMatches.isNotEmpty()) {
+            return possibleMatches.minByOrNull { 
+                kotlin.math.abs(it.title.length - mihonName.length) 
+            }!!.name
+        }
+        
+        return mihonName.uppercase().replace(Regex("[^A-Z0-9]"), "_")
+    }
+
+    private fun mapSource(mihonSourceId: Long): String {
+        // Try local override map first
         sourceIdMap[mihonSourceId]?.let { return it }
         
-        val source = backup.backupSources.find { it.sourceId == mihonSourceId }
-        val name = source?.name ?: mihonSourceId.toString()
-        
-        // Try to match by name common patterns
-        val cleanName = name.replace(Regex("[^A-Za-z0-9]"), "").uppercase()
-        return when {
-            cleanName.contains("MANGADEX") -> "MANGADEX"
-            cleanName.contains("MANGANATO") -> "MANGANATO"
-            cleanName.contains("MANGAKAKALOT") -> "MANGAKAKALOT"
-            cleanName.contains("MANGAPARK") -> "MANGAPARK"
-            cleanName.contains("MANGASEE") -> "MANGASEE"
-            cleanName.contains("MANGALIFE") -> "MANGALIFE"
-            cleanName.contains("MANGAHASU") -> "MANGAHASU"
-            cleanName.contains("READMANGA") -> "READMANGA"
-            cleanName.contains("MANGALIB") -> "MANGALIB"
-            cleanName.contains("NHENTAI") -> "NHENTAI"
-            cleanName.contains("MANGAFIRE") -> "MANGAFIRE"
-            cleanName.contains("MANGAREADER") -> "MANGAREADER"
-            cleanName.contains("MANGAHUB") -> "MANGAHUB"
-            cleanName.contains("BATO") -> "BATO"
-            cleanName.contains("COMICK") -> "COMICK"
-            cleanName.contains("ASURA") -> "ASURASCANS"
-            cleanName.contains("REAPER") -> "REAPER_SCANS"
-            cleanName.contains("FLAME") -> "FLAMESCANS"
-            cleanName.contains("LUMINOUS") -> "LUMINOUS_SCANS"
-            cleanName.contains("VOID") -> "VOID_SCANS"
-            else -> name.uppercase().replace(" ", "_")
-                .replace("(", "").replace(")", "").replace("-", "_")
-                .replace(".", "_").replace("'", "")
-        }
+        // Get name from translator or backup
+        val mihonName = MihonSourceTranslator.getSourceName(mihonSourceId) 
+            ?: backup.backupSources.find { it.sourceId == mihonSourceId }?.name 
+            ?: return mihonSourceId.toString()
+
+        return findMatchingKotatsuSource(mihonName)
     }
 
     private fun generateMangaId(source: String, url: String): Long {
