@@ -85,14 +85,15 @@ jobs:
           COMMITS=$(cat .github/ai/commits.txt)
           FILES=$(cat .github/ai/files.txt)
           DIFF=$(cat .github/ai/diff.txt)
+cat > .github/ai/full_prompt.txt <<EOF
+You are an excited team member of Tsukimi! Write a friendly and hyped 'Changelog' for our fans. 
+Summarize WHAT IS NEW and WHAT CHANGED.
+Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
+CRITICAL: Keep the summary very concise (under 500 characters) to avoid message length limits.
+Do NOT mention technical details like 'diffs', 'commits', or file paths. Focus on user-facing features!
 
-          cat > .github/ai/full_prompt.txt <<EOF
-          You are an excited team member of Tsukimi! Write a friendly and hyped 'Changelog' for our fans. 
-          Summarize WHAT IS NEW and WHAT CHANGED.
-          Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
-          CRITICAL: Do NOT mention technical details like 'diffs', 'commits', or file paths. Focus on user-facing features!
-          
-          Your primary job is to summarize the NEW CHANGES.
+Your primary job is to summarize the NEW CHANGES.
+EOF
           However, if there are PREVIOUS FAILED BUILD NOTES below, you MUST ALSO include that information, as those changes are also part of this release but were never announced. 
           Merge them seamlessly into one unified changelog.
 
@@ -201,10 +202,16 @@ jobs:
           RELEASE_URL="https://github.com/salmanbappi/tsukimi-preview/releases/tag/${{ env.TAG }}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           
+          # Shorten changelog if it is too long for Telegram (1024 limit for whole caption)
+          SHORT_CHANGELOG="${{ env.AI_CHANGELOG }}"
+          if [ ${#SHORT_CHANGELOG} -gt 600 ]; then
+            SHORT_CHANGELOG="${SHORT_CHANGELOG:0:597}..."
+          fi
+          
           curl -F document=@"${{ env.APK_FILE }}" \
                -F caption="🛠️ *Tsukimi Preview Update* (${{ env.TAG }})
           
-          ${{ env.AI_CHANGELOG }}
+          $SHORT_CHANGELOG
           
           ---
           📥 [Download Preview APK]($RELEASE_URL)
