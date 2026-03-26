@@ -170,6 +170,8 @@
     <string name="text_clear_updates_feed_prompt">Clear all update history permanently?</string>
     <string name="check_for_new_chapters">Check for new chapters</string>
     <string name="reverse">Reverse</string>
+    <string name="group_by_season">Group by season</string>
+    <string name="dump_crash_log">Dump crash log</string>
     <string name="chapters_grid_view">Grid view</string>
     <string name="sign_in">Sign in</string>
     <string name="auth_required">Sign in to view this content</string>

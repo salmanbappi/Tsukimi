@@ -96,6 +96,12 @@ abstract class ChaptersPagesViewModel(
 		valueProducer = { isChaptersGridView },
 	)
 
+	val isChaptersGroupingEnabled = settings.observeAsStateFlow(
+		scope = viewModelScope + Dispatchers.Default,
+		key = AppSettings.KEY_CHAPTER_GROUPING,
+		valueProducer = { isChaptersGroupingEnabled },
+	)
+
 	val isDownloadedOnly = MutableStateFlow(false)
 	private val deletionConfirmation = MutableStateFlow(emptySet<Long>())
 	private val deletingChapters = MutableStateFlow(emptySet<Long>())
@@ -264,6 +270,10 @@ abstract class ChaptersPagesViewModel(
 
 	fun setChaptersInGridView(newValue: Boolean) {
 		settings.isChaptersGridView = newValue
+	}
+
+	fun setChaptersGroupingEnabled(newValue: Boolean) {
+		settings.isChaptersGroupingEnabled = newValue
 	}
 
 	fun setSelectedBranch(branch: String?) {

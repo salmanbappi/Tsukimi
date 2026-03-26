@@ -95,9 +95,16 @@ class ChaptersFragment :
 		}
 		binding.chipsFilter.onChipClickListener = this
 		viewModel.isLoading.observe(viewLifecycleOwner, this::onLoadingStateChanged)
-		viewModel.chapters
-			.map { it.withVolumeHeaders(requireContext()) }
-			.flowOn(Dispatchers.Default)
+		combine(
+			viewModel.chapters,
+			viewModel.isChaptersGroupingEnabled,
+		) { chapters, grouping ->
+			if (grouping) {
+				chapters.withVolumeHeaders(requireContext())
+			} else {
+				chapters.toMutableList<ListModel>()
+			}
+		}.flowOn(Dispatchers.Default)
 			.observe(viewLifecycleOwner, this::onChaptersChanged)
 		viewModel.quickFilter.observe(viewLifecycleOwner, this::onFilterChanged)
 		viewModel.emptyReason.observe(viewLifecycleOwner) {

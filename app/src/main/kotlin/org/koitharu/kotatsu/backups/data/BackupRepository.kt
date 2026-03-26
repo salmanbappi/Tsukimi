@@ -235,7 +235,7 @@ class BackupRepository @Inject constructor(
         var commonProgress = Progress(0, sections.size)
         var result = CompositeResult.EMPTY
 
-        if (sections.contains(BackupSection.CATEGORIES)) {
+        if (sections.contains(BackupSection.CATEGORIES) || sections.contains(BackupSection.FAVOURITES)) {
             result += categories.asSequence().restoreToDb { it: CategoryBackup -> getFavouriteCategoriesDao().upsert(it.toEntity()) }
             commonProgress++
             progress?.emit(commonProgress)
