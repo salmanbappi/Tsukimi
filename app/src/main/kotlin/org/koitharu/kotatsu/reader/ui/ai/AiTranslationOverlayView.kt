@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Picture
 import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -35,7 +36,7 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 	private var lastCenterY = -1f
 	
 	init {
-		setLayerType(LAYER_TYPE_HARDWARE, null)
+		setLayerType(LAYER_TYPE_NONE, null)
 	}
 	
 	private val backgroundPaint = Paint().apply {
@@ -58,16 +59,11 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 
 	private data class PreparedBlock(
 		val sourceRect: RectF,
-		val layout: StaticLayout,
-		val paddingX: Float,
-		val paddingY: Float,
-		val yOffset: Float,
+		val picture: Picture,
 		val backgroundColor: Int,
-		val textColor: Int,
 		val sourceCornerRadius: Float
 	)
 	private var preparedBlocks = mutableListOf<PreparedBlock>()
-	private val vRect = RectF() // Reusable RectF to avoid allocations in onDraw
 
 	fun setSettings(appSettings: AppSettings) {
 		this.settings = appSettings
@@ -160,15 +156,20 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 			val b = Color.blue(block.backgroundColor)
 			val lum = 0.299 * r + 0.587 * g + 0.114 * b
 			val textColor = if (lum > 160) Color.BLACK else Color.WHITE
+			
+			finalLayout.paint.style = Paint.Style.FILL
+			finalLayout.paint.color = textColor
+
+			val picture = Picture()
+			val picCanvas = picture.beginRecording(sourceW.toInt(), sourceH.toInt())
+			picCanvas.translate(paddingX, paddingY + finalYOffset)
+			finalLayout.draw(picCanvas)
+			picture.endRecording()
 
 			preparedBlocks.add(PreparedBlock(
 				sourceRect = sourceRect,
-				layout = finalLayout,
-				paddingX = paddingX,
-				paddingY = paddingY,
-				yOffset = finalYOffset,
+				picture = picture,
 				backgroundColor = block.backgroundColor,
-				textColor = textColor,
 				sourceCornerRadius = min(sourceW, sourceH) * 0.20f
 			))
 		}
@@ -187,40 +188,28 @@ class AiTranslationOverlayView @JvmOverloads constructor(
 		val tx = vOrigin.x
 		val ty = vOrigin.y
 
-		val count = preparedBlocks.size
+		canvas.save()
+		// Push transformation to GPU
+		canvas.translate(tx, ty)
+		canvas.scale(currentScale, currentScale)
+
 		seamlessPaint.alpha = 255
 		seamlessPaint.style = Paint.Style.FILL
 
+		val count = preparedBlocks.size
 		for (i in 0 until count) {
 			val prep = preparedBlocks[i]
-			val sourceRect = prep.sourceRect
 			
-			// Map source coordinates to view coordinates
-			vRect.set(
-				sourceRect.left * currentScale + tx,
-				sourceRect.top * currentScale + ty,
-				sourceRect.right * currentScale + tx,
-				sourceRect.bottom * currentScale + ty
-			)
-			
-			// Use pre-calculated background and corner radius
 			seamlessPaint.color = prep.backgroundColor
-			val cornerRadius = prep.sourceCornerRadius * currentScale
-			canvas.drawRoundRect(vRect, cornerRadius, cornerRadius, seamlessPaint)
+			canvas.drawRoundRect(prep.sourceRect, prep.sourceCornerRadius, prep.sourceCornerRadius, seamlessPaint)
 
 			canvas.save()
-			// Move to the padding-inset start position
-			canvas.translate(vRect.left + prep.paddingX * currentScale, vRect.top + (prep.paddingY + prep.yOffset) * currentScale)
-			// Scale the canvas so we can draw the layout using source-pixel dimensions
-			canvas.scale(currentScale, currentScale)
-			
-			val layoutPaint = prep.layout.paint
-			layoutPaint.style = Paint.Style.FILL
-			layoutPaint.color = prep.textColor
-			
-			prep.layout.draw(canvas)
+			canvas.translate(prep.sourceRect.left, prep.sourceRect.top)
+			canvas.drawPicture(prep.picture)
 			canvas.restore()
 		}
+		
+		canvas.restore()
 		
 		// Smart redraw check
 		if (Math.abs(currentScale - lastScale) > 0.001f || 
