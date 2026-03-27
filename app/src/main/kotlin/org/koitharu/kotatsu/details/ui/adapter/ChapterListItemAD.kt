@@ -38,7 +38,7 @@ fun chapterListItemAD(
 		val description = StringBuilder()
 		item.description?.let { description.append(it) }
 
-		if (item.readPage >= 0) {
+		if (item.readPage > 0) {
 			if (description.isNotEmpty()) description.append(" • ")
 			description.append("Page: ").append(item.readPage + 1)
 		}

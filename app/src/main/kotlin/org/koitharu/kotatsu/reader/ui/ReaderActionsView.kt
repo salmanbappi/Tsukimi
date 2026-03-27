@@ -39,9 +39,7 @@ class ReaderActionsView @JvmOverloads constructor(
 	@AttrRes defStyleAttr: Int = 0,
 ) : LinearLayout(context, attrs, defStyleAttr),
 	View.OnClickListener,
-	SharedPreferences.OnSharedPreferenceChangeListener,
-	Slider.OnChangeListener,
-	Slider.OnSliderTouchListener, View.OnLongClickListener {
+	SharedPreferences.OnSharedPreferenceChangeListener, View.OnLongClickListener {
 
 	@Inject
 	lateinit var settings: AppSettings
@@ -54,15 +52,6 @@ class ReaderActionsView @JvmOverloads constructor(
 			}
 		}
 	}
-	private var isSliderChanged = false
-	private var isSliderTracking = false
-
-	var isSliderEnabled: Boolean
-		get() = binding.slider.isEnabled
-		set(value) {
-			binding.slider.isEnabled = value
-			binding.slider.setThumbVisible(value)
-		}
 
 	var isNextEnabled: Boolean
 		get() = binding.buttonNext.isEnabled
@@ -97,9 +86,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonPagesThumbs.initAction()
 		binding.buttonTimer.initAction()
 		binding.buttonBookmark.initAction()
-		binding.slider.setLabelFormatter(PageLabelFormatter())
-		binding.slider.addOnChangeListener(this)
-		binding.slider.addOnSliderTouchListener(this)
 		updateControlsVisibility()
 		updatePagesSheetButton()
 		updateRotationButton()
@@ -141,30 +127,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		else -> null
 	} != null
 
-	override fun onValueChange(slider: Slider, value: Float, fromUser: Boolean) {
-		if (fromUser) {
-			if (isSliderTracking) {
-				isSliderChanged = true
-			} else {
-				listener?.switchPageTo(value.toInt())
-			}
-		}
-	}
-
-	override fun onStartTrackingTouch(slider: Slider) {
-		if (!isSliderTracking) {
-			isSliderChanged = false
-			isSliderTracking = true
-		}
-	}
-
-	override fun onStopTrackingTouch(slider: Slider) {
-		isSliderTracking = false
-		if (isSliderChanged) {
-			listener?.switchPageTo(slider.value.toInt())
-		}
-	}
-
 	override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
 		when (key) {
 			AppSettings.KEY_READER_CONTROLS -> updateControlsVisibility()
@@ -172,15 +134,6 @@ class ReaderActionsView @JvmOverloads constructor(
 			AppSettings.KEY_DETAILS_TAB,
 			AppSettings.KEY_DETAILS_LAST_TAB -> updatePagesSheetButton()
 		}
-	}
-
-	fun setSliderValue(value: Int, max: Int) {
-		binding.slider.valueTo = max.toFloat()
-		binding.slider.setValueRounded(value.toFloat())
-	}
-
-	fun setSliderReversed(reversed: Boolean) {
-		binding.slider.isRtl = reversed != isRtl
 	}
 
 	fun setTimerActive(isActive: Boolean) {
@@ -198,7 +151,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		binding.buttonSave.isVisible = ReaderControl.SAVE_PAGE in controls
 		binding.buttonTimer.isVisible = ReaderControl.TIMER in controls
 		binding.buttonBookmark.isVisible = ReaderControl.BOOKMARK in controls
-		binding.slider.isVisible = ReaderControl.SLIDER in controls
 		adjustLayoutParams()
 	}
 
@@ -224,14 +176,13 @@ class ReaderActionsView @JvmOverloads constructor(
 	}
 
 	private fun adjustLayoutParams() {
-		val isSliderVisible = binding.slider.isVisible
 		repeat(childCount) { i ->
 			val child = getChildAt(i)
 			if (child is FrameLayout) {
 				child.isVisible = child.hasVisibleChildren
 				child.updateLayoutParams<LayoutParams> {
-					width = if (isSliderVisible) LayoutParams.WRAP_CONTENT else 0
-					weight = if (isSliderVisible) 0f else 1f
+					width = 0
+					weight = 1f
 				}
 			}
 		}

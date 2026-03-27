@@ -89,6 +89,7 @@ class ChaptersFragment :
 		with(binding.recyclerViewChapters) {
 			addItemDecoration(TypedListSpacingDecoration(context, true))
 			checkNotNull(selectionController).attachToRecyclerView(this)
+			ItemTouchHelper(ChapterSwipeCallback(viewModel, chaptersAdapter!!)).attachToRecyclerView(this)
 			setHasFixedSize(true)
 			PagerNestedScrollHelper(this).bind(viewLifecycleOwner)
 			adapter = chaptersAdapter

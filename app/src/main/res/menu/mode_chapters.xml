@@ -40,6 +40,12 @@
 		app:showAsAction="ifRoom|withText" />
 
 	<item
+		android:id="@+id/action_mark_unread"
+		android:icon="@drawable/ic_eye_off"
+		android:title="@string/mark_unread"
+		app:showAsAction="ifRoom|withText" />
+
+	<item
 		android:id="@+id/action_select_range"
 		android:icon="@drawable/ic_select_range"
 		android:title="@string/select_range"

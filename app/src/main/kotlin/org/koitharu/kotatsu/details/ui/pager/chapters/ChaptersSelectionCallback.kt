@@ -54,6 +54,7 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_read).isVisible = items.isNotEmpty()
+		menu.findItem(R.id.action_mark_unread).isVisible = items.isNotEmpty()
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {
@@ -152,6 +153,18 @@ class ChaptersSelectionCallback(
 				if (ids.isNotEmpty()) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 					viewModel.markChaptersAsRead(ids.toCollection(ArrayList()))
+				} else {
+					return false
+				}
+				mode?.finish()
+				true
+			}
+
+			R.id.action_mark_unread -> {
+				val ids = controller.peekCheckedIds()
+				if (ids.isNotEmpty()) {
+					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+					viewModel.markChaptersAsUnread(ids.toCollection(ArrayList()))
 				} else {
 					return false
 				}

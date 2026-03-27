@@ -164,6 +164,42 @@ class HistoryRepository @Inject constructor(
 				)
 			}
 			db.getReadChaptersDao().insert(entities)
+			
+			// Update overall progress if possible
+			val lastChapterId = chaptersIds.lastOrNull() ?: return@withTransaction
+			val manga = mangaRepository.getManga(mangaId) ?: return@withTransaction
+			val chapters = manga.chapters ?: return@withTransaction
+			val chapterIndex = chapters.indexOfFirst { it.id == lastChapterId }
+			if (chapterIndex != -1) {
+				val percent = (chapterIndex + 1) / chapters.size.toFloat()
+				val history = db.getHistoryDao().find(mangaId)
+				if (history != null && percent > history.percent) {
+					db.getHistoryDao().upsert(history.copy(
+						chapterId = lastChapterId,
+						percent = percent,
+						maxPercent = maxOf(history.maxPercent, percent),
+						updatedAt = System.currentTimeMillis()
+					))
+				} else if (history == null) {
+					db.getHistoryDao().upsert(HistoryEntity(
+						mangaId = mangaId,
+						chapterId = lastChapterId,
+						percent = percent,
+						maxPercent = percent,
+						chaptersCount = chapters.size,
+						createdAt = System.currentTimeMillis(),
+						updatedAt = System.currentTimeMillis()
+					))
+				}
+			}
+		}
+	}
+
+	suspend fun markChaptersAsUnread(mangaId: Long, chaptersIds: List<Long>) {
+		db.withTransaction {
+			for (id in chaptersIds) {
+				db.getReadChaptersDao().delete(mangaId, id)
+			}
 		}
 	}
 

@@ -316,6 +316,26 @@ abstract class ChaptersPagesViewModel(
 		}
 	}
 
+	fun markChaptersAsUnread(chaptersIds: List<Long>) {
+		launchJob(Dispatchers.Default) {
+			val details = mangaDetails.value ?: return@launchJob
+			historyRepository.markChaptersAsUnread(details.id, chaptersIds)
+		}
+	}
+
+	fun toggleChapterBookmark(chapterId: Long) {
+		launchJob(Dispatchers.Default) {
+			val manga = requireManga()
+			val bookmark = bookmarks.value.find { it.chapterId == chapterId }
+			if (bookmark != null) {
+				bookmarksRepository.deleteBookmark(bookmark)
+			} else {
+				val chapter = manga.chapters?.find { it.id == chapterId } ?: return@launchJob
+				bookmarksRepository.addBookmark(Bookmark(manga, chapter))
+			}
+		}
+	}
+
 	fun toggleDeletionConfirmation(chapterId: Long) {
 		deletionConfirmation.update {
 			if (it.contains(chapterId)) it - chapterId else setOf(chapterId)
