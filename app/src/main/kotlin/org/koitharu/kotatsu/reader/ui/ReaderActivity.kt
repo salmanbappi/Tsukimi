@@ -461,20 +461,7 @@ class ReaderActivity :
             val isFullscreen = settings.isReaderFullscreenEnabled
             viewBinding.appbarTop.isVisible = isUiVisible
             viewBinding.toolbarDocked?.isVisible = isUiVisible
-            
-            // Dynamic awareness of top and bottom bars
-            viewBinding.containerSliderVertical?.let { sidebar ->
-                val lp = sidebar.layoutParams as CoordinatorLayout.LayoutParams
-                if (isUiVisible) {
-                    lp.topMargin = viewBinding.appbarTop.height + gestureInsets.top
-                    lp.bottomMargin = (viewBinding.toolbarDocked?.height ?: 0) + gestureInsets.bottom
-                } else {
-                    lp.topMargin = gestureInsets.top
-                    lp.bottomMargin = gestureInsets.bottom
-                }
-                sidebar.layoutParams = lp
-                sidebar.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
-            }
+            viewBinding.containerSliderVertical?.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
             
             viewBinding.infoBar.isGone = isUiVisible || (!viewModel.isInfoBarEnabled.value) || (settings.isReaderZenModeEnabled && !isUiVisible)
             viewBinding.infoBar.isTimeVisible = isFullscreen
