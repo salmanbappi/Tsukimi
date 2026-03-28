@@ -21,7 +21,8 @@ class ChapterSwipeCallback(
 
 	private val paint = Paint()
 	private val rect = RectF()
-	private val iconMargin = 16 // dp, will convert to px
+	private val iconMargin = 16 // dp
+	private var accentColor: Int = 0
 
 	override fun onMove(
 		recyclerView: RecyclerView,
@@ -36,20 +37,22 @@ class ChapterSwipeCallback(
 		if (item != null) {
 			viewHolder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 			if (direction == ItemTouchHelper.END) {
-				// Swipe End (Right in LTR): Toggle Read/Unseen
+				// Swipe Right (End): Toggle Read/Unseen
 				if (item.isUnread) {
 					viewModel.markChaptersAsRead(listOf(item.chapter.id))
 				} else {
 					viewModel.markChaptersAsUnread(listOf(item.chapter.id))
 				}
 			} else if (direction == ItemTouchHelper.START) {
-				// Swipe Start (Left in LTR): Toggle Bookmark
+				// Swipe Left (Start): Toggle Bookmark
 				viewModel.toggleChapterBookmark(item.chapter.id)
 			}
 		}
 		
-		// Always notify changed to reset the swiped state (Snap-back)
-		adapter.notifyItemChanged(position)
+		// Post to ensure ItemTouchHelper finishes its cycle before we re-bind the view
+		viewHolder.itemView.post {
+			adapter.notifyItemChanged(position)
+		}
 	}
 
 	override fun onChildDraw(
@@ -67,14 +70,14 @@ class ChapterSwipeCallback(
 			val height = itemView.bottom.toFloat() - itemView.top.toFloat()
 			val margin = (iconMargin * recyclerView.context.resources.displayMetrics.density).toInt()
 			val isRtl = recyclerView.layoutDirection == RecyclerView.LAYOUT_DIRECTION_RTL
+			
+			if (accentColor == 0) {
+				accentColor = recyclerView.context.getThemeColor(androidx.appcompat.R.attr.colorAccent)
+			}
 
-			// Determine if we are swiping in 'End' direction (Read Toggle) or 'Start' direction (Bookmark)
-			// In LTR: End is dX > 0, Start is dX < 0
-			// In RTL: End is dX < 0, Start is dX > 0
 			val isEndSwipe = if (isRtl) dX < 0 else dX > 0
 
 			if (isEndSwipe && item != null) {
-				// Toggle Read Visuals
 				paint.color = if (item.isUnread) {
 					ContextCompat.getColor(recyclerView.context, R.color.common_green)
 				} else {
@@ -103,11 +106,10 @@ class ChapterSwipeCallback(
 					icon.draw(c)
 				}
 			} else if (item != null) {
-				// Toggle Bookmark Visuals
 				paint.color = if (item.isBookmarked) {
 					ContextCompat.getColor(recyclerView.context, R.color.common_red)
 				} else {
-					recyclerView.context.getThemeColor(androidx.appcompat.R.attr.colorAccent)
+					accentColor
 				}
 				
 				if (dX > 0) {
@@ -137,8 +139,9 @@ class ChapterSwipeCallback(
 
 	override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
 		super.clearView(recyclerView, viewHolder)
-		// Ensure any remaining translation or custom drawing is cleared
+		// Hard reset and force invalidation to clear any custom canvas drawing
 		viewHolder.itemView.translationX = 0f
+		recyclerView.invalidate()
 	}
 	
 	override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.3f
