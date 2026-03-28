@@ -721,13 +721,13 @@ class ReaderActivity :
         if (uiState.isSliderAvailable()) {
             viewBinding.sliderVertical?.valueTo = (uiState.totalPages - 1).toFloat()
             viewBinding.sliderVertical?.value = uiState.currentPage.toFloat()
-            viewBinding.textViewCurrentPageVertical.text = (uiState.currentPage + 1).toString()
-            viewBinding.textViewTotalPagesVertical.text = uiState.totalPages.toString()
+            viewBinding.textViewCurrentPageVertical?.text = (uiState.currentPage + 1).toString()
+            viewBinding.textViewTotalPagesVertical?.text = uiState.totalPages.toString()
         } else {
             viewBinding.sliderVertical?.valueTo = 1f
             viewBinding.sliderVertical?.value = 0f
-            viewBinding.textViewCurrentPageVertical.text = "1"
-            viewBinding.textViewTotalPagesVertical.text = "1"
+            viewBinding.textViewCurrentPageVertical?.text = "1"
+            viewBinding.textViewTotalPagesVertical?.text = "1"
         }
         viewBinding.sliderVertical?.isEnabled = uiState.isSliderAvailable()
         viewBinding.buttonPrevVertical?.isEnabled = uiState.hasPreviousChapter()
