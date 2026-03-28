@@ -317,9 +317,9 @@ abstract class ChaptersPagesViewModel(
 			// Try to update history percent if marking the latest ones
 			val manga = details.toManga()
 			val branch = selectedBranch.value
-			val allChapters = manga.chapters?.get(branch) ?: return@launchJob
-			val lastChapterId = chaptersIds.maxByOrNull { id -> allChapters.indexOfFirst { it.id == id } } ?: return@launchJob
-			val chapterIndex = allChapters.indexOfFirst { it.id == lastChapterId }
+			val allChapters = details.chapters[branch] ?: return@launchJob
+			val lastChapterId = chaptersIds.maxByOrNull { id -> allChapters.indexOfFirst { chapter -> chapter.id == id } } ?: return@launchJob
+			val chapterIndex = allChapters.indexOfFirst { chapter -> chapter.id == lastChapterId }
 			if (chapterIndex != -1) {
 				val percent = (chapterIndex + 1) / allChapters.size.toFloat()
 				historyRepository.addOrUpdate(
