@@ -6,10 +6,21 @@ import org.koitharu.kotatsu.details.ui.adapter.ChaptersAdapter
 import org.koitharu.kotatsu.details.ui.model.ChapterListItem
 import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
 
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import androidx.core.content.ContextCompat
+import org.koitharu.kotatsu.R
+import org.koitharu.kotatsu.core.util.ext.getThemeColor
+import kotlin.math.abs
+
 class ChapterSwipeCallback(
 	private val viewModel: ChaptersPagesViewModel,
 	private val adapter: ChaptersAdapter,
 ) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.START or ItemTouchHelper.END) {
+
+	private val paint = Paint()
+	private val iconMargin = 16 // dp, will convert to px
 
 	override fun onMove(
 		recyclerView: RecyclerView,
@@ -34,6 +45,68 @@ class ChapterSwipeCallback(
 		
 		// Always notify changed to reset the swiped state
 		adapter.notifyItemChanged(position)
+	}
+
+	override fun onChildDraw(
+		c: Canvas,
+		recyclerView: RecyclerView,
+		viewHolder: RecyclerView.ViewHolder,
+		dX: Float,
+		dY: Float,
+		actionState: Int,
+		isCurrentlyActive: Boolean,
+	) {
+		if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+			val itemView = viewHolder.itemView
+			val height = itemView.bottom.toFloat() - itemView.top.toFloat()
+			val width = height / 3
+			val margin = (iconMargin * recyclerView.context.resources.displayMetrics.density).toInt()
+
+			if (dX < 0) {
+				// Swiping Left: Mark as Read (Green)
+				paint.color = ContextCompat.getColor(recyclerView.context, R.color.common_green)
+				val background = RectF(
+					itemView.right.toFloat() + dX,
+					itemView.top.toFloat(),
+					itemView.right.toFloat(),
+					itemView.bottom.toFloat()
+				)
+				c.drawRect(background, paint)
+
+				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_eye_check)
+				if (icon != null) {
+					icon.setTint(android.graphics.Color.WHITE)
+					val iconTop = itemView.top + (height - icon.intrinsicHeight) / 2
+					val iconLeft = itemView.right - margin - icon.intrinsicWidth
+					val iconRight = itemView.right - margin
+					val iconBottom = iconTop + icon.intrinsicHeight
+					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
+					icon.draw(c)
+				}
+			} else if (dX > 0) {
+				// Swiping Right: Bookmark (Blue/Accent)
+				paint.color = recyclerView.context.getThemeColor(androidx.appcompat.R.attr.colorAccent)
+				val background = RectF(
+					itemView.left.toFloat(),
+					itemView.top.toFloat(),
+					itemView.left.toFloat() + dX,
+					itemView.bottom.toFloat()
+				)
+				c.drawRect(background, paint)
+
+				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_bookmark)
+				if (icon != null) {
+					icon.setTint(android.graphics.Color.WHITE)
+					val iconTop = itemView.top + (height - icon.intrinsicHeight) / 2
+					val iconLeft = itemView.left + margin
+					val iconRight = itemView.left + margin + icon.intrinsicWidth
+					val iconBottom = iconTop + icon.intrinsicHeight
+					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
+					icon.draw(c)
+				}
+			}
+		}
+		super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
 	}
 	
 	override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.3f
