@@ -12,6 +12,7 @@ import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.appcompat.widget.PopupMenu
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint

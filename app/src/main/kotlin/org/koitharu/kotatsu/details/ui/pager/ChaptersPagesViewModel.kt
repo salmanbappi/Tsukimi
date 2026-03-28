@@ -313,6 +313,24 @@ abstract class ChaptersPagesViewModel(
 		launchJob(Dispatchers.Default) {
 			val details = mangaDetails.value ?: return@launchJob
 			historyRepository.markChaptersAsRead(details.id, chaptersIds)
+
+			// Try to update history percent if marking the latest ones
+			val manga = details.toManga()
+			val branch = selectedBranch.value
+			val allChapters = manga.chapters?.get(branch) ?: return@launchJob
+			val lastChapterId = chaptersIds.maxByOrNull { id -> allChapters.indexOfFirst { it.id == id } } ?: return@launchJob
+			val chapterIndex = allChapters.indexOfFirst { it.id == lastChapterId }
+			if (chapterIndex != -1) {
+				val percent = (chapterIndex + 1) / allChapters.size.toFloat()
+				historyRepository.addOrUpdate(
+					manga = manga,
+					chapterId = lastChapterId,
+					page = -1,
+					scroll = 0,
+					percent = percent,
+					force = true
+				)
+			}
 		}
 	}
 
@@ -328,10 +346,21 @@ abstract class ChaptersPagesViewModel(
 			val manga = requireManga()
 			val bookmark = bookmarks.value.find { it.chapterId == chapterId }
 			if (bookmark != null) {
-				bookmarksRepository.deleteBookmark(bookmark)
+				bookmarksRepository.removeBookmark(bookmark.manga.id, bookmark.chapterId, bookmark.page)
 			} else {
 				val chapter = manga.chapters?.find { it.id == chapterId } ?: return@launchJob
-				bookmarksRepository.addBookmark(Bookmark(manga, chapter))
+				bookmarksRepository.addBookmark(
+					Bookmark(
+						manga = manga,
+						pageId = 0L,
+						chapterId = chapter.id,
+						page = 0,
+						scroll = 0,
+						imageUrl = "",
+						createdAt = java.time.Instant.now(),
+						percent = 0f
+					)
+				)
 			}
 		}
 	}
