@@ -156,8 +156,11 @@ class ReaderActivity :
         		viewBinding.sliderVertical?.setLabelFormatter(PageLabelFormatter())
         		viewBinding.sliderVertical?.addOnChangeListener { slider, value, fromUser ->
         			if (fromUser) {
-						slider.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-        				switchPageTo(value.toInt())
+						val newPage = value.toInt()
+						if (newPage != viewModel.uiState.value?.currentPage) {
+							slider.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+							switchPageTo(newPage)
+						}
         			}
         		}
         		

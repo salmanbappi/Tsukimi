@@ -60,7 +60,7 @@ class ChapterSwipeCallback(
 		actionState: Int,
 		isCurrentlyActive: Boolean,
 	) {
-		if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+		if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE && dX != 0f) {
 			val itemView = viewHolder.itemView
 			val item = adapter.items.getOrNull(viewHolder.bindingAdapterPosition) as? ChapterListItem
 			val height = itemView.bottom.toFloat() - itemView.top.toFloat()
@@ -130,6 +130,12 @@ class ChapterSwipeCallback(
 			}
 		}
 		super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+	}
+
+	override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+		super.clearView(recyclerView, viewHolder)
+		// Ensure any remaining translation or custom drawing is cleared
+		viewHolder.itemView.translationX = 0f
 	}
 	
 	override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.3f
