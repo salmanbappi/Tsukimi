@@ -160,8 +160,8 @@ class ReaderActivity :
         			}
         		}
         		
-        		viewBinding.buttonPrevVertical.setOnClickListener { switchChapterBy(-1) }
-        		viewBinding.buttonNextVertical.setOnClickListener { switchChapterBy(1) }
+        		viewBinding.buttonPrevVertical?.setOnClickListener { switchChapterBy(-1) }
+        		viewBinding.buttonNextVertical?.setOnClickListener { switchChapterBy(1) }
 
         		updateAiTranslateFabVisibility()
         		idlingDetector.bindToLifecycle(this)
@@ -454,7 +454,7 @@ class ReaderActivity :
             val isFullscreen = settings.isReaderFullscreenEnabled
             viewBinding.appbarTop.isVisible = isUiVisible
             viewBinding.toolbarDocked?.isVisible = isUiVisible
-            viewBinding.containerSliderVertical.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
+            viewBinding.containerSliderVertical?.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
             viewBinding.infoBar.isGone = isUiVisible || (!viewModel.isInfoBarEnabled.value) || (settings.isReaderZenModeEnabled && !isUiVisible)
             viewBinding.infoBar.isTimeVisible = isFullscreen
             updateScrollTimerButton()
@@ -726,10 +726,8 @@ class ReaderActivity :
             viewBinding.sliderVertical?.value = 0f
         }
         viewBinding.sliderVertical?.isEnabled = uiState.isSliderAvailable()
-        viewBinding.buttonPrevVertical.isEnabled = uiState.hasPreviousChapter()
-        viewBinding.buttonNextVertical.isEnabled = uiState.hasNextChapter()
-        viewBinding.actionsView.isNextEnabled = uiState.hasNextChapter()
-        viewBinding.actionsView.isPrevEnabled = uiState.hasPreviousChapter()
+        viewBinding.buttonPrevVertical?.isEnabled = uiState.hasPreviousChapter()
+        viewBinding.buttonNextVertical?.isEnabled = uiState.hasNextChapter()
     }
 
     private fun updateScrollTimerButton() {
