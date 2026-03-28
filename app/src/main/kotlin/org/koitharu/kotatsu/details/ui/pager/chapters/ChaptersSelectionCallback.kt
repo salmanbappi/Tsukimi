@@ -51,10 +51,23 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_save).isVisible = false // canSave
 		menu.findItem(R.id.action_delete).isVisible = false // canDelete
 		menu.findItem(R.id.action_select_all).isVisible = items.size < allItems.size
+		val selectedItems = controller.peekCheckedItems().filterIsInstance<ChapterListItem>()
+		val allRead = selectedItems.all { !it.isUnread }
+		
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
-		menu.findItem(R.id.action_mark_read).isVisible = items.isNotEmpty()
-		menu.findItem(R.id.action_mark_unread).isVisible = items.isNotEmpty()
+		
+		val markReadItem = menu.findItem(R.id.action_mark_read)
+		val markUnreadItem = menu.findItem(R.id.action_mark_unread)
+		
+		if (allRead) {
+			markReadItem.isVisible = false
+			markUnreadItem.isVisible = true
+		} else {
+			markReadItem.isVisible = true
+			markUnreadItem.isVisible = false
+		}
+		
 		mode?.title = items.size.toString()
 		var hasGap = false
 		for (i in 0 until items.size - 1) {

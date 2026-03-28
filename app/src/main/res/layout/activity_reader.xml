@@ -66,14 +66,14 @@
 		android:visibility="gone"
 		tools:visibility="visible" />
 
-	<LinearLayout
+	<androidx.constraintlayout.widget.ConstraintLayout
 		android:id="@+id/container_slider_vertical"
 		android:layout_width="48dp"
-		android:layout_height="wrap_content"
-		android:layout_gravity="end|center_vertical"
+		android:layout_height="match_parent"
+		android:layout_gravity="end"
+		android:layout_marginTop="80dp"
+		android:layout_marginBottom="100dp"
 		android:layout_marginEnd="4dp"
-		android:gravity="center_horizontal"
-		android:orientation="vertical"
 		android:visibility="gone"
 		tools:visibility="visible">
 
@@ -83,18 +83,24 @@
 			android:layout_width="48dp"
 			android:layout_height="48dp"
 			android:contentDescription="@string/prev_chapter"
-			app:icon="@drawable/ic_prev" />
+			android:rotation="270"
+			app:icon="@drawable/ic_next"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintEnd_toEndOf="parent" />
 
 		<com.google.android.material.slider.Slider
 			android:id="@+id/slider_vertical"
-			android:layout_width="300dp"
+			android:layout_width="0dp"
 			android:layout_height="48dp"
-			android:layout_marginTop="126dp"
-			android:layout_marginBottom="126dp"
 			android:rotation="90"
-			android:stepSize="1.0"
 			android:valueFrom="0"
 			app:labelBehavior="floating"
+			app:layout_constraintTop_toBottomOf="@id/button_prev_vertical"
+			app:layout_constraintBottom_toTopOf="@id/button_next_vertical"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintWidth_min="200dp"
 			tools:value="6"
 			tools:valueTo="20" />
 
@@ -104,9 +110,13 @@
 			android:layout_width="48dp"
 			android:layout_height="48dp"
 			android:contentDescription="@string/next_chapter"
-			app:icon="@drawable/ic_next" />
+			android:rotation="90"
+			app:icon="@drawable/ic_next"
+			app:layout_bottomToBottomOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintEnd_toEndOf="parent" />
 
-	</LinearLayout>
+	</androidx.constraintlayout.widget.ConstraintLayout>
 
 	<org.koitharu.kotatsu.reader.ui.ScrollTimerControlView
 		android:id="@+id/timerControl"

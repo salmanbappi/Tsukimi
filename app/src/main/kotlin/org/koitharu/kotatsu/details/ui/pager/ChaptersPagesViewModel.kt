@@ -316,7 +316,9 @@ abstract class ChaptersPagesViewModel(
 
 			// Try to update history percent if marking the latest ones
 			val manga = details.toManga()
-			val allChapters = manga.chapters.orEmpty()
+			val allChapters = details.chapters.values.flatten()
+			if (allChapters.isEmpty()) return@launchJob
+			
 			val lastChapterId = chaptersIds.maxByOrNull { id -> allChapters.indexOfFirst { chapter -> chapter.id == id } } ?: return@launchJob
 			val chapterIndex = allChapters.indexOfFirst { chapter -> chapter.id == lastChapterId }
 			if (chapterIndex != -1) {
