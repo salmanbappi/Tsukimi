@@ -450,6 +450,9 @@ class ReaderActivity :
                 viewBinding.toolbarDocked?.let {
                     transition.addTransition(Slide(Gravity.BOTTOM).addTarget(it))
                 }
+                viewBinding.containerSliderVertical?.let {
+                    transition.addTransition(Slide(Gravity.END).addTarget(it))
+                }
                 TransitionManager.beginDelayedTransition(viewBinding.root, transition)
             }
             val isFullscreen = settings.isReaderFullscreenEnabled
