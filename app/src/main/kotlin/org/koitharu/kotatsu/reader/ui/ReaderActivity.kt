@@ -739,18 +739,19 @@ class ReaderActivity :
         ) {
             viewBinding.toastView.showTemporary(chapterTitle, TOAST_DURATION)
         }
-        if (uiState.isSliderAvailable()) {
+        if (uiState.isSliderAvailable() && uiState.totalPages > 1) {
             viewBinding.sliderVertical?.valueTo = (uiState.totalPages - 1).toFloat()
             viewBinding.sliderVertical?.value = uiState.currentPage.toFloat()
             viewBinding.textViewCurrentPageVertical?.text = (uiState.currentPage + 1).toString()
             viewBinding.textViewTotalPagesVertical?.text = uiState.totalPages.toString()
+            viewBinding.sliderVertical?.isEnabled = true
         } else {
             viewBinding.sliderVertical?.valueTo = 1f
             viewBinding.sliderVertical?.value = 0f
-            viewBinding.textViewCurrentPageVertical?.text = "1"
-            viewBinding.textViewTotalPagesVertical?.text = "1"
+            viewBinding.textViewCurrentPageVertical?.text = (uiState.currentPage + 1).toString()
+            viewBinding.textViewTotalPagesVertical?.text = uiState.totalPages.toString()
+            viewBinding.sliderVertical?.isEnabled = false
         }
-        viewBinding.sliderVertical?.isEnabled = uiState.isSliderAvailable()
         viewBinding.buttonPrevVertical?.isEnabled = uiState.hasPreviousChapter()
         viewBinding.buttonNextVertical?.isEnabled = uiState.hasNextChapter()
     }

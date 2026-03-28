@@ -20,6 +20,7 @@ class ChapterSwipeCallback(
 ) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.START or ItemTouchHelper.END) {
 
 	private val paint = Paint()
+	private val rect = RectF()
 	private val iconMargin = 16 // dp, will convert to px
 
 	override fun onMove(
@@ -35,14 +36,14 @@ class ChapterSwipeCallback(
 		if (item != null) {
 			viewHolder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 			if (direction == ItemTouchHelper.END) {
-				// Swipe Right: Toggle Read/Unseen
+				// Swipe End (Right in LTR): Toggle Read/Unseen
 				if (item.isUnread) {
 					viewModel.markChaptersAsRead(listOf(item.chapter.id))
 				} else {
 					viewModel.markChaptersAsUnread(listOf(item.chapter.id))
 				}
 			} else if (direction == ItemTouchHelper.START) {
-				// Swipe Left: Toggle Bookmark
+				// Swipe Start (Left in LTR): Toggle Bookmark
 				viewModel.toggleChapterBookmark(item.chapter.id)
 			}
 		}
@@ -65,66 +66,68 @@ class ChapterSwipeCallback(
 			val item = adapter.items.getOrNull(viewHolder.bindingAdapterPosition) as? ChapterListItem
 			val height = itemView.bottom.toFloat() - itemView.top.toFloat()
 			val margin = (iconMargin * recyclerView.context.resources.displayMetrics.density).toInt()
+			val isRtl = recyclerView.layoutDirection == RecyclerView.LAYOUT_DIRECTION_RTL
 
-			if (dX > 0 && item != null) {
-				// Swiping Right: Toggle Read (Green/Gray)
+			// Determine if we are swiping in 'End' direction (Read Toggle) or 'Start' direction (Bookmark)
+			// In LTR: End is dX > 0, Start is dX < 0
+			// In RTL: End is dX < 0, Start is dX > 0
+			val isEndSwipe = if (isRtl) dX < 0 else dX > 0
+
+			if (isEndSwipe && item != null) {
+				// Toggle Read Visuals
 				paint.color = if (item.isUnread) {
 					ContextCompat.getColor(recyclerView.context, R.color.common_green)
 				} else {
 					android.graphics.Color.GRAY
 				}
-				val background = RectF(
-					itemView.left.toFloat(),
-					itemView.top.toFloat(),
-					itemView.left.toFloat() + dX,
-					itemView.bottom.toFloat()
-				)
-				c.drawRect(background, paint)
+				
+				if (dX > 0) {
+					rect.set(itemView.left.toFloat(), itemView.top.toFloat(), itemView.left.toFloat() + dX, itemView.bottom.toFloat())
+				} else {
+					rect.set(itemView.right.toFloat() + dX, itemView.top.toFloat(), itemView.right.toFloat(), itemView.bottom.toFloat())
+				}
+				c.drawRect(rect, paint)
 
 				val iconRes = if (item.isUnread) R.drawable.ic_check else R.drawable.ic_eye_off
 				val icon = ContextCompat.getDrawable(recyclerView.context, iconRes)
 				if (icon != null) {
 					icon.setTint(android.graphics.Color.WHITE)
-					val iconHeight = icon.intrinsicHeight
-					val iconWidth = icon.intrinsicWidth
 					val swipeProgress = abs(dX) / itemView.width
 					val scale = (swipeProgress * 3).coerceIn(0.5f, 1.2f)
+					val iconHeight = (icon.intrinsicHeight * scale).toInt()
+					val iconWidth = (icon.intrinsicWidth * scale).toInt()
 					
-					val iconTop = itemView.top + (height - iconHeight * scale) / 2
-					val iconLeft = itemView.left + margin
-					val iconRight = itemView.left + margin + iconWidth * scale
-					val iconBottom = iconTop + iconHeight * scale
-					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
+					val iconTop = itemView.top + (height - iconHeight) / 2
+					val iconLeft = if (dX > 0) itemView.left + margin else itemView.right - margin - iconWidth
+					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconLeft.toInt() + iconWidth, iconTop.toInt() + iconHeight)
 					icon.draw(c)
 				}
-			} else if (dX < 0 && item != null) {
-				// Swiping Left: Toggle Bookmark (Blue/Red)
+			} else if (item != null) {
+				// Toggle Bookmark Visuals
 				paint.color = if (item.isBookmarked) {
 					ContextCompat.getColor(recyclerView.context, R.color.common_red)
 				} else {
 					recyclerView.context.getThemeColor(androidx.appcompat.R.attr.colorAccent)
 				}
-				val background = RectF(
-					itemView.right.toFloat() + dX,
-					itemView.top.toFloat(),
-					itemView.right.toFloat(),
-					itemView.bottom.toFloat()
-				)
-				c.drawRect(background, paint)
+				
+				if (dX > 0) {
+					rect.set(itemView.left.toFloat(), itemView.top.toFloat(), itemView.left.toFloat() + dX, itemView.bottom.toFloat())
+				} else {
+					rect.set(itemView.right.toFloat() + dX, itemView.top.toFloat(), itemView.right.toFloat(), itemView.bottom.toFloat())
+				}
+				c.drawRect(rect, paint)
 
 				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_bookmark)
 				if (icon != null) {
 					icon.setTint(android.graphics.Color.WHITE)
-					val iconHeight = icon.intrinsicHeight
-					val iconWidth = icon.intrinsicWidth
 					val swipeProgress = abs(dX) / itemView.width
 					val scale = (swipeProgress * 3).coerceIn(0.5f, 1.2f)
+					val iconHeight = (icon.intrinsicHeight * scale).toInt()
+					val iconWidth = (icon.intrinsicWidth * scale).toInt()
 
-					val iconTop = itemView.top + (height - iconHeight * scale) / 2
-					val iconLeft = itemView.right - margin - iconWidth * scale
-					val iconRight = itemView.right - margin
-					val iconBottom = iconTop + iconHeight * scale
-					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
+					val iconTop = itemView.top + (height - iconHeight) / 2
+					val iconLeft = if (dX > 0) itemView.left + margin else itemView.right - margin - iconWidth
+					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconLeft.toInt() + iconWidth, iconTop.toInt() + iconHeight)
 					icon.draw(c)
 				}
 			}
