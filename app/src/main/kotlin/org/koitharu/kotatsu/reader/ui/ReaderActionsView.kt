@@ -53,18 +53,6 @@ class ReaderActionsView @JvmOverloads constructor(
 		}
 	}
 
-	var isNextEnabled: Boolean
-		get() = binding.buttonNext.isEnabled
-		set(value) {
-			binding.buttonNext.isEnabled = value
-		}
-
-	var isPrevEnabled: Boolean
-		get() = binding.buttonPrev.isEnabled
-		set(value) {
-			binding.buttonPrev.isEnabled = value
-		}
-
 	var isBookmarkAdded: Boolean = false
 		set(value) {
 			if (field != value) {
@@ -78,8 +66,6 @@ class ReaderActionsView @JvmOverloads constructor(
 	init {
 		orientation = HORIZONTAL
 		gravity = Gravity.CENTER_VERTICAL
-		binding.buttonNext.initAction()
-		binding.buttonPrev.initAction()
 		binding.buttonSave.initAction()
 		binding.buttonOptions.initAction()
 		binding.buttonScreenRotation.initAction()
@@ -107,8 +93,6 @@ class ReaderActionsView @JvmOverloads constructor(
 
 	override fun onClick(v: View) {
 		when (v.id) {
-			R.id.button_prev -> listener?.switchChapterBy(-1)
-			R.id.button_next -> listener?.switchChapterBy(1)
 			R.id.button_save -> listener?.onSavePageClick()
 			R.id.button_timer -> listener?.onScrollTimerClick(isLongClick = false)
 			R.id.button_pages_thumbs -> AppRouter.from(this)?.showChapterPagesSheet()
@@ -144,8 +128,6 @@ class ReaderActionsView @JvmOverloads constructor(
 
 	private fun updateControlsVisibility() {
 		val controls = settings.readerControls
-		binding.buttonPrev.isVisible = ReaderControl.PREV_CHAPTER in controls
-		binding.buttonNext.isVisible = ReaderControl.NEXT_CHAPTER in controls
 		binding.buttonPagesThumbs.isVisible = ReaderControl.PAGES_SHEET in controls
 		binding.buttonScreenRotation.isVisible = ReaderControl.SCREEN_ROTATION in controls
 		binding.buttonSave.isVisible = ReaderControl.SAVE_PAGE in controls

@@ -159,6 +159,9 @@ class ReaderActivity :
         				switchPageTo(value.toInt())
         			}
         		}
+        		
+        		viewBinding.buttonPrevVertical.setOnClickListener { switchChapterBy(-1) }
+        		viewBinding.buttonNextVertical.setOnClickListener { switchChapterBy(1) }
 
         		updateAiTranslateFabVisibility()
         		idlingDetector.bindToLifecycle(this)
@@ -294,7 +297,6 @@ class ReaderActivity :
         if (viewBinding.appbarTop.isVisible) {
             lifecycle.postDelayed(TimeUnit.SECONDS.toMillis(1), hideUiRunnable)
         }
-        viewBinding.sliderVertical?.layoutDirection = if (mode == ReaderMode.REVERSED) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         viewBinding.timerControl.onReaderModeChanged(mode)
     }
 
@@ -452,7 +454,7 @@ class ReaderActivity :
             val isFullscreen = settings.isReaderFullscreenEnabled
             viewBinding.appbarTop.isVisible = isUiVisible
             viewBinding.toolbarDocked?.isVisible = isUiVisible
-            viewBinding.sliderVertical?.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
+            viewBinding.containerSliderVertical.isVisible = isUiVisible && (viewModel.uiState.value?.isSliderAvailable() == true)
             viewBinding.infoBar.isGone = isUiVisible || (!viewModel.isInfoBarEnabled.value) || (settings.isReaderZenModeEnabled && !isUiVisible)
             viewBinding.infoBar.isTimeVisible = isFullscreen
             updateScrollTimerButton()
@@ -724,6 +726,8 @@ class ReaderActivity :
             viewBinding.sliderVertical?.value = 0f
         }
         viewBinding.sliderVertical?.isEnabled = uiState.isSliderAvailable()
+        viewBinding.buttonPrevVertical.isEnabled = uiState.hasPreviousChapter()
+        viewBinding.buttonNextVertical.isEnabled = uiState.hasNextChapter()
         viewBinding.actionsView.isNextEnabled = uiState.hasNextChapter()
         viewBinding.actionsView.isPrevEnabled = uiState.hasPreviousChapter()
     }

@@ -160,7 +160,7 @@ class HistoryRepository @Inject constructor(
 				org.koitharu.kotatsu.core.db.entity.ReadChapterEntity(
 					mangaId = mangaId,
 					chapterId = it,
-					page = -1
+					page = 0
 				)
 			}
 			db.getReadChaptersDao().insert(entities)

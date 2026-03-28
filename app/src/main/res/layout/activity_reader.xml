@@ -66,20 +66,46 @@
 		android:visibility="gone"
 		tools:visibility="visible" />
 
-	<com.google.android.material.slider.Slider
-		android:id="@+id/slider_vertical"
-		android:layout_width="300dp"
+	<LinearLayout
+		android:id="@+id/container_slider_vertical"
+		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:layout_gravity="end|center_vertical"
-		android:layout_marginEnd="-120dp"
-		android:rotation="270"
-		android:stepSize="1.0"
-		android:valueFrom="0"
+		android:gravity="center_horizontal"
+		android:orientation="vertical"
 		android:visibility="gone"
-		app:labelBehavior="floating"
-		tools:value="6"
-		tools:valueTo="20"
-		tools:visibility="visible" />
+		tools:visibility="visible">
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_prev_vertical"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:contentDescription="@string/prev_chapter"
+			app:icon="@drawable/ic_prev" />
+
+		<com.google.android.material.slider.Slider
+			android:id="@+id/slider_vertical"
+			android:layout_width="300dp"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="120dp"
+			android:layout_marginBottom="120dp"
+			android:rotation="270"
+			android:stepSize="1.0"
+			android:valueFrom="0"
+			app:labelBehavior="floating"
+			tools:value="6"
+			tools:valueTo="20" />
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_next_vertical"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:contentDescription="@string/next_chapter"
+			app:icon="@drawable/ic_next" />
+
+	</LinearLayout>
 
 	<org.koitharu.kotatsu.reader.ui.ScrollTimerControlView
 		android:id="@+id/timerControl"

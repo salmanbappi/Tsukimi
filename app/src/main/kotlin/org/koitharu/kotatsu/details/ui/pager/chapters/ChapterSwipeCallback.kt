@@ -9,7 +9,7 @@ import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
 class ChapterSwipeCallback(
 	private val viewModel: ChaptersPagesViewModel,
 	private val adapter: ChaptersAdapter,
-) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.START or ItemTouchHelper.END) {
 
 	override fun onMove(
 		recyclerView: RecyclerView,
@@ -19,14 +19,17 @@ class ChapterSwipeCallback(
 
 	override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
 		val position = viewHolder.bindingAdapterPosition
-		val item = adapter.items.getOrNull(position) as? ChapterListItem ?: return
+		val item = adapter.items.getOrNull(position) as? ChapterListItem
 		
-		if (direction == ItemTouchHelper.LEFT) {
-			// Swipe Left: Mark as read
-			viewModel.markChaptersAsRead(listOf(item.chapter.id))
-		} else if (direction == ItemTouchHelper.RIGHT) {
-			// Swipe Right: Bookmark
-			viewModel.toggleChapterBookmark(item.chapter.id)
+		if (item != null) {
+			viewHolder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+			if (direction == ItemTouchHelper.START) {
+				// Swipe Left (in LTR): Mark as read
+				viewModel.markChaptersAsRead(listOf(item.chapter.id))
+			} else if (direction == ItemTouchHelper.END) {
+				// Swipe Right (in LTR): Bookmark
+				viewModel.toggleChapterBookmark(item.chapter.id)
+			}
 		}
 		
 		// Always notify changed to reset the swiped state
