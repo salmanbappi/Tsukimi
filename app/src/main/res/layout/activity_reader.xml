@@ -68,12 +68,14 @@
 
 	<androidx.constraintlayout.widget.ConstraintLayout
 		android:id="@+id/container_slider_vertical"
-		android:layout_width="48dp"
+		android:layout_width="56dp"
 		android:layout_height="match_parent"
 		android:layout_gravity="end"
 		android:layout_marginTop="80dp"
 		android:layout_marginBottom="100dp"
-		android:layout_marginEnd="4dp"
+		android:layout_marginEnd="8dp"
+		android:background="@drawable/bg_reader_vertical_controls"
+		android:elevation="4dp"
 		android:visibility="gone"
 		tools:visibility="visible">
 
@@ -82,6 +84,7 @@
 			style="?materialIconButtonStyle"
 			android:layout_width="48dp"
 			android:layout_height="48dp"
+			android:layout_marginTop="8dp"
 			android:contentDescription="@string/prev_chapter"
 			android:rotation="90"
 			app:icon="@drawable/ic_prev"
@@ -91,7 +94,7 @@
 
 		<com.google.android.material.slider.Slider
 			android:id="@+id/slider_vertical"
-			android:layout_width="480dp"
+			android:layout_width="0dp"
 			android:layout_height="48dp"
 			android:rotation="90"
 			android:valueFrom="0"
@@ -100,6 +103,7 @@
 			app:layout_constraintBottom_toTopOf="@id/button_next_vertical"
 			app:layout_constraintStart_toStartOf="parent"
 			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintWidth_min="300dp"
 			tools:value="6"
 			tools:valueTo="20" />
 
@@ -108,6 +112,7 @@
 			style="?materialIconButtonStyle"
 			android:layout_width="48dp"
 			android:layout_height="48dp"
+			android:layout_marginBottom="8dp"
 			android:contentDescription="@string/next_chapter"
 			android:rotation="90"
 			app:icon="@drawable/ic_next"
