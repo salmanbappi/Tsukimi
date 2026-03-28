@@ -339,6 +339,31 @@ abstract class ChaptersPagesViewModel(
 		launchJob(Dispatchers.Default) {
 			val details = mangaDetails.value ?: return@launchJob
 			historyRepository.markChaptersAsUnread(details.id, chaptersIds)
+
+			// Update history percent to the last chapter before the unread ones
+			val manga = details.toManga()
+			val allChapters = details.chapters.values.flatten()
+			if (allChapters.isEmpty()) return@launchJob
+
+			val firstUnreadIndex = allChapters.indexOfFirst { it.id in chaptersIds }
+			if (firstUnreadIndex != -1) {
+				val lastReadIndex = firstUnreadIndex - 1
+				if (lastReadIndex >= 0) {
+					val lastReadChapter = allChapters[lastReadIndex]
+					val percent = (lastReadIndex + 1) / allChapters.size.toFloat()
+					historyRepository.addOrUpdate(
+						manga = manga,
+						chapterId = lastReadChapter.id,
+						page = 0,
+						scroll = 0,
+						percent = percent,
+						force = true
+					)
+				} else {
+					// All chapters are unread now
+					historyRepository.delete(manga)
+				}
+			}
 		}
 	}
 

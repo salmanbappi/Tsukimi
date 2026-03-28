@@ -164,7 +164,7 @@ class ChaptersSelectionCallback(
 				val ids = controller.peekCheckedIds()
 				if (ids.isNotEmpty()) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-					viewModel.markChaptersAsRead(ids.toCollection(ArrayList()))
+					viewModel.markChaptersAsRead(ids.toLongArray().toList())
 				} else {
 					return false
 				}
@@ -176,7 +176,7 @@ class ChaptersSelectionCallback(
 				val ids = controller.peekCheckedIds()
 				if (ids.isNotEmpty()) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-					viewModel.markChaptersAsUnread(ids.toCollection(ArrayList()))
+					viewModel.markChaptersAsUnread(ids.toLongArray().toList())
 				} else {
 					return false
 				}

@@ -83,26 +83,24 @@
 			android:layout_width="48dp"
 			android:layout_height="48dp"
 			android:contentDescription="@string/prev_chapter"
-			android:rotation="270"
 			app:icon="@drawable/ic_next"
+			app:iconRotation="270"
 			app:layout_constraintTop_toTopOf="parent"
 			app:layout_constraintStart_toStartOf="parent"
 			app:layout_constraintEnd_toEndOf="parent" />
-
-		<com.google.android.material.slider.Slider
-			android:id="@+id/slider_vertical"
-			android:layout_width="0dp"
-			android:layout_height="48dp"
-			android:rotation="90"
-			android:valueFrom="0"
-			app:labelBehavior="floating"
-			app:layout_constraintTop_toBottomOf="@id/button_prev_vertical"
-			app:layout_constraintBottom_toTopOf="@id/button_next_vertical"
-			app:layout_constraintStart_toStartOf="parent"
-			app:layout_constraintEnd_toEndOf="parent"
-			app:layout_constraintWidth_min="200dp"
-			tools:value="6"
-			tools:valueTo="20" />
+<com.google.android.material.slider.Slider
+	android:id="@+id/slider_vertical"
+	android:layout_width="480dp"
+	android:layout_height="48dp"
+	android:rotation="90"
+	android:valueFrom="0"
+	app:labelBehavior="floating"
+	app:layout_constraintTop_toBottomOf="@id/button_prev_vertical"
+	app:layout_constraintBottom_toTopOf="@id/button_next_vertical"
+	app:layout_constraintStart_toStartOf="parent"
+	app:layout_constraintEnd_toEndOf="parent"
+	tools:value="6"
+	tools:valueTo="20" />
 
 		<com.google.android.material.button.MaterialButton
 			android:id="@+id/button_next_vertical"
@@ -110,8 +108,8 @@
 			android:layout_width="48dp"
 			android:layout_height="48dp"
 			android:contentDescription="@string/next_chapter"
-			android:rotation="90"
 			app:icon="@drawable/ic_next"
+			app:iconRotation="90"
 			app:layout_constraintBottom_toBottomOf="parent"
 			app:layout_constraintStart_toStartOf="parent"
 			app:layout_constraintEnd_toEndOf="parent" />
