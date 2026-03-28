@@ -16,6 +16,7 @@ import org.koitharu.kotatsu.core.ui.list.ListSelectionController
 import org.koitharu.kotatsu.core.util.ext.asArrayList
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
 import org.koitharu.kotatsu.core.util.ext.toCollection
+import org.koitharu.kotatsu.core.util.ext.toLongArray
 import org.koitharu.kotatsu.core.util.ext.toSet
 import org.koitharu.kotatsu.details.ui.model.ChapterListItem
 import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
