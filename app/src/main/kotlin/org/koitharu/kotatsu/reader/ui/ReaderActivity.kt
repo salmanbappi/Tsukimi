@@ -464,7 +464,7 @@ class ReaderActivity :
                 val lp = sidebar.layoutParams as CoordinatorLayout.LayoutParams
                 if (isUiVisible) {
                     lp.topMargin = viewBinding.appbarTop.height + gestureInsets.top
-                    lp.bottomMargin = (viewBinding.toolbar_docked?.height ?: 0) + gestureInsets.bottom
+                    lp.bottomMargin = (viewBinding.toolbarDocked?.height ?: 0) + gestureInsets.bottom
                 } else {
                     lp.topMargin = gestureInsets.top
                     lp.bottomMargin = gestureInsets.bottom
