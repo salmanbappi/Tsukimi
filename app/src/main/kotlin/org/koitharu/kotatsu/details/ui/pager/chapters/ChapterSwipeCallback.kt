@@ -73,13 +73,18 @@ class ChapterSwipeCallback(
 				)
 				c.drawRect(background, paint)
 
-				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_eye_check)
+				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_check)
 				if (icon != null) {
 					icon.setTint(android.graphics.Color.WHITE)
-					val iconTop = itemView.top + (height - icon.intrinsicHeight) / 2
-					val iconLeft = itemView.right - margin - icon.intrinsicWidth
+					val iconHeight = icon.intrinsicHeight
+					val iconWidth = icon.intrinsicWidth
+					val swipeProgress = abs(dX) / itemView.width
+					val scale = (swipeProgress * 2).coerceIn(0.5f, 1.2f)
+					
+					val iconTop = itemView.top + (height - iconHeight * scale) / 2
+					val iconLeft = itemView.right - margin - iconWidth * scale
 					val iconRight = itemView.right - margin
-					val iconBottom = iconTop + icon.intrinsicHeight
+					val iconBottom = iconTop + iconHeight * scale
 					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
 					icon.draw(c)
 				}
@@ -97,10 +102,15 @@ class ChapterSwipeCallback(
 				val icon = ContextCompat.getDrawable(recyclerView.context, R.drawable.ic_bookmark)
 				if (icon != null) {
 					icon.setTint(android.graphics.Color.WHITE)
-					val iconTop = itemView.top + (height - icon.intrinsicHeight) / 2
+					val iconHeight = icon.intrinsicHeight
+					val iconWidth = icon.intrinsicWidth
+					val swipeProgress = abs(dX) / itemView.width
+					val scale = (swipeProgress * 2).coerceIn(0.5f, 1.2f)
+
+					val iconTop = itemView.top + (height - iconHeight * scale) / 2
 					val iconLeft = itemView.left + margin
-					val iconRight = itemView.left + margin + icon.intrinsicWidth
-					val iconBottom = iconTop + icon.intrinsicHeight
+					val iconRight = itemView.left + margin + iconWidth * scale
+					val iconBottom = iconTop + iconHeight * scale
 					icon.setBounds(iconLeft.toInt(), iconTop.toInt(), iconRight.toInt(), iconBottom.toInt())
 					icon.draw(c)
 				}
