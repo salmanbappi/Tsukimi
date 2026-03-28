@@ -87,8 +87,8 @@
 			android:layout_height="48dp"
 			android:backgroundTint="?attr/colorSurfaceContainerHigh"
 			android:contentDescription="@string/prev_chapter"
+			android:rotation="90"
 			app:icon="@drawable/ic_prev"
-			app:iconRotation="90"
 			app:iconTint="?attr/colorPrimary" />
 
 		<LinearLayout
@@ -138,8 +138,8 @@
 			android:layout_height="48dp"
 			android:backgroundTint="?attr/colorSurfaceContainerHigh"
 			android:contentDescription="@string/next_chapter"
+			android:rotation="90"
 			app:icon="@drawable/ic_next"
-			app:iconRotation="90"
 			app:iconTint="?attr/colorPrimary" />
 
 	</LinearLayout>
