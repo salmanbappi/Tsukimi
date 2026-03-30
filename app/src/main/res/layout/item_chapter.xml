@@ -115,3 +115,5 @@
 		app:srcCompat="@drawable/ic_bookmark" />
 
 </LinearLayout>
+
+</FrameLayout>
