@@ -78,7 +78,7 @@ class ExtensionCatalogAdapter(
 			if (ext.isInstalled) {
 				binding.buttonInstall.isVisible = false
 				binding.buttonAdd.isVisible = true
-				binding.buttonAdd.setIconResource(R.drawable.ic_add)
+				binding.buttonAdd.setImageResource(R.drawable.ic_add)
 			} else {
 				binding.buttonInstall.isVisible = true
 				binding.buttonAdd.isVisible = false
