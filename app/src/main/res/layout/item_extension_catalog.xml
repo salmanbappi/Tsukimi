@@ -45,26 +45,41 @@
 			tools:text="1.2.3" />
 
 	</LinearLayout>
+<View
+	android:id="@+id/divider"
+	android:layout_width="1dp"
+	android:layout_height="match_parent"
+	android:layout_marginVertical="@dimen/margin_small"
+	android:background="?colorOutline" />
+
+<FrameLayout
+	android:layout_width="wrap_content"
+	android:layout_height="match_parent"
+	android:minWidth="56dp">
 
 	<com.google.android.material.button.MaterialButton
 		android:id="@+id/button_install"
 		style="@style/Widget.Material3.Button.TonalButton"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:layout_gravity="center_vertical"
+		android:layout_gravity="center"
+		android:layout_marginHorizontal="8dp"
 		android:text="Install"
 		android:visibility="visible"
 		tools:visibility="gone" />
 
-	<com.google.android.material.button.MaterialButton
+	<ImageButton
 		android:id="@+id/button_add"
-		style="?materialIconButtonStyle"
-		android:layout_width="48dp"
-		android:layout_height="48dp"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:background="?selectableItemBackgroundBorderless"
+		android:contentDescription="@string/add"
+		android:padding="@dimen/margin_normal"
+		android:scaleType="center"
+		android:src="@drawable/ic_add"
+		android:tooltipText="@string/add"
 		android:visibility="gone"
-		app:icon="@drawable/ic_add"
-		app:iconSize="24dp"
-		app:iconTint="?attr/colorPrimary"
 		tools:visibility="visible" />
+</FrameLayout>
 
 </LinearLayout>

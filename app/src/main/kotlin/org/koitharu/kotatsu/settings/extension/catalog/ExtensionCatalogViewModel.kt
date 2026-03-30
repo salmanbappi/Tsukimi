@@ -125,38 +125,46 @@ class ExtensionCatalogViewModel @Inject constructor(
 		viewModelScope.launch(Dispatchers.Default) {
 			val pm = context.packageManager
 			
-			// 1. Try Kotatsu-style discovery (Providers)
-			var providers = pm.queryIntentContentProviders(
-				android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
-			).filter { it.providerInfo.packageName == extension.pkg }
-			
-			// 2. Fallback: Check if the package is installed but doesn't have the specific intent
-			// (Standard Tachiyomi/Mihon extensions)
-			val sources = if (providers.isNotEmpty()) {
-				providers.map { resolveInfo ->
-					ExternalMangaSource(
-						packageName = resolveInfo.providerInfo.packageName,
-						authority = resolveInfo.providerInfo.authority,
-					)
+			// 1. Try to find the sources provided by this extension
+			val extensionSources = extension.sources ?: emptyList()
+			val sourcesToEnable = mutableListOf<org.koitharu.kotatsu.parsers.model.MangaSource>()
+
+			if (extensionSources.isNotEmpty()) {
+				// Map Mihon IDs to Tsukimi source names using the translator
+				extensionSources.forEach { extSource ->
+					val tsukimiSourceName = org.koitharu.kotatsu.backups.domain.mihon.MihonSourceTranslator.getSourceName(extSource.id)
+					if (tsukimiSourceName != null) {
+						sourcesRepository.allMangaSources.find { it.name == tsukimiSourceName }?.let {
+							sourcesToEnable.add(it)
+						}
+					}
 				}
-			} else {
-				// If it's a standard Tachiyomi extension, we try to guess the authority
-				// Most use the package name as the authority
-				val info = try { pm.getProviderInfo(android.content.ComponentName(extension.pkg, extension.pkg), 0) } catch (e: Exception) { null }
-				if (info != null) {
-					listOf(ExternalMangaSource(extension.pkg, info.authority))
+			}
+
+			// 2. If no known sources found, fallback to ExternalMangaSource (Kotatsu style)
+			if (sourcesToEnable.isEmpty()) {
+				val providers = pm.queryIntentContentProviders(
+					android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
+				).filter { it.providerInfo.packageName == extension.pkg }
+				
+				if (providers.isNotEmpty()) {
+					sourcesToEnable.addAll(providers.map { resolveInfo ->
+						ExternalMangaSource(
+							packageName = resolveInfo.providerInfo.packageName,
+							authority = resolveInfo.providerInfo.authority,
+						)
+					})
 				} else {
-					// Last resort: search for ANY provider in this package
-					val pkgInfo = try { pm.getPackageInfo(extension.pkg, android.content.pm.PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
-					pkgInfo?.providers?.map { ExternalMangaSource(extension.pkg, it.authority) } ?: emptyList()
+					// Guess authority if it's a standard extension
+					val pkgInfo = try { pm.getPackageInfo(extension.pkg, PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
+					pkgInfo?.providers?.mapTo(sourcesToEnable) { ExternalMangaSource(extension.pkg, it.authority) }
 				}
 			}
 			
-			if (sources.isNotEmpty()) {
-				sourcesRepository.setSourcesEnabled(sources, true)
+			if (sourcesToEnable.isNotEmpty()) {
+				sourcesRepository.setSourcesEnabled(sourcesToEnable, true)
 				onActionDone.call(R.string.source_enabled)
 			} else {
-				// Truly not found or not an extension
 				fetchExtensions()
 			}
 		}
