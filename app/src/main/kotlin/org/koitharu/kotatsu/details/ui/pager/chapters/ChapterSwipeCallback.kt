@@ -1,17 +1,18 @@
 package org.koitharu.kotatsu.details.ui.pager.chapters
 
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.RecyclerView
-import org.koitharu.kotatsu.details.ui.adapter.ChaptersAdapter
-import org.koitharu.kotatsu.details.ui.model.ChapterListItem
-import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
-
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.view.View
+import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.util.ext.getThemeColor
+import org.koitharu.kotatsu.details.ui.adapter.ChaptersAdapter
+import org.koitharu.kotatsu.details.ui.model.ChapterListItem
+import org.koitharu.kotatsu.details.ui.pager.ChaptersPagesViewModel
 import kotlin.math.abs
 
 class ChapterSwipeCallback(
