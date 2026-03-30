@@ -143,6 +143,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 
 			// 2. If no known sources found, fallback to ExternalMangaSource (Kotatsu style)
 			if (sourcesToEnable.isEmpty()) {
+				val pm = context.packageManager
 				val providers = pm.queryIntentContentProviders(
 					android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
 				).filter { it.providerInfo.packageName == extension.pkg }
@@ -155,9 +156,11 @@ class ExtensionCatalogViewModel @Inject constructor(
 						)
 					})
 				} else {
-					// Guess authority if it's a standard extension
-					val pkgInfo = try { pm.getPackageInfo(extension.pkg, PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
-					pkgInfo?.providers?.mapTo(sourcesToEnable) { ExternalMangaSource(extension.pkg, it.authority) }
+					// Last resort: find any provider in this package
+					val pkgInfo = try { pm.getPackageInfo(extension.pkg, android.content.pm.PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
+					pkgInfo?.providers?.forEach { 
+						sourcesToEnable.add(ExternalMangaSource(extension.pkg, it.authority))
+					}
 				}
 			}
 			
@@ -165,7 +168,8 @@ class ExtensionCatalogViewModel @Inject constructor(
 				sourcesRepository.setSourcesEnabled(sourcesToEnable, true)
 				onActionDone.call(R.string.source_enabled)
 			} else {
-				fetchExtensions()
+				// If we still found nothing, we might need a dynamic loader (Secondary step)
+				fetchExtensions() 
 			}
 		}
 	}
