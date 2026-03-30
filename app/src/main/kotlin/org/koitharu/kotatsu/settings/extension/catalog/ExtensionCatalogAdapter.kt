@@ -6,7 +6,6 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import coil3.load
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.databinding.ItemExtensionCatalogBinding
 import org.koitharu.kotatsu.databinding.ItemExtensionHeaderBinding
@@ -72,10 +71,9 @@ class ExtensionCatalogAdapter(
 			}
 			
 			val iconUrl = "${ext.repoUrl}/icon/${ext.pkg}.png"
-			binding.imageIcon.load(iconUrl) {
-				placeholder(R.drawable.ic_extension)
-				error(R.drawable.ic_extension)
-			}
+			binding.imageIcon.placeholderDrawable = androidx.core.content.ContextCompat.getDrawable(itemView.context, R.drawable.ic_extension)
+			binding.imageIcon.errorDrawable = binding.imageIcon.placeholderDrawable
+			binding.imageIcon.setImageAsync(iconUrl)
 			
 			if (ext.isInstalled) {
 				binding.buttonInstall.isVisible = false
