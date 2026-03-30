@@ -10,22 +10,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.network.BaseHttpClient
+import org.koitharu.kotatsu.core.parser.external.ExternalMangaSource
+import org.koitharu.kotatsu.core.util.ext.MutableEventFlow
+import org.koitharu.kotatsu.core.util.ext.call
+import org.koitharu.kotatsu.core.util.ext.map
+import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
 import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
 import org.koitharu.kotatsu.extension.model.toExtensionRepo
 import org.koitharu.kotatsu.extension.util.ExtensionInstaller
-import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
-import org.koitharu.kotatsu.core.parser.external.ExternalMangaSource
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,20 +38,22 @@ class ExtensionCatalogViewModel @Inject constructor(
 	private val installer: ExtensionInstaller,
 ) : ViewModel() {
 
-    private val json = Json { ignoreUnknownKeys = true }
-	
+	private val json = Json { ignoreUnknownKeys = true }
+
 	private val _allExtensions = MutableStateFlow<List<ExtensionJsonObject>>(emptyList())
 	private val _query = MutableStateFlow("")
 	private val _selectedLang = MutableStateFlow<String?>(null)
 	private val _showNsfw = MutableStateFlow(true)
 
+	val onActionDone = MutableEventFlow<Int>()
+
 	val extensions = combine(_allExtensions, _query, _selectedLang, _showNsfw) { all, query, lang, nsfw ->
 		val installedPackages = getInstalledExtensionPackages()
-		
+
 		val filtered = all.filter { ext ->
 			(query.isEmpty() || ext.name.contains(query, ignoreCase = true)) &&
-			(lang == null || ext.lang == lang) &&
-			(nsfw || ext.nsfw == 0)
+				(lang == null || ext.lang == lang) &&
+				(nsfw || ext.nsfw == 0)
 		}.map { ext ->
 			ext.copy(isInstalled = ext.pkg in installedPackages)
 		}
@@ -63,7 +66,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 				add(CatalogItem.Header("Installed"))
 				addAll(installed.map { CatalogItem.Extension(it) })
 			}
-			
+
 			if (available.isNotEmpty()) {
 				if (lang != null) {
 					add(CatalogItem.Header(lang.uppercase()))
@@ -71,12 +74,12 @@ class ExtensionCatalogViewModel @Inject constructor(
 				} else {
 					val nsfwList = available.filter { it.nsfw == 1 }.sortedBy { it.name }
 					val clean = available.filter { it.nsfw == 0 }
-					
+
 					if (clean.isNotEmpty()) {
 						add(CatalogItem.Header("All"))
 						addAll(clean.sortedBy { it.name }.map { CatalogItem.Extension(it) })
 					}
-					
+
 					if (nsfwList.isNotEmpty()) {
 						add(CatalogItem.Header("18+ / Hentai"))
 						addAll(nsfwList.map { CatalogItem.Extension(it) })
@@ -118,28 +121,26 @@ class ExtensionCatalogViewModel @Inject constructor(
 		installer.install(extension)
 	}
 
-	val onActionDone = org.koitharu.kotatsu.core.util.ext.MutableEventFlow<Int>()
-
 	fun toggleExtensionSource(extension: ExtensionJsonObject) {
 		viewModelScope.launch(Dispatchers.Default) {
 			val pm = context.packageManager
 			val providers = pm.queryIntentContentProviders(
 				android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
 			).filter { it.providerInfo.packageName == extension.pkg }
-			
+
 			val sources = providers.map { resolveInfo ->
 				ExternalMangaSource(
 					packageName = resolveInfo.providerInfo.packageName,
 					authority = resolveInfo.providerInfo.authority,
 				)
 			}
-			
+
 			if (sources.isNotEmpty()) {
 				sourcesRepository.setSourcesEnabled(sources, true)
-				onActionDone.emit(R.string.source_enabled)
+				onActionDone.call(R.string.source_enabled)
 			} else {
-				// Extension installed but no provider found yet - maybe wait or refresh
-				fetchExtensions() 
+				// Extension installed but no provider found yet - refresh to check again
+				fetchExtensions()
 			}
 		}
 	}
@@ -157,13 +158,13 @@ class ExtensionCatalogViewModel @Inject constructor(
 		viewModelScope.launch(Dispatchers.IO) {
 			val repos = repository.getAll()
 			val allExtensions = mutableListOf<ExtensionJsonObject>()
-			
+
 			for (repo in repos) {
 				try {
 					val request = Request.Builder()
 						.url("${repo.baseUrl}/index.min.json")
 						.build()
-					
+
 					val response = httpClient.newCall(request).execute()
 					if (response.isSuccessful) {
 						val body = response.body?.string() ?: continue
@@ -174,7 +175,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 					// Ignore
 				}
 			}
-			
+
 			_allExtensions.value = allExtensions.sortedBy { it.name }
 		}
 	}

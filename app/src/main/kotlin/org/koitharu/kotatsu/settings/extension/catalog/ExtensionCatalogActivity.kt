@@ -15,6 +15,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.ui.BaseActivity
 import org.koitharu.kotatsu.core.util.ext.observe
+import org.koitharu.kotatsu.core.util.ext.observeEvent
 import org.koitharu.kotatsu.databinding.ActivityExtensionCatalogBinding
 import org.koitharu.kotatsu.list.ui.adapter.TypedListSpacingDecoration
 
@@ -32,6 +33,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 
 		val catalogAdapter = ExtensionCatalogAdapter(
 			onItemInstallClick = { ext ->
+				Toast.makeText(this, "Starting download: ${ext.name}", Toast.LENGTH_SHORT).show()
 				viewModel.installExtension(ext)
 			},
 			onItemAddClick = { ext ->
@@ -48,7 +50,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 			catalogAdapter.submitList(list)
 		}
 
-		viewModel.onActionDone.observe(this) { resId ->
+		viewModel.onActionDone.observeEvent(this) { resId ->
 			Toast.makeText(this, resId, Toast.LENGTH_SHORT).show()
 		}
 	}

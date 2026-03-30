@@ -37,6 +37,7 @@ class ExtensionInstaller @Inject constructor(
 			override fun onReceive(context: Context, intent: Intent) {
 				val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
 				if (id == downloadId) {
+					android.widget.Toast.makeText(context, "Download finished, opening installer...", android.widget.Toast.LENGTH_SHORT).show()
 					installApk(extension.apk)
 					context.unregisterReceiver(this)
 				}
