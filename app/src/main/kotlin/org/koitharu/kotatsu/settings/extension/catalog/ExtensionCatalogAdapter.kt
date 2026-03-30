@@ -70,6 +70,9 @@ class ExtensionCatalogAdapter(
 				binding.textVersion.append(" • 18+")
 			}
 			
+			binding.textSources.text = ext.sources?.joinToString { it.name }
+			binding.textSources.isVisible = !ext.sources.isNullOrEmpty()
+			
 			val iconUrl = "${ext.repoUrl}/icon/${ext.pkg}.png"
 			binding.imageIcon.placeholderDrawable = androidx.core.content.ContextCompat.getDrawable(itemView.context, R.drawable.ic_extension)
 			binding.imageIcon.errorDrawable = binding.imageIcon.placeholderDrawable

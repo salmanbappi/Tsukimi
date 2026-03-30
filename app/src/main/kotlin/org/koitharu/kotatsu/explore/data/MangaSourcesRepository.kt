@@ -29,6 +29,7 @@ import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.prefs.observeAsFlow
 import org.koitharu.kotatsu.core.ui.util.ReversibleHandle
 import org.koitharu.kotatsu.core.util.ext.flattenLatest
+import org.koitharu.kotatsu.extension.mihon.MihonExtensionManager
 import org.koitharu.kotatsu.parsers.model.ContentType
 import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.model.MangaSource
@@ -46,6 +47,7 @@ class MangaSourcesRepository @Inject constructor(
 	@LocalizedAppContext private val context: Context,
 	private val db: MangaDatabase,
 	private val settings: AppSettings,
+	private val mihonExtensionManager: MihonExtensionManager,
 ) {
 
 	private val isNewSourcesAssimilated = AtomicBoolean(false)
@@ -66,8 +68,10 @@ class MangaSourcesRepository @Inject constructor(
 		)
 			.let { enabled ->
 				val external = getExternalSources()
-				val list = ArrayList<MangaSourceInfo>(enabled.size + external.size)
+				val mihon = mihonExtensionManager.installedExtensions.value.values.flatten()
+				val list = ArrayList<MangaSourceInfo>(enabled.size + external.size + mihon.size)
 				external.mapTo(list) { MangaSourceInfo(it, isEnabled = true, isPinned = true) }
+				mihon.mapTo(list) { MangaSourceInfo(it, isEnabled = true, isPinned = true) }
 				list.addAll(enabled)
 				list
 			}
@@ -200,25 +204,34 @@ class MangaSourcesRepository @Inject constructor(
 			it.toSources(skipNsfw, order, hideBroken)
 		}
 	}.flattenLatest()
-		.onStart { assimilateNewSources() }
-		.combine(observeExternalSources()) { enabled, external ->
-			val list = ArrayList<MangaSourceInfo>(enabled.size + external.size)
-			external.mapTo(list) { MangaSourceInfo(it, isEnabled = true, isPinned = true) }
-			list.addAll(enabled)
-			list
-		}
+	.onStart { assimilateNewSources() }
+	.combine(observeExternalSources()) { enabled, external ->
+		val list = ArrayList<MangaSourceInfo>(enabled.size + external.size)
+		external.mapTo(list) { MangaSourceInfo(it, isEnabled = true, isPinned = true) }
+		list.addAll(enabled)
+		list
+	}.combine(observeMihonSources()) { enabled, mihon ->
+		val list = ArrayList<MangaSourceInfo>(enabled.size + mihon.size)
+		mihon.mapTo(list) { MangaSourceInfo(it, isEnabled = true, isPinned = true) }
+		list.addAll(enabled)
+		list
+	}
 
-	fun observeAll(): Flow<List<Pair<MangaSource, Boolean>>> = dao.observeAll().map { entities ->
-		val result = ArrayList<Pair<MangaSource, Boolean>>(entities.size)
-		for (entity in entities) {
-			val source = entity.source.toMangaSourceOrNull() ?: continue
-			if (source in allMangaSources) {
-				result.add(source to entity.isEnabled)
-			}
+	private fun observeMihonSources(): Flow<List<MangaSource>> = mihonExtensionManager.installedExtensions.map { map ->
+	map.values.flatten()
+	}
+
+	fun observeAll(): Flow<List<Pair<MangaSource, Boolean>>> = combine(dao.observeAll(), observeMihonSources()) { entities, mihon ->
+	val result = ArrayList<Pair<MangaSource, Boolean>>(entities.size + mihon.size)
+	for (entity in entities) {
+		val source = entity.source.toMangaSourceOrNull() ?: continue
+		if (source in allMangaSources) {
+			result.add(source to entity.isEnabled)
 		}
-		result
+	}
+	mihon.forEach { result.add(it to true) }
+	result
 	}.onStart { assimilateNewSources() }
-
 	suspend fun setSourcesEnabled(sources: Collection<MangaSource>, isEnabled: Boolean): ReversibleHandle {
 		setSourcesEnabledImpl(sources, isEnabled)
 		return ReversibleHandle {

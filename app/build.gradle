@@ -218,6 +218,11 @@ dependencies {
     implementation libs.disk.lru.cache
     implementation libs.markwon
     implementation libs.kizzyrpc
+    implementation libs.tachiyomi.extension.api
+    implementation libs.injekt.core
+    implementation libs.rxjava
+    implementation libs.rxandroid
+    implementation libs.jsoup
 
     implementation libs.acra.http
     implementation libs.acra.dialog

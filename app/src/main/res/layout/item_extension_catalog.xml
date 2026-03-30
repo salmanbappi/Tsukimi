@@ -44,6 +44,18 @@
 			android:textColor="?android:textColorSecondary"
 			tools:text="1.2.3" />
 
+		<TextView
+			android:id="@+id/text_sources"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="2dp"
+			android:ellipsize="end"
+			android:maxLines="1"
+			android:textAppearance="?textAppearanceListItemSecondary"
+			android:textColor="?android:textColorSecondary"
+			android:textSize="12sp"
+			tools:text="Source 1, Source 2" />
+
 	</LinearLayout>
 <View
 	android:id="@+id/divider"

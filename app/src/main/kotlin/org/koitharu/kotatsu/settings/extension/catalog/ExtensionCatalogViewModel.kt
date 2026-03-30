@@ -25,6 +25,7 @@ import org.koitharu.kotatsu.core.util.ext.call
 import kotlinx.coroutines.flow.map
 import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
 import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
+import org.koitharu.kotatsu.extension.mihon.MihonExtensionManager
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
 import org.koitharu.kotatsu.extension.model.toExtensionRepo
 import org.koitharu.kotatsu.extension.util.ExtensionInstaller
@@ -37,6 +38,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 	private val sourcesRepository: MangaSourcesRepository,
 	@BaseHttpClient private val httpClient: OkHttpClient,
 	private val installer: ExtensionInstaller,
+	private val mihonExtensionManager: MihonExtensionManager,
 ) : ViewModel() {
 
 	private val json = Json { ignoreUnknownKeys = true }
@@ -164,6 +166,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 			
 			if (sourcesToEnable.isNotEmpty()) {
 				sourcesRepository.setSourcesEnabled(sourcesToEnable, true)
+				mihonExtensionManager.refreshInstalledExtensions()
 				onActionDone.call(R.string.source_enabled)
 			} else {
 				// If we still found nothing, refresh
