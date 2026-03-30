@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
@@ -48,7 +49,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		}
 
 		viewModel.onActionDone.observe(this) { resId ->
-			viewBinding.toastView.show(resId)
+			Toast.makeText(this, resId, Toast.LENGTH_SHORT).show()
 		}
 	}
 

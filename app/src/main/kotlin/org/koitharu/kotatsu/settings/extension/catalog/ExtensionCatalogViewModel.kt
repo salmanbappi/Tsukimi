@@ -136,7 +136,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 			
 			if (sources.isNotEmpty()) {
 				sourcesRepository.setSourcesEnabled(sources, true)
-				onActionDone.call(R.string.source_enabled)
+				onActionDone.emit(R.string.source_enabled)
 			} else {
 				// Extension installed but no provider found yet - maybe wait or refresh
 				fetchExtensions() 
