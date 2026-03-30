@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -21,7 +22,6 @@ import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.parser.external.ExternalMangaSource
 import org.koitharu.kotatsu.core.util.ext.MutableEventFlow
 import org.koitharu.kotatsu.core.util.ext.call
-import org.koitharu.kotatsu.core.util.ext.map
 import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
 import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
@@ -93,7 +93,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 		initialValue = emptyList(),
 	)
 
-	val languages = _allExtensions.map { list ->
+	val languages = _allExtensions.map { list: List<ExtensionJsonObject> ->
 		list.map { it.lang }.distinct().sorted()
 	}.stateIn(
 		scope = viewModelScope,
