@@ -47,7 +47,7 @@ serialization = "1.9.0"
 ssiv = "376930523c"
 swiperefreshlayout = "1.1.0"
 splashscreen = "1.0.1"
-tachiyomi-extension-api = "1.1"
+tachiyomi-extension-api = "v1.4.2.1"
 testRules = "1.7.0"
 testRunner = "1.7.0"
 transition = "1.6.0"
@@ -127,7 +127,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 rxandroid = { module = "io.reactivex.rxjava2:rxandroid", version.ref = "rxandroid" }
 rxjava = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava" }
 ssiv = { module = "com.github.KotatsuApp:subsampling-scale-image-view", version.ref = "ssiv" }
-tachiyomi-extension-api = { module = "eu.kanade.tachiyomi:extension-api", version.ref = "tachiyomi-extension-api" }
+tachiyomi-extension-api = { module = "com.github.keiyoushi:extensions-lib", version.ref = "tachiyomi-extension-api" }
 workinspector = { module = "com.github.Koitharu:WorkInspector", version.ref = "workinspector" }
 androidx-window = { module = "androidx.window:window", version.ref = "window" }
 

@@ -22,7 +22,6 @@ dependencyResolutionManagement {
 	repositories {
 		google()
 		mavenCentral()
-		maven { url 'https://maven.tachiyomi.org/repository/maven-public/' }
 		maven {
 			url 'https://jitpack.io'
 		}
