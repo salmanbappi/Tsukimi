@@ -126,7 +126,8 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 rxandroid = { module = "io.reactivex.rxjava2:rxandroid", version.ref = "rxandroid" }
 rxjava = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava" }
 ssiv = { module = "com.github.KotatsuApp:subsampling-scale-image-view", version.ref = "ssiv" }
-workinspector = { module = "com.github.Koitharu:WorkInspector", version.ref = "workinspector" }androidx-window = { module = "androidx.window:window", version.ref = "window" }
+workinspector = { module = "com.github.Koitharu:WorkInspector", version.ref = "workinspector" }
+androidx-window = { module = "androidx.window:window", version.ref = "window" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle" }
