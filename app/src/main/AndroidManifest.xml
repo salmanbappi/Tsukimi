@@ -250,6 +250,9 @@
 			android:name="org.koitharu.kotatsu.settings.sources.catalog.SourcesCatalogActivity"
 			android:label="@string/sources_catalog" />
 		<activity
+			android:name="org.koitharu.kotatsu.settings.extension.catalog.ExtensionCatalogActivity"
+			android:label="Extension Catalog" />
+		<activity
 			android:name="org.koitharu.kotatsu.scrobbling.kitsu.ui.KitsuAuthActivity"
 			android:exported="false"
 			android:label="@string/kitsu"

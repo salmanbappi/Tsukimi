@@ -86,6 +86,16 @@ class SourcesSettingsFragment : BasePreferenceFragment(R.string.remote_sources),
 			router.openSourcesCatalog()
 			true
 		}
+		
+		"extensions_catalog" -> {
+			router.openExtensionsCatalog()
+			true
+		}
+
+		"extension_repos" -> {
+			router.openExtensionRepos()
+			true
+		}
 
 		AppSettings.KEY_HANDLE_LINKS -> {
 			viewModel.setLinksEnabled((preference as TwoStatePreference).isChecked)

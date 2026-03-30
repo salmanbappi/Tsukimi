@@ -37,6 +37,16 @@
         android:persistent="false"
         android:title="@string/sources_catalog" />
 
+    <Preference
+        android:key="extensions_catalog"
+        android:persistent="false"
+        android:title="Extension Catalog" />
+
+    <Preference
+        android:key="extension_repos"
+        android:persistent="false"
+        android:title="Extension Repos" />
+
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:key="no_nsfw"

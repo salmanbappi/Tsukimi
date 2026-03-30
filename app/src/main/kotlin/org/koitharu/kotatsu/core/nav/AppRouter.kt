@@ -103,6 +103,7 @@ import org.koitharu.kotatsu.settings.override.OverrideConfigActivity
 import org.koitharu.kotatsu.settings.reader.ReaderTapGridConfigActivity
 import org.koitharu.kotatsu.settings.sources.auth.SourceAuthActivity
 import org.koitharu.kotatsu.settings.sources.catalog.SourcesCatalogActivity
+import org.koitharu.kotatsu.settings.extension.catalog.ExtensionCatalogActivity
 import org.koitharu.kotatsu.settings.storage.MangaDirectorySelectDialog
 import org.koitharu.kotatsu.settings.storage.directories.MangaDirectoriesActivity
 import org.koitharu.kotatsu.settings.tracker.categories.TrackerCategoriesConfigSheet
@@ -210,6 +211,8 @@ class AppRouter private constructor(
 
     fun openSourcesCatalog() = startActivity(SourcesCatalogActivity::class.java)
 
+    fun openExtensionsCatalog() = startActivity(ExtensionCatalogActivity::class.java)
+
     fun openDownloads() = startActivity(DownloadsActivity::class.java)
 
     fun openDirectoriesSettings() = startActivity(MangaDirectoriesActivity::class.java)
@@ -288,6 +291,10 @@ class AppRouter private constructor(
 
     fun openSourcesSettings() {
         startActivity(sourcesSettingsIntent(contextOrNull() ?: return))
+    }
+
+    fun openExtensionRepos() {
+        startActivity(extensionReposIntent(contextOrNull() ?: return))
     }
 
     fun openDiscordSettings() {
@@ -778,6 +785,10 @@ class AppRouter private constructor(
             Intent(context, SettingsActivity::class.java)
                 .setAction(ACTION_SOURCES)
 
+        fun extensionReposIntent(context: Context) =
+            Intent(context, SettingsActivity::class.java)
+                .setAction(ACTION_EXTENSION_REPOS)
+
         fun manageSourcesIntent(context: Context) =
             Intent(context, SettingsActivity::class.java)
                 .setAction(ACTION_MANAGE_SOURCES)
@@ -849,6 +860,7 @@ class AppRouter private constructor(
         const val ACTION_READER = "${BuildConfig.APPLICATION_ID}.action.MANAGE_READER_SETTINGS"
         const val ACTION_SOURCE = "${BuildConfig.APPLICATION_ID}.action.MANAGE_SOURCE_SETTINGS"
         const val ACTION_SOURCES = "${BuildConfig.APPLICATION_ID}.action.MANAGE_SOURCES"
+        const val ACTION_EXTENSION_REPOS = "${BuildConfig.APPLICATION_ID}.action.EXTENSION_REPOS"
         const val ACTION_MANAGE_DISCORD = "${BuildConfig.APPLICATION_ID}.action.MANAGE_DISCORD"
         const val ACTION_SUGGESTIONS = "${BuildConfig.APPLICATION_ID}.action.MANAGE_SUGGESTIONS"
         const val ACTION_TRACKER = "${BuildConfig.APPLICATION_ID}.action.MANAGE_TRACKER"
