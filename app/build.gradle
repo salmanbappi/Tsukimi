@@ -218,7 +218,9 @@ dependencies {
     implementation libs.disk.lru.cache
     implementation libs.markwon
     implementation libs.kizzyrpc
-    implementation libs.tachiyomi.extension.api
+    implementation(libs.tachiyomi.extension.api) {
+        exclude group: 'androidx.preference'
+    }
     implementation libs.injekt.core
     implementation libs.rxjava
     implementation libs.rxandroid
