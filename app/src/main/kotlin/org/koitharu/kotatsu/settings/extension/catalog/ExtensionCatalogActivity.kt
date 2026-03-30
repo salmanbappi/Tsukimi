@@ -40,7 +40,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 			adapter = catalogAdapter
 		}
 
-		viewModel.extensions.observe(this) { list ->
+		viewModel.extensions.observe(this) { list: List<CatalogItem> ->
 			catalogAdapter.submitList(list)
 		}
 	}
@@ -72,7 +72,6 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		filterMenu = menu
 		
 		val languages = viewModel.languages.value
-		val nsfwEnabled = true // TODO: Observe from VM if needed
 
 		menu.menu.add(Menu.NONE, 0, 0, "All Languages")
 		languages.forEachIndexed { index, lang ->

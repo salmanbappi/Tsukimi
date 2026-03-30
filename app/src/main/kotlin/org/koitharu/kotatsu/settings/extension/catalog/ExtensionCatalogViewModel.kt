@@ -10,15 +10,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
+import org.koitharu.kotatsu.extension.model.toExtensionRepo
+import org.koitharu.kotatsu.extension.util.ExtensionInstaller
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,7 +31,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 	@ApplicationContext private val context: Context,
 	private val repository: ExtensionRepoRepository,
 	@BaseHttpClient private val httpClient: OkHttpClient,
-	private val installer: org.koitharu.kotatsu.extension.util.ExtensionInstaller,
+	private val installer: ExtensionInstaller,
 ) : ViewModel() {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -61,7 +66,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 					add(CatalogItem.Header(lang.uppercase()))
 					addAll(available.sortedBy { it.name }.map { CatalogItem.Extension(it) })
 				} else {
-					val nsfw = available.filter { it.nsfw == 1 }.sortedBy { it.name }
+					val nsfwList = available.filter { it.nsfw == 1 }.sortedBy { it.name }
 					val clean = available.filter { it.nsfw == 0 }
 					
 					if (clean.isNotEmpty()) {
@@ -69,9 +74,9 @@ class ExtensionCatalogViewModel @Inject constructor(
 						addAll(clean.sortedBy { it.name }.map { CatalogItem.Extension(it) })
 					}
 					
-					if (nsfw.isNotEmpty()) {
+					if (nsfwList.isNotEmpty()) {
 						add(CatalogItem.Header("18+ / Hentai"))
-						addAll(nsfw.map { CatalogItem.Extension(it) })
+						addAll(nsfwList.map { CatalogItem.Extension(it) })
 					}
 				}
 			}
@@ -120,7 +125,6 @@ class ExtensionCatalogViewModel @Inject constructor(
 	}
 
 	private fun fetchExtensions() {
-...
 		viewModelScope.launch(Dispatchers.IO) {
 			val repos = repository.getAll()
 			val allExtensions = mutableListOf<ExtensionJsonObject>()
@@ -137,12 +141,12 @@ class ExtensionCatalogViewModel @Inject constructor(
 						val list = json.decodeFromString<List<ExtensionJsonObject>>(body)
 						allExtensions.addAll(list.map { it.copy(repoUrl = repo.baseUrl) })
 					}
-					} catch (e: Exception) {
+				} catch (e: Exception) {
 					// Ignore
-					}
-					}
-
-					_allExtensions.value = allExtensions.sortedBy { it.name }
-					}
-					}
+				}
+			}
+			
+			_allExtensions.value = allExtensions.sortedBy { it.name }
+		}
+	}
 }

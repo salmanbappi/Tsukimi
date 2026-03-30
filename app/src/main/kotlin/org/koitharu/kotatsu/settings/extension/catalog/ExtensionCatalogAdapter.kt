@@ -2,6 +2,7 @@ package org.koitharu.kotatsu.settings.extension.catalog
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -67,7 +68,8 @@ class ExtensionCatalogAdapter(
 				binding.textVersion.append(" • 18+")
 			}
 			
-			binding.imageIcon.load(ext.iconUrl) {
+			val iconUrl = "${ext.repoUrl}/icon/${ext.pkg}.png"
+			binding.imageIcon.load(iconUrl) {
 				placeholder(R.drawable.ic_extension)
 				error(R.drawable.ic_extension)
 			}
@@ -75,7 +77,7 @@ class ExtensionCatalogAdapter(
 			if (ext.isInstalled) {
 				binding.buttonInstall.isVisible = false
 				binding.buttonAdd.isVisible = true
-				binding.buttonAdd.setIconResource(R.drawable.ic_add) // Or checkmark if already enabled
+				binding.buttonAdd.setIconResource(R.drawable.ic_add)
 			} else {
 				binding.buttonInstall.isVisible = true
 				binding.buttonAdd.isVisible = false
@@ -86,7 +88,7 @@ class ExtensionCatalogAdapter(
 			}
 			
 			binding.buttonAdd.setOnClickListener {
-				// Action to enable/add the installed source
+				// Stub for adding the source
 			}
 		}
 	}
