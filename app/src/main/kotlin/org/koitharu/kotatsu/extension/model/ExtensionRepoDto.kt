@@ -25,6 +25,8 @@ data class ExtensionJsonObject(
     val version: String,
     val nsfw: Int,
     val sources: List<ExtensionSourceJsonObject>? = null,
+    val isInstalled: Boolean = false,
+    val repoUrl: String? = null,
 )
 
 @Serializable

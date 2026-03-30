@@ -2,44 +2,90 @@ package org.koitharu.kotatsu.settings.extension.catalog
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.databinding.ItemExtensionCatalogBinding
+import org.koitharu.kotatsu.databinding.ItemExtensionHeaderBinding
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
 
-class ExtensionCatalogAdapter : ListAdapter<ExtensionJsonObject, ExtensionCatalogAdapter.ViewHolder>(DiffCallback) {
+sealed class CatalogItem {
+	data class Header(val title: String) : CatalogItem()
+	data class Extension(val extension: ExtensionJsonObject) : CatalogItem()
+}
 
-	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-		val binding = ItemExtensionCatalogBinding.inflate(
-			LayoutInflater.from(parent.context), parent, false
-		)
-		return ViewHolder(binding)
+class ExtensionCatalogAdapter(
+	private val onItemInstallClick: (ExtensionJsonObject) -> Unit,
+) : ListAdapter<CatalogItem, RecyclerView.ViewHolder>(DiffCallback) {
+
+	override fun getItemViewType(position: Int): Int = when (getItem(position)) {
+		is CatalogItem.Header -> R.layout.item_extension_header
+		is CatalogItem.Extension -> R.layout.item_extension_catalog
 	}
 
-	override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-		holder.bind(getItem(position))
-	}
-
-	inner class ViewHolder(
-		private val binding: ItemExtensionCatalogBinding
-	) : RecyclerView.ViewHolder(binding.root) {
-
-		fun bind(item: ExtensionJsonObject) {
-			binding.textName.text = item.name.removePrefix("Tachiyomi: ")
-			binding.textVersion.text = "v${item.version} • ${item.lang}"
-			binding.buttonInstall.setOnClickListener {
-				// Stub: This is where we would trigger APK download and installation
+	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+		val inflater = LayoutInflater.from(parent.context)
+		return when (viewType) {
+			R.layout.item_extension_header -> {
+				HeaderViewHolder(ItemExtensionHeaderBinding.inflate(inflater, parent, false))
+			}
+			else -> {
+				ExtensionViewHolder(
+					ItemExtensionCatalogBinding.inflate(inflater, parent, false),
+					onItemInstallClick
+				)
 			}
 		}
 	}
 
-	private object DiffCallback : DiffUtil.ItemCallback<ExtensionJsonObject>() {
-		override fun areItemsTheSame(oldItem: ExtensionJsonObject, newItem: ExtensionJsonObject): Boolean {
-			return oldItem.pkg == newItem.pkg
+	override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+		val item = getItem(position)
+		when {
+			holder is HeaderViewHolder && item is CatalogItem.Header -> holder.bind(item)
+			holder is ExtensionViewHolder && item is CatalogItem.Extension -> holder.bind(item)
+		}
+	}
+
+	class HeaderViewHolder(private val binding: ItemExtensionHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
+		fun bind(item: CatalogItem.Header) {
+			binding.textTitle.text = item.title
+		}
+	}
+
+	class ExtensionViewHolder(
+		private val binding: ItemExtensionCatalogBinding,
+		private val onItemInstallClick: (ExtensionJsonObject) -> Unit,
+	) : RecyclerView.ViewHolder(binding.root) {
+
+		fun bind(item: CatalogItem.Extension) {
+			val ext = item.extension
+			binding.textName.text = ext.name.removePrefix("Tachiyomi: ")
+			binding.textVersion.text = "v${ext.version} • ${ext.lang}"
+			if (ext.nsfw == 1) {
+				binding.textVersion.append(" • 18+")
+			}
+			
+			binding.buttonInstall.text = if (ext.isInstalled) "Installed" else "Install"
+			binding.buttonInstall.isEnabled = !ext.isInstalled
+			
+			binding.buttonInstall.setOnClickListener {
+				onItemInstallClick(ext)
+			}
+		}
+	}
+
+	private object DiffCallback : DiffUtil.ItemCallback<CatalogItem>() {
+		override fun areItemsTheSame(oldItem: CatalogItem, newItem: CatalogItem): Boolean {
+			return when {
+				oldItem is CatalogItem.Header && newItem is CatalogItem.Header -> oldItem.title == newItem.title
+				oldItem is CatalogItem.Extension && newItem is CatalogItem.Extension -> oldItem.extension.pkg == newItem.extension.pkg
+				else -> false
+			}
 		}
 
-		override fun areContentsTheSame(oldItem: ExtensionJsonObject, newItem: ExtensionJsonObject): Boolean {
+		override fun areContentsTheSame(oldItem: CatalogItem, newItem: CatalogItem): Boolean {
 			return oldItem == newItem
 		}
 	}

@@ -1,11 +1,16 @@
 package org.koitharu.kotatsu.settings.extension.catalog
 
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -18,20 +23,88 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ExtensionCatalogViewModel @Inject constructor(
+	@ApplicationContext private val context: Context,
 	private val repository: ExtensionRepoRepository,
 	@BaseHttpClient private val httpClient: OkHttpClient,
+	private val installer: org.koitharu.kotatsu.extension.util.ExtensionInstaller,
 ) : ViewModel() {
 
     private val json = Json { ignoreUnknownKeys = true }
 	
-	private val _extensions = MutableStateFlow<List<ExtensionJsonObject>>(emptyList())
-	val extensions = _extensions.asStateFlow()
+	private val _allExtensions = MutableStateFlow<List<ExtensionJsonObject>>(emptyList())
+	private val _query = MutableStateFlow("")
+	private val _selectedLang = MutableStateFlow<String?>(null)
+	private val _showNsfw = MutableStateFlow(true)
+
+	val extensions = combine(_allExtensions, _query, _selectedLang, _showNsfw) { all, query, lang, nsfw ->
+		val installedPackages = getInstalledExtensionPackages()
+		
+		val filtered = all.filter { ext ->
+			(query.isEmpty() || ext.name.contains(query, ignoreCase = true)) &&
+			(lang == null || ext.lang == lang) &&
+			(nsfw || ext.nsfw == 0)
+		}.map { ext ->
+			ext.copy(isInstalled = ext.pkg in installedPackages)
+		}
+
+		val installed = filtered.filter { it.isInstalled }.sortedBy { it.name }
+		val available = filtered.filter { !it.isInstalled }.sortedBy { it.name }
+
+		mutableListOf<CatalogItem>().apply {
+			if (installed.isNotEmpty()) {
+				add(CatalogItem.Header("Installed"))
+				addAll(installed.map { CatalogItem.Extension(it) })
+			}
+			if (available.isNotEmpty()) {
+				add(CatalogItem.Header("Available"))
+				addAll(available.map { CatalogItem.Extension(it) })
+			}
+		}
+	}.stateIn(
+		scope = viewModelScope,
+		started = SharingStarted.Lazily,
+		initialValue = emptyList(),
+	)
+
+	val languages = _allExtensions.map { list ->
+		list.map { it.lang }.distinct().sorted()
+	}.stateIn(
+		scope = viewModelScope,
+		started = SharingStarted.Lazily,
+		initialValue = emptyList(),
+	)
 
 	init {
 		fetchExtensions()
 	}
 
+	fun setQuery(query: String) {
+		_query.value = query
+	}
+
+	fun setLanguage(lang: String?) {
+		_selectedLang.value = lang
+	}
+
+	fun setNsfwEnabled(enabled: Boolean) {
+		_showNsfw.value = enabled
+	}
+
+	fun installExtension(extension: ExtensionJsonObject) {
+		installer.install(extension)
+	}
+
+	private fun getInstalledExtensionPackages(): Set<String> {
+		val pm = context.packageManager
+		val packages = pm.getInstalledPackages(0)
+		return packages
+			.map { it.packageName }
+			.filter { it.startsWith("eu.kanade.tachiyomi.extension.") || it.startsWith("org.koitharu.kotatsu.extension.") }
+			.toSet()
+	}
+
 	private fun fetchExtensions() {
+...
 		viewModelScope.launch(Dispatchers.IO) {
 			val repos = repository.getAll()
 			val allExtensions = mutableListOf<ExtensionJsonObject>()
@@ -46,14 +119,14 @@ class ExtensionCatalogViewModel @Inject constructor(
 					if (response.isSuccessful) {
 						val body = response.body?.string() ?: continue
 						val list = json.decodeFromString<List<ExtensionJsonObject>>(body)
-						allExtensions.addAll(list)
+						allExtensions.addAll(list.map { it.copy(repoUrl = repo.baseUrl) })
 					}
-				} catch (e: Exception) {
+					} catch (e: Exception) {
 					// Ignore
-				}
-			}
-			
-			_extensions.value = allExtensions.sortedBy { it.name }
-		}
-	}
+					}
+					}
+
+					_allExtensions.value = allExtensions.sortedBy { it.name }
+					}
+					}
 }
