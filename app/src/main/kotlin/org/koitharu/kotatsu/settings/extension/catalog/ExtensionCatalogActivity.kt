@@ -32,6 +32,9 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		val catalogAdapter = ExtensionCatalogAdapter(
 			onItemInstallClick = { ext ->
 				viewModel.installExtension(ext)
+			},
+			onItemAddClick = { ext ->
+				viewModel.toggleExtensionSource(ext)
 			}
 		)
 		with(viewBinding.recyclerView) {

@@ -24,12 +24,15 @@ import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
 import org.koitharu.kotatsu.extension.model.toExtensionRepo
 import org.koitharu.kotatsu.extension.util.ExtensionInstaller
+import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
+import org.koitharu.kotatsu.core.parser.external.ExternalMangaSource
 import javax.inject.Inject
 
 @HiltViewModel
 class ExtensionCatalogViewModel @Inject constructor(
 	@ApplicationContext private val context: Context,
 	private val repository: ExtensionRepoRepository,
+	private val sourcesRepository: MangaSourcesRepository,
 	@BaseHttpClient private val httpClient: OkHttpClient,
 	private val installer: ExtensionInstaller,
 ) : ViewModel() {
@@ -113,6 +116,26 @@ class ExtensionCatalogViewModel @Inject constructor(
 
 	fun installExtension(extension: ExtensionJsonObject) {
 		installer.install(extension)
+	}
+
+	fun toggleExtensionSource(extension: ExtensionJsonObject) {
+		viewModelScope.launch(Dispatchers.Default) {
+			val pm = context.packageManager
+			val providers = pm.queryIntentContentProviders(
+				android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
+			).filter { it.providerInfo.packageName == extension.pkg }
+			
+			val sources = providers.map { resolveInfo ->
+				ExternalMangaSource(
+					packageName = resolveInfo.providerInfo.packageName,
+					authority = resolveInfo.providerInfo.authority,
+				)
+			}
+			
+			if (sources.isNotEmpty()) {
+				sourcesRepository.setSourcesEnabled(sources, true)
+			}
+		}
 	}
 
 	private fun getInstalledExtensionPackages(): Set<String> {

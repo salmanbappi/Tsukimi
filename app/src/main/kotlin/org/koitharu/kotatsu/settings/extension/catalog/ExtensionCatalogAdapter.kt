@@ -6,6 +6,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil3.load
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.databinding.ItemExtensionCatalogBinding
 import org.koitharu.kotatsu.databinding.ItemExtensionHeaderBinding
@@ -18,6 +19,7 @@ sealed class CatalogItem {
 
 class ExtensionCatalogAdapter(
 	private val onItemInstallClick: (ExtensionJsonObject) -> Unit,
+	private val onItemAddClick: (ExtensionJsonObject) -> Unit,
 ) : ListAdapter<CatalogItem, RecyclerView.ViewHolder>(DiffCallback) {
 
 	override fun getItemViewType(position: Int): Int = when (getItem(position)) {
@@ -34,7 +36,8 @@ class ExtensionCatalogAdapter(
 			else -> {
 				ExtensionViewHolder(
 					ItemExtensionCatalogBinding.inflate(inflater, parent, false),
-					onItemInstallClick
+					onItemInstallClick,
+					onItemAddClick
 				)
 			}
 		}
@@ -57,6 +60,7 @@ class ExtensionCatalogAdapter(
 	class ExtensionViewHolder(
 		private val binding: ItemExtensionCatalogBinding,
 		private val onItemInstallClick: (ExtensionJsonObject) -> Unit,
+		private val onItemAddClick: (ExtensionJsonObject) -> Unit,
 	) : RecyclerView.ViewHolder(binding.root) {
 
 		fun bind(item: CatalogItem.Extension) {
@@ -68,9 +72,10 @@ class ExtensionCatalogAdapter(
 			}
 			
 			val iconUrl = "${ext.repoUrl}/icon/${ext.pkg}.png"
-			binding.imageIcon.placeholderDrawable = androidx.core.content.ContextCompat.getDrawable(itemView.context, R.drawable.ic_extension)
-			binding.imageIcon.errorDrawable = binding.imageIcon.placeholderDrawable
-			binding.imageIcon.setImageAsync(iconUrl)
+			binding.imageIcon.load(iconUrl) {
+				placeholder(R.drawable.ic_extension)
+				error(R.drawable.ic_extension)
+			}
 			
 			if (ext.isInstalled) {
 				binding.buttonInstall.isVisible = false
@@ -86,7 +91,7 @@ class ExtensionCatalogAdapter(
 			}
 			
 			binding.buttonAdd.setOnClickListener {
-				// Stub for adding the source
+				onItemAddClick(ext)
 			}
 		}
 	}
