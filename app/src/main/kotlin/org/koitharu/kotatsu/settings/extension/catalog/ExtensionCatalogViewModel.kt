@@ -10,9 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -22,6 +22,7 @@ import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.parser.external.ExternalMangaSource
 import org.koitharu.kotatsu.core.util.ext.MutableEventFlow
 import org.koitharu.kotatsu.core.util.ext.call
+import org.koitharu.kotatsu.core.util.ext.map
 import org.koitharu.kotatsu.explore.data.MangaSourcesRepository
 import org.koitharu.kotatsu.extension.data.ExtensionRepoRepository
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
@@ -124,13 +125,11 @@ class ExtensionCatalogViewModel @Inject constructor(
 	fun toggleExtensionSource(extension: ExtensionJsonObject) {
 		viewModelScope.launch(Dispatchers.Default) {
 			val pm = context.packageManager
-			
-			// 1. Try to find the sources provided by this extension
-			val extensionSources = extension.sources ?: emptyList()
 			val sourcesToEnable = mutableListOf<org.koitharu.kotatsu.parsers.model.MangaSource>()
 
+			// 1. Try to find sources from the Repo metadata first (most reliable for Mihon IDs)
+			val extensionSources = extension.sources ?: emptyList()
 			if (extensionSources.isNotEmpty()) {
-				// Map Mihon IDs to Tsukimi source names using the translator
 				extensionSources.forEach { extSource ->
 					val tsukimiSourceName = org.koitharu.kotatsu.backups.domain.mihon.MihonSourceTranslator.getSourceName(extSource.id)
 					if (tsukimiSourceName != null) {
@@ -141,11 +140,10 @@ class ExtensionCatalogViewModel @Inject constructor(
 				}
 			}
 
-			// 2. If no known sources found, fallback to ExternalMangaSource (Kotatsu style)
+			// 2. Fallback: Deep scan the installed package for providers (Standard/Kotatsu extensions)
 			if (sourcesToEnable.isEmpty()) {
-				val pm = context.packageManager
 				val providers = pm.queryIntentContentProviders(
-					android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
+					android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0
 				).filter { it.providerInfo.packageName == extension.pkg }
 				
 				if (providers.isNotEmpty()) {
@@ -156,10 +154,10 @@ class ExtensionCatalogViewModel @Inject constructor(
 						)
 					})
 				} else {
-					// Last resort: find any provider in this package
-					val pkgInfo = try { pm.getPackageInfo(extension.pkg, android.content.pm.PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
-					pkgInfo?.providers?.forEach { 
-						sourcesToEnable.add(ExternalMangaSource(extension.pkg, it.authority))
+					// Guess authority: some extensions use package name as authority
+					val pkgInfo = try { pm.getPackageInfo(extension.pkg, PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
+					pkgInfo?.providers?.forEach { provider ->
+						sourcesToEnable.add(ExternalMangaSource(extension.pkg, provider.authority))
 					}
 				}
 			}
@@ -168,7 +166,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 				sourcesRepository.setSourcesEnabled(sourcesToEnable, true)
 				onActionDone.call(R.string.source_enabled)
 			} else {
-				// If we still found nothing, we might need a dynamic loader (Secondary step)
+				// If we still found nothing, refresh
 				fetchExtensions() 
 			}
 		}
