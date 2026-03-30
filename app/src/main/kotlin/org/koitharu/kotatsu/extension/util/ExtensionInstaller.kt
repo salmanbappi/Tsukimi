@@ -23,15 +23,17 @@ class ExtensionInstaller @Inject constructor(
 	fun install(extension: ExtensionJsonObject) {
 		val url = "${extension.repoUrl}/apk/${extension.apk}"
 		val request = DownloadManager.Request(Uri.parse(url))
-			.setTitle("Installing ${extension.name}")
+			.setTitle(extension.name)
+			.setDescription("Downloading extension...")
 			.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 			.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, extension.apk)
 			.setAllowedOverMetered(true)
 			.setAllowedOverRoaming(true)
+			.setMimeType("application/vnd.android.package-archive")
 
 		val downloadId = downloadManager.enqueue(request)
 		
-		context.registerReceiver(object : BroadcastReceiver() {
+		val receiver = object : BroadcastReceiver() {
 			override fun onReceive(context: Context, intent: Intent) {
 				val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
 				if (id == downloadId) {
@@ -39,7 +41,8 @@ class ExtensionInstaller @Inject constructor(
 					context.unregisterReceiver(this)
 				}
 			}
-		}, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+		}
+		context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
 	}
 
 	private fun installApk(apkName: String) {

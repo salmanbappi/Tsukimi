@@ -94,7 +94,7 @@ class ExtensionCatalogViewModel @Inject constructor(
 		list.map { it.lang }.distinct().sorted()
 	}.stateIn(
 		scope = viewModelScope,
-		started = SharingStarted.Lazily,
+		started = SharingStarted.Eagerly,
 		initialValue = emptyList(),
 	)
 
@@ -118,6 +118,8 @@ class ExtensionCatalogViewModel @Inject constructor(
 		installer.install(extension)
 	}
 
+	val onActionDone = org.koitharu.kotatsu.core.util.ext.MutableEventFlow<Int>()
+
 	fun toggleExtensionSource(extension: ExtensionJsonObject) {
 		viewModelScope.launch(Dispatchers.Default) {
 			val pm = context.packageManager
@@ -134,6 +136,10 @@ class ExtensionCatalogViewModel @Inject constructor(
 			
 			if (sources.isNotEmpty()) {
 				sourcesRepository.setSourcesEnabled(sources, true)
+				onActionDone.call(R.string.source_enabled)
+			} else {
+				// Extension installed but no provider found yet - maybe wait or refresh
+				fetchExtensions() 
 			}
 		}
 	}

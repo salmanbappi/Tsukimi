@@ -46,6 +46,10 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		viewModel.extensions.observe(this) { list: List<CatalogItem> ->
 			catalogAdapter.submitList(list)
 		}
+
+		viewModel.onActionDone.observe(this) { resId ->
+			viewBinding.toastView.show(resId)
+		}
 	}
 
 	override fun onCreateOptionsMenu(menu: Menu): Boolean {
