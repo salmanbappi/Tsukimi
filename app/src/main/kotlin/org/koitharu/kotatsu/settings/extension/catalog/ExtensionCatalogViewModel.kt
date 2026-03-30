@@ -48,16 +48,32 @@ class ExtensionCatalogViewModel @Inject constructor(
 		}
 
 		val installed = filtered.filter { it.isInstalled }.sortedBy { it.name }
-		val available = filtered.filter { !it.isInstalled }.sortedBy { it.name }
+		val available = filtered.filter { !it.isInstalled }
 
 		mutableListOf<CatalogItem>().apply {
 			if (installed.isNotEmpty()) {
 				add(CatalogItem.Header("Installed"))
 				addAll(installed.map { CatalogItem.Extension(it) })
 			}
+			
 			if (available.isNotEmpty()) {
-				add(CatalogItem.Header("Available"))
-				addAll(available.map { CatalogItem.Extension(it) })
+				if (lang != null) {
+					add(CatalogItem.Header(lang.uppercase()))
+					addAll(available.sortedBy { it.name }.map { CatalogItem.Extension(it) })
+				} else {
+					val nsfw = available.filter { it.nsfw == 1 }.sortedBy { it.name }
+					val clean = available.filter { it.nsfw == 0 }
+					
+					if (clean.isNotEmpty()) {
+						add(CatalogItem.Header("All"))
+						addAll(clean.sortedBy { it.name }.map { CatalogItem.Extension(it) })
+					}
+					
+					if (nsfw.isNotEmpty()) {
+						add(CatalogItem.Header("18+ / Hentai"))
+						addAll(nsfw.map { CatalogItem.Extension(it) })
+					}
+				}
 			}
 		}
 	}.stateIn(

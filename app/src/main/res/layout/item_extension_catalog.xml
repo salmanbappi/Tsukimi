@@ -1,14 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
 	android:layout_height="wrap_content"
 	android:background="?selectableItemBackground"
 	android:clickable="true"
 	android:focusable="true"
+	android:gravity="center_vertical"
 	android:orientation="horizontal"
-	android:padding="16dp">
+	android:paddingHorizontal="16dp"
+	android:paddingVertical="12dp">
+
+	<com.google.android.material.imageview.ShapeableImageView
+		android:id="@+id/image_icon"
+		android:layout_width="40dp"
+		android:layout_height="40dp"
+		android:layout_marginEnd="16dp"
+		android:scaleType="centerInside"
+		app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+		tools:src="@tools:sample/avatars" />
 
 	<LinearLayout
 		android:layout_width="0dp"
@@ -27,7 +39,7 @@
 			android:id="@+id/text_version"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:layout_marginTop="4dp"
+			android:layout_marginTop="2dp"
 			android:textAppearance="?textAppearanceListItemSecondary"
 			android:textColor="?android:textColorSecondary"
 			tools:text="1.2.3" />
@@ -36,10 +48,11 @@
 
 	<com.google.android.material.button.MaterialButton
 		android:id="@+id/button_install"
-		style="@style/Widget.Material3.Button.TonalButton"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:layout_gravity="center_vertical"
-		android:text="Install" />
+		style="?materialIconButtonStyle"
+		android:layout_width="48dp"
+		android:layout_height="48dp"
+		app:icon="@drawable/ic_add"
+		app:iconSize="24dp"
+		app:iconTint="?attr/colorPrimary" />
 
 </LinearLayout>

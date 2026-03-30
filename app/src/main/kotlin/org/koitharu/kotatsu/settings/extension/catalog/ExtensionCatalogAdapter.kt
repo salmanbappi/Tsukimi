@@ -2,10 +2,10 @@ package org.koitharu.kotatsu.settings.extension.catalog
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil3.load
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.databinding.ItemExtensionCatalogBinding
 import org.koitharu.kotatsu.databinding.ItemExtensionHeaderBinding
@@ -67,7 +67,12 @@ class ExtensionCatalogAdapter(
 				binding.textVersion.append(" • 18+")
 			}
 			
-			binding.buttonInstall.text = if (ext.isInstalled) "Installed" else "Install"
+			binding.imageIcon.load(ext.iconUrl) {
+				placeholder(R.drawable.ic_extension)
+				error(R.drawable.ic_extension)
+			}
+			
+			binding.buttonInstall.setIconResource(if (ext.isInstalled) R.drawable.ic_check else R.drawable.ic_add)
 			binding.buttonInstall.isEnabled = !ext.isInstalled
 			
 			binding.buttonInstall.setOnClickListener {
