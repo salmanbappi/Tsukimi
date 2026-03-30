@@ -6,7 +6,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
+import coil3.load
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.databinding.ItemExtensionCatalogBinding
 import org.koitharu.kotatsu.databinding.ItemExtensionHeaderBinding
