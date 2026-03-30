@@ -48,11 +48,23 @@
 
 	<com.google.android.material.button.MaterialButton
 		android:id="@+id/button_install"
+		style="@style/Widget.Material3.Button.TonalButton"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center_vertical"
+		android:text="Install"
+		android:visibility="visible"
+		tools:visibility="gone" />
+
+	<com.google.android.material.button.MaterialButton
+		android:id="@+id/button_add"
 		style="?materialIconButtonStyle"
 		android:layout_width="48dp"
 		android:layout_height="48dp"
+		android:visibility="gone"
 		app:icon="@drawable/ic_add"
 		app:iconSize="24dp"
-		app:iconTint="?attr/colorPrimary" />
+		app:iconTint="?attr/colorPrimary"
+		tools:visibility="visible" />
 
 </LinearLayout>

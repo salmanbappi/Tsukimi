@@ -72,11 +72,21 @@ class ExtensionCatalogAdapter(
 				error(R.drawable.ic_extension)
 			}
 			
-			binding.buttonInstall.setIconResource(if (ext.isInstalled) R.drawable.ic_check else R.drawable.ic_add)
-			binding.buttonInstall.isEnabled = !ext.isInstalled
+			if (ext.isInstalled) {
+				binding.buttonInstall.isVisible = false
+				binding.buttonAdd.isVisible = true
+				binding.buttonAdd.setIconResource(R.drawable.ic_add) // Or checkmark if already enabled
+			} else {
+				binding.buttonInstall.isVisible = true
+				binding.buttonAdd.isVisible = false
+			}
 			
 			binding.buttonInstall.setOnClickListener {
 				onItemInstallClick(ext)
+			}
+			
+			binding.buttonAdd.setOnClickListener {
+				// Action to enable/add the installed source
 			}
 		}
 	}
