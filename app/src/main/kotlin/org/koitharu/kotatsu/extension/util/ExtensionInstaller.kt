@@ -48,13 +48,23 @@ class ExtensionInstaller @Inject constructor(
 
 	private fun installApk(apkName: String) {
 		val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), apkName)
-		val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+		if (!file.exists()) return
+		
+		val uri = FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.files", file)
 		
 		val intent = Intent(Intent.ACTION_VIEW).apply {
 			setDataAndType(uri, "application/vnd.android.package-archive")
 			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 			addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+			putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+			putExtra(Intent.EXTRA_RETURN_RESULT, true)
+			putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, context.packageName)
 		}
-		context.startActivity(intent)
+		
+		try {
+			context.startActivity(intent)
+		} catch (e: Exception) {
+			android.widget.Toast.makeText(context, "Installer error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+		}
 	}
 }

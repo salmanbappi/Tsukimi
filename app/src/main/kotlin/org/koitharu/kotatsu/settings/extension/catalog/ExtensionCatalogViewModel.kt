@@ -124,22 +124,39 @@ class ExtensionCatalogViewModel @Inject constructor(
 	fun toggleExtensionSource(extension: ExtensionJsonObject) {
 		viewModelScope.launch(Dispatchers.Default) {
 			val pm = context.packageManager
-			val providers = pm.queryIntentContentProviders(
+			
+			// 1. Try Kotatsu-style discovery (Providers)
+			var providers = pm.queryIntentContentProviders(
 				android.content.Intent("app.kotatsu.parser.PROVIDE_MANGA"), 0,
 			).filter { it.providerInfo.packageName == extension.pkg }
-
-			val sources = providers.map { resolveInfo ->
-				ExternalMangaSource(
-					packageName = resolveInfo.providerInfo.packageName,
-					authority = resolveInfo.providerInfo.authority,
-				)
+			
+			// 2. Fallback: Check if the package is installed but doesn't have the specific intent
+			// (Standard Tachiyomi/Mihon extensions)
+			val sources = if (providers.isNotEmpty()) {
+				providers.map { resolveInfo ->
+					ExternalMangaSource(
+						packageName = resolveInfo.providerInfo.packageName,
+						authority = resolveInfo.providerInfo.authority,
+					)
+				}
+			} else {
+				// If it's a standard Tachiyomi extension, we try to guess the authority
+				// Most use the package name as the authority
+				val info = try { pm.getProviderInfo(android.content.ComponentName(extension.pkg, extension.pkg), 0) } catch (e: Exception) { null }
+				if (info != null) {
+					listOf(ExternalMangaSource(extension.pkg, info.authority))
+				} else {
+					// Last resort: search for ANY provider in this package
+					val pkgInfo = try { pm.getPackageInfo(extension.pkg, android.content.pm.PackageManager.GET_PROVIDERS) } catch (e: Exception) { null }
+					pkgInfo?.providers?.map { ExternalMangaSource(extension.pkg, it.authority) } ?: emptyList()
+				}
 			}
-
+			
 			if (sources.isNotEmpty()) {
 				sourcesRepository.setSourcesEnabled(sources, true)
 				onActionDone.call(R.string.source_enabled)
 			} else {
-				// Extension installed but no provider found yet - refresh to check again
+				// Truly not found or not an extension
 				fetchExtensions()
 			}
 		}
