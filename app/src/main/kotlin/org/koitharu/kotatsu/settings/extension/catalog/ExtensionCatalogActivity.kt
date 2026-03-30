@@ -74,7 +74,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		val languages = viewModel.languages.value
 
 		menu.menu.add(Menu.NONE, 0, 0, "All Languages")
-		languages.forEachIndexed { index, lang ->
+		languages.forEachIndexed { index: Int, lang: String ->
 			menu.menu.add(Menu.NONE, index + 1, index + 1, lang.uppercase())
 		}
 		

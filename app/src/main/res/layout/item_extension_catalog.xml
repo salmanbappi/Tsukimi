@@ -13,7 +13,7 @@
 	android:paddingHorizontal="16dp"
 	android:paddingVertical="12dp">
 
-	<com.google.android.material.imageview.ShapeableImageView
+	<org.koitharu.kotatsu.core.image.CoilImageView
 		android:id="@+id/image_icon"
 		android:layout_width="40dp"
 		android:layout_height="40dp"
