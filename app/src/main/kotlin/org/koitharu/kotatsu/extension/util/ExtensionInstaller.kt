@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Environment
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.koitharu.kotatsu.BuildConfig
 import org.koitharu.kotatsu.extension.model.ExtensionJsonObject
 import java.io.File
 import javax.inject.Inject
