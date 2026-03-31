@@ -160,6 +160,7 @@
 	<style name="Theme.Kotatsu.SplashScreen" parent="Theme.SplashScreen">
 		<item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
 		<item name="windowSplashScreenBackground">@color/kotatsu_background</item>
+		<item name="android:windowBackground">@color/kotatsu_background</item>
 		<item name="postSplashScreenTheme">@style/Theme.Kotatsu</item>
 		<item name="android:statusBarColor">@android:color/transparent</item>
 		<item name="android:navigationBarColor">@android:color/transparent</item>

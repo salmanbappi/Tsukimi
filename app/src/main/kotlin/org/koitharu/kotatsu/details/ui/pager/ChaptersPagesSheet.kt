@@ -67,6 +67,7 @@ class ChaptersPagesSheet : BaseAdaptiveSheet<SheetChaptersPagesBinding>(),
 		}
 		binding.pager.offscreenPageLimit = adapter.itemCount
 		binding.pager.recyclerView?.isNestedScrollingEnabled = false
+		binding.pager.isUserInputEnabled = false
 		binding.pager.adapter = adapter
 		binding.pager.doOnPageChanged(::onPageChanged)
 		TabLayoutMediator(binding.tabs, binding.pager, adapter).attach()

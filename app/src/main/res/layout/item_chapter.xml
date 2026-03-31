@@ -49,6 +49,23 @@
 		android:minHeight="@dimen/chapter_list_item_height"
 		android:paddingHorizontal="?android:listPreferredItemPaddingStart">
 
+		<ImageView
+			android:id="@+id/imageView_bookmarked"
+			android:layout_width="18dp"
+			android:layout_height="18dp"
+			android:layout_marginEnd="4dp"
+			android:contentDescription="@string/bookmarks"
+			android:scaleType="centerInside"
+			android:visibility="gone"
+			app:layout_constraintBottom_toBottomOf="@+id/textView_title"
+			app:layout_constraintEnd_toStartOf="@+id/textView_title"
+			app:layout_constraintHorizontal_chainStyle="packed"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="@+id/textView_title"
+			app:srcCompat="@drawable/ic_bookmark"
+			app:tint="?attr/colorAccent"
+			tools:visibility="visible" />
+
 		<TextView
 			android:id="@+id/textView_title"
 			android:layout_width="0dp"
@@ -59,8 +76,9 @@
 			android:singleLine="true"
 			android:textAppearance="?attr/textAppearanceBodyLarge"
 			app:layout_constraintEnd_toStartOf="@+id/container_download"
-			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/imageView_bookmarked"
 			app:layout_constraintTop_toTopOf="parent"
+			app:layout_goneMarginStart="0dp"
 			tools:text="@tools:sample/lorem[15]"
 			tools:textColor="?android:textColorPrimary" />
 
@@ -75,7 +93,7 @@
 			android:textAppearance="?attr/textAppearanceBodySmall"
 			app:layout_constraintBottom_toBottomOf="parent"
 			app:layout_constraintEnd_toStartOf="@+id/container_download"
-			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintStart_toStartOf="@+id/textView_title"
 			app:layout_constraintTop_toBottomOf="@id/textView_title"
 			tools:text="05.10.2021 • Scanlator"
 			tools:textColor="?android:textColorTertiary" />
@@ -84,9 +102,8 @@
 			android:id="@+id/container_download"
 			android:layout_width="40dp"
 			android:layout_height="40dp"
-			android:layout_marginEnd="4dp"
 			app:layout_constraintBottom_toBottomOf="parent"
-			app:layout_constraintEnd_toStartOf="@+id/imageView_bookmarked"
+			app:layout_constraintEnd_toEndOf="parent"
 			app:layout_constraintTop_toTopOf="parent">
 
 			<ImageButton
@@ -111,19 +128,6 @@
 				tools:visibility="visible" />
 
 		</FrameLayout>
-
-		<ImageView
-			android:id="@+id/imageView_bookmarked"
-			android:layout_width="24dp"
-			android:layout_height="24dp"
-			android:contentDescription="@string/bookmarks"
-			android:scaleType="centerInside"
-			android:visibility="gone"
-			app:layout_constraintBottom_toBottomOf="parent"
-			app:layout_constraintEnd_toEndOf="parent"
-			app:layout_constraintTop_toTopOf="parent"
-			app:srcCompat="@drawable/ic_bookmark"
-			tools:visibility="visible" />
 
 	</androidx.constraintlayout.widget.ConstraintLayout>
 
