@@ -58,6 +58,10 @@
 -keep class org.koitharu.kotatsu.core.prefs.AppSettings { *; }
 
 # Injekt
+-keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod
 -keep class uy.kohesive.injekt.** { *; }
 -keep interface uy.kohesive.injekt.** { *; }
+-keep class * extends uy.kohesive.injekt.api.TypeReference { *; }
+-keep class * extends uy.kohesive.injekt.api.FullTypeReference { *; }
+-dontwarn uy.kohesive.injekt.**
 

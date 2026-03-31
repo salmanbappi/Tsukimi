@@ -13,28 +13,28 @@ import uy.kohesive.injekt.api.get
 object KotoInjektBridge {
     fun setup(context: Context, httpClient: OkHttpClient) {
         try {
-            Injekt.get<Context>()
-        } catch (e: Throwable) {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
-                    addSingletonFactory { context }
-                    addSingletonFactory<Application> { context.applicationContext as Application }
-                    addSingletonFactory { httpClient }
-                    addSingletonFactory<NetworkHelper> { MihonNetworkHelper(httpClient) }
+                    try { addSingletonFactory { context } } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingletonFactory<Application> { context.applicationContext as Application } } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingletonFactory { httpClient } } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingletonFactory<NetworkHelper> { MihonNetworkHelper(httpClient) } } catch (e: Throwable) { e.printStackTrace() }
                 }
             })
+        } catch (e: Throwable) {
+            e.printStackTrace()
         }
     }
 
     fun registerMihonManager(manager: MihonExtensionManager) {
         try {
-            Injekt.get<MihonExtensionManager>()
-        } catch (e: Throwable) {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
-                    addSingletonFactory { manager }
+                    try { addSingletonFactory { manager } } catch (e: Throwable) { e.printStackTrace() }
                 }
             })
+        } catch (e: Throwable) {
+            e.printStackTrace()
         }
     }
 }
