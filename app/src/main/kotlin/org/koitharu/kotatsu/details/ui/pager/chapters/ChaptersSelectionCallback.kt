@@ -57,14 +57,15 @@ class ChaptersSelectionCallback(
 		menu.findItem(R.id.action_mark_current).isVisible = items.size == 1
 		menu.findItem(R.id.action_mark_up_to).isVisible = items.size == 1
 		
-		menu.findItem(R.id.action_mark_read).run {
-			if (allRead) {
-				setTitle(R.string.mark_unread)
-				setIcon(R.drawable.ic_eye_off)
-			} else {
-				setTitle(R.string.mark_read)
-				setIcon(R.drawable.ic_eye_check)
-			}
+		val markReadItem = menu.findItem(R.id.action_mark_read)
+		val markUnreadItem = menu.findItem(R.id.action_mark_unread)
+		
+		if (allRead) {
+			markReadItem.isVisible = false
+			markUnreadItem.isVisible = true
+		} else {
+			markReadItem.isVisible = true
+			markUnreadItem.isVisible = false
 		}
 		
 		mode?.title = items.size.toString()
@@ -173,17 +174,22 @@ class ChaptersSelectionCallback(
 			}
 
 			R.id.action_mark_read -> {
-				val selectedIds = controller.peekCheckedIds()
-				if (selectedIds.isNotEmpty()) {
+				val ids = controller.peekCheckedIds()
+				if (ids.isNotEmpty()) {
 					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-					val allItems = viewModel.chapters.value
-					val items = allItems.filter { it.chapter.id in selectedIds }
-					val allRead = items.all { !it.isUnread }
-					if (allRead) {
-						viewModel.markChaptersAsUnread(selectedIds.toLongArray().toList())
-					} else {
-						viewModel.markChaptersAsRead(selectedIds.toLongArray().toList())
-					}
+					viewModel.markChaptersAsRead(ids.toLongArray().toList())
+				} else {
+					return false
+				}
+				mode?.finish()
+				true
+			}
+
+			R.id.action_mark_unread -> {
+				val ids = controller.peekCheckedIds()
+				if (ids.isNotEmpty()) {
+					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+					viewModel.markChaptersAsUnread(ids.toLongArray().toList())
 				} else {
 					return false
 				}
