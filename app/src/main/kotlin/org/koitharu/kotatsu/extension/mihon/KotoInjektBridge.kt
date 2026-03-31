@@ -18,10 +18,9 @@ object KotoInjektBridge {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
                     addSingletonFactory { context }
-                    addSingletonFactory { context.applicationContext as Application }
+                    addSingletonFactory<Application> { context.applicationContext as Application }
                     addSingletonFactory { httpClient }
-                    val networkHelper = MihonNetworkHelper(httpClient)
-                    addSingletonFactory<NetworkHelper> { networkHelper }
+                    addSingletonFactory<NetworkHelper> { MihonNetworkHelper(httpClient) }
                 }
             })
         }

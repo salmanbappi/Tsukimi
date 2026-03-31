@@ -20,7 +20,8 @@ class MihonExtensionManager @Inject constructor(
     val installedExtensions: StateFlow<Map<String, List<MihonMangaSource>>> = _installedExtensions
 
     init {
-        KotoInjektBridge.setup(context, httpClient)
+        // Core Injekt setup should have happened in BaseApp.onCreate
+        // Here we just ensure this manager is also available via Injekt if needed
         KotoInjektBridge.registerMihonManager(this)
         refreshInstalledExtensions()
     }

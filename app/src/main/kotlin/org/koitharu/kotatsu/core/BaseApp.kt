@@ -12,6 +12,7 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import okhttp3.internal.platform.PlatformRegistry
 import org.acra.ACRA
 import org.acra.ReportField
@@ -24,10 +25,12 @@ import org.conscrypt.Conscrypt
 import org.koitharu.kotatsu.BuildConfig
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.db.MangaDatabase
+import org.koitharu.kotatsu.core.network.BaseHttpClient
 import org.koitharu.kotatsu.core.os.AppValidator
 import org.koitharu.kotatsu.core.os.RomCompat
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.util.ext.processLifecycleScope
+import org.koitharu.kotatsu.extension.mihon.KotoInjektBridge
 import org.koitharu.kotatsu.local.data.LocalStorageChanges
 import org.koitharu.kotatsu.local.data.index.LocalMangaIndex
 import org.koitharu.kotatsu.local.domain.model.LocalManga
@@ -68,6 +71,10 @@ open class BaseApp : Application(), Configuration.Provider {
 	@LocalStorageChanges
 	lateinit var localStorageChanges: MutableSharedFlow<LocalManga?>
 
+	@Inject
+	@BaseHttpClient
+	lateinit var httpClient: OkHttpClient
+
 	override val workManagerConfiguration: Configuration
 		get() = Configuration.Builder()
 			.setWorkerFactory(workerFactory)
@@ -79,6 +86,9 @@ open class BaseApp : Application(), Configuration.Provider {
 		if (ACRA.isACRASenderServiceProcess()) {
 			return
 		}
+		
+		KotoInjektBridge.setup(this, httpClient)
+		
 		AppCompatDelegate.setDefaultNightMode(settings.theme)
 		// TLS 1.3 support for Android < 10
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
