@@ -56,3 +56,8 @@
 }
 -keep class org.koitharu.kotatsu.core.model.TranslationEngine { *; }
 -keep class org.koitharu.kotatsu.core.prefs.AppSettings { *; }
+
+# Injekt
+-keep class uy.kohesive.injekt.** { *; }
+-keep interface uy.kohesive.injekt.** { *; }
+

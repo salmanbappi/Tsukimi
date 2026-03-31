@@ -14,7 +14,7 @@ object KotoInjektBridge {
     fun setup(context: Context, httpClient: OkHttpClient) {
         try {
             Injekt.get<Context>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
                     addSingletonFactory { context }
@@ -29,7 +29,7 @@ object KotoInjektBridge {
     fun registerMihonManager(manager: MihonExtensionManager) {
         try {
             Injekt.get<MihonExtensionManager>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
                     addSingletonFactory { manager }
