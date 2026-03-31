@@ -73,13 +73,18 @@ class ChapterSwipeCallback(
 			val bgStart = itemView.findViewById<View>(R.id.swipe_bg_start)
 			val bgEnd = itemView.findViewById<View>(R.id.swipe_bg_end)
 			val iconStart = itemView.findViewById<ImageView>(R.id.swipe_icon_start)
+			val iconEnd = itemView.findViewById<ImageView>(R.id.swipe_icon_end)
 			
 			if (foreground != null && bgStart != null && bgEnd != null && item != null) {
-				// Translate only the foreground
-				foreground.translationX = dX
+				// Capping translation for partial reveal (approx 35% of width)
+				val limit = itemView.width * 0.35f
+				val cappedDX = if (dX > 0) dX.coerceAtMost(limit) else dX.coerceAtLeast(-limit)
+				foreground.translationX = cappedDX
+				
+				val alpha = (abs(dX) / (itemView.width * 0.3f)).coerceIn(0f, 1f)
 				
 				if (dX > 0) {
-					// Swiping Right: Toggle Read (Green/Gray)
+					// Swiping Right: Toggle Read
 					bgStart.visibility = View.VISIBLE
 					bgEnd.visibility = View.INVISIBLE
 					bgStart.setBackgroundColor(if (item.isUnread) {
@@ -87,9 +92,10 @@ class ChapterSwipeCallback(
 					} else {
 						android.graphics.Color.GRAY
 					})
+					bgStart.alpha = alpha
 					iconStart?.setImageResource(if (item.isUnread) R.drawable.ic_check else R.drawable.ic_eye_off)
 				} else if (dX < 0) {
-					// Swiping Left: Toggle Bookmark (Blue/Red)
+					// Swiping Left: Toggle Bookmark
 					bgEnd.visibility = View.VISIBLE
 					bgStart.visibility = View.INVISIBLE
 					bgEnd.setBackgroundColor(if (item.isBookmarked) {
@@ -98,6 +104,8 @@ class ChapterSwipeCallback(
 						if (accentColor == 0) accentColor = recyclerView.context.getThemeColor(androidx.appcompat.R.attr.colorAccent)
 						accentColor
 					})
+					bgEnd.alpha = alpha
+					iconEnd?.setImageResource(if (item.isBookmarked) R.drawable.ic_bookmark_checked else R.drawable.ic_bookmark)
 				} else {
 					bgStart.visibility = View.INVISIBLE
 					bgEnd.visibility = View.INVISIBLE
@@ -120,5 +128,5 @@ class ChapterSwipeCallback(
 		super.clearView(recyclerView, viewHolder)
 	}
 	
-	override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.3f
+	override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.6f
 }

@@ -34,7 +34,7 @@ class ChaptersSelectionDecoration(context: Context) : AbstractSelectionItemDecor
 	init {
 		paint.color = ColorUtils.setAlphaComponent(
 			context.getThemeColor(appcompatR.attr.colorPrimary, Color.DKGRAY),
-			98,
+			48, // Reduced alpha for more subtle selection (approx 18%)
 		)
 		paint.style = Paint.Style.FILL
 		hasBackground = true
@@ -46,7 +46,7 @@ class ChaptersSelectionDecoration(context: Context) : AbstractSelectionItemDecor
 	}
 
 	override fun getItemId(parent: RecyclerView, child: View): Long {
-		val holder = parent.getChildViewHolder(child) ?: return RecyclerView.NO_ID
+		val holder = parent.findContainingViewHolder(child) ?: return RecyclerView.NO_ID
 		val item = holder.getItem(ChapterListItem::class.java) ?: return RecyclerView.NO_ID
 		return item.chapter.id
 	}
@@ -58,9 +58,8 @@ class ChaptersSelectionDecoration(context: Context) : AbstractSelectionItemDecor
 		bounds: RectF,
 		state: RecyclerView.State,
 	) {
-		if (child is CardView) {
-			return
-		}
+		// Use a fixed alpha background for selection
+		paint.style = Paint.Style.FILL
 		canvas.drawRoundRect(bounds, radius, radius, paint)
 	}
 
@@ -71,24 +70,19 @@ class ChaptersSelectionDecoration(context: Context) : AbstractSelectionItemDecor
 		bounds: RectF,
 		state: RecyclerView.State
 	) {
-		if (child !is CardView) {
-			return
-		}
-		val radius = child.radius
-		paint.color = fillColor
-		paint.style = Paint.Style.FILL
-		canvas.drawRoundRect(bounds, radius, radius, paint)
-		paint.color = strokeColor
-		paint.style = Paint.Style.STROKE
-		canvas.drawRoundRect(bounds, radius, radius, paint)
-		checkIcon?.run {
-			setBounds(
-				(bounds.right - iconSize - iconOffset).toInt(),
-				(bounds.top + iconOffset).toInt(),
-				(bounds.right - iconOffset).toInt(),
-				(bounds.top + iconOffset + iconSize).toInt(),
-			)
-			draw(canvas)
+		// Only draw check icon for list items (not grid)
+		val holder = parent.findContainingViewHolder(child)
+		val item = holder?.getItem(ChapterListItem::class.java)
+		if (item != null && !item.isGrid) {
+			checkIcon?.run {
+				setBounds(
+					(bounds.right - iconSize - iconOffset).toInt(),
+					(bounds.top + iconOffset).toInt(),
+					(bounds.right - iconOffset).toInt(),
+					(bounds.top + iconOffset + iconSize).toInt(),
+				)
+				draw(canvas)
+			}
 		}
 	}
 }

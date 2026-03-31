@@ -29,7 +29,7 @@ class ExtensionCatalogActivity : BaseActivity<ActivityExtensionCatalogBinding>()
 		super.onCreate(savedInstanceState)
 		setContentView(ActivityExtensionCatalogBinding.inflate(layoutInflater))
 		setDisplayHomeAsUp(isEnabled = true, showUpAsClose = false)
-		setTitle("Extension Catalog")
+		setTitle("Extension catalogue (unfinished)")
 
 		val catalogAdapter = ExtensionCatalogAdapter(
 			onItemInstallClick = { ext ->

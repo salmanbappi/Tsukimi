@@ -4,20 +4,22 @@
 	xmlns:app="http://schemas.android.com/apk/res-auto"
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
-	android:layout_height="?attr/listPreferredItemHeight">
+	android:layout_height="wrap_content"
+	android:minHeight="?attr/listPreferredItemHeight">
 
 	<!-- Swipe Background (Start/Right) -->
 	<FrameLayout
 		android:id="@+id/swipe_bg_start"
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
-		android:background="@color/common_green">
+		android:background="@color/common_green"
+		android:visibility="invisible">
 		<ImageView
 			android:id="@+id/swipe_icon_start"
 			android:layout_width="24dp"
 			android:layout_height="24dp"
 			android:layout_gravity="center_vertical|start"
-			android:layout_marginStart="16dp"
+			android:layout_marginStart="24dp"
 			android:src="@drawable/ic_check"
 			app:tint="@android:color/white" />
 	</FrameLayout>
@@ -27,93 +29,102 @@
 		android:id="@+id/swipe_bg_end"
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
-		android:background="?attr/colorAccent">
+		android:background="?attr/colorAccent"
+		android:visibility="invisible">
 		<ImageView
 			android:id="@+id/swipe_icon_end"
 			android:layout_width="24dp"
 			android:layout_height="24dp"
 			android:layout_gravity="center_vertical|end"
-			android:layout_marginEnd="16dp"
+			android:layout_marginEnd="24dp"
 			android:src="@drawable/ic_bookmark"
 			app:tint="@android:color/white" />
 	</FrameLayout>
 
-	<LinearLayout
+	<androidx.constraintlayout.widget.ConstraintLayout
 		android:id="@+id/foreground"
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
 		android:background="@drawable/list_selector"
-		android:baselineAligned="false"
-		android:gravity="center_vertical"
 		android:minHeight="@dimen/chapter_list_item_height"
-		android:orientation="horizontal">
-
-	<LinearLayout
-		android:layout_width="0dp"
-		android:layout_height="wrap_content"
-		android:layout_marginVertical="8dp"
-		android:layout_marginStart="?android:listPreferredItemPaddingStart"
-		android:layout_marginEnd="?android:listPreferredItemPaddingEnd"
-		android:layout_weight="1"
-		android:orientation="vertical">
+		android:paddingHorizontal="?android:listPreferredItemPaddingStart">
 
 		<TextView
 			android:id="@+id/textView_title"
-			android:layout_width="match_parent"
+			android:layout_width="0dp"
 			android:layout_height="wrap_content"
+			android:layout_marginTop="8dp"
 			android:drawablePadding="8dp"
 			android:ellipsize="end"
 			android:singleLine="true"
 			android:textAppearance="?attr/textAppearanceBodyLarge"
+			app:layout_constraintEnd_toStartOf="@+id/container_download"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
 			tools:text="@tools:sample/lorem[15]"
 			tools:textColor="?android:textColorPrimary" />
 
 		<TextView
 			android:id="@+id/textView_description"
-			android:layout_width="match_parent"
+			android:layout_width="0dp"
 			android:layout_height="wrap_content"
 			android:layout_marginTop="2dp"
+			android:layout_marginBottom="8dp"
 			android:ellipsize="end"
 			android:singleLine="true"
 			android:textAppearance="?attr/textAppearanceBodySmall"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toStartOf="@+id/container_download"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@id/textView_title"
 			tools:text="05.10.2021 • Scanlator"
 			tools:textColor="?android:textColorTertiary" />
-	</LinearLayout>
 
-	<FrameLayout
-		android:layout_width="48dp"
-		android:layout_height="match_parent">
+		<FrameLayout
+			android:id="@+id/container_download"
+			android:layout_width="40dp"
+			android:layout_height="40dp"
+			android:layout_marginEnd="4dp"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toStartOf="@+id/imageView_bookmarked"
+			app:layout_constraintTop_toTopOf="parent">
 
-		<ImageButton
-			android:id="@+id/button_download"
-			android:layout_width="match_parent"
-			android:layout_height="match_parent"
-			android:background="?attr/selectableItemBackgroundBorderless"
-			android:contentDescription="@string/download"
-			android:src="@drawable/ic_download"
-			app:tint="?android:textColorPrimary" />
+			<ImageButton
+				android:id="@+id/button_download"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:background="?attr/selectableItemBackgroundBorderless"
+				android:contentDescription="@string/download"
+				android:scaleType="centerInside"
+				android:src="@drawable/ic_download"
+				app:tint="?android:textColorPrimary" />
 
-		<com.google.android.material.progressindicator.CircularProgressIndicator
-			android:id="@+id/progress_download"
+			<com.google.android.material.progressindicator.CircularProgressIndicator
+				android:id="@+id/progress_download"
+				android:layout_width="24dp"
+				android:layout_height="24dp"
+				android:layout_gravity="center"
+				android:visibility="gone"
+				app:indicatorSize="24dp"
+				app:trackThickness="2dp"
+				tools:progress="50"
+				tools:visibility="visible" />
+
+		</FrameLayout>
+
+		<ImageView
+			android:id="@+id/imageView_bookmarked"
 			android:layout_width="24dp"
 			android:layout_height="24dp"
-			android:layout_gravity="center"
+			android:contentDescription="@string/bookmarks"
+			android:scaleType="centerInside"
 			android:visibility="gone"
-			app:indicatorSize="24dp"
-			app:trackThickness="2dp"
-			tools:progress="50"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:srcCompat="@drawable/ic_bookmark"
 			tools:visibility="visible" />
 
-	</FrameLayout>
-
-	<ImageView
-		android:id="@+id/imageView_bookmarked"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:layout_marginEnd="?android:listPreferredItemPaddingEnd"
-		android:contentDescription="@string/bookmarks"
-		app:srcCompat="@drawable/ic_bookmark" />
-
-</LinearLayout>
+	</androidx.constraintlayout.widget.ConstraintLayout>
 
 </FrameLayout>
