@@ -159,8 +159,9 @@
 	<!--== Splash Theme ==-->
 	<style name="Theme.Kotatsu.SplashScreen" parent="Theme.SplashScreen">
 		<item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
-		<item name="windowSplashScreenBackground">@color/kotatsu_background</item>
-		<item name="android:windowBackground">@color/kotatsu_background</item>
+		<item name="windowSplashScreenBackground">@android:color/transparent</item>
+		<item name="android:windowBackground">@android:color/transparent</item>
+		<item name="android:windowIsTranslucent">true</item>
 		<item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
 		<item name="android:windowDrawsSystemBarBackgrounds">true</item>
 		<item name="postSplashScreenTheme">@style/Theme.Kotatsu</item>
