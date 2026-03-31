@@ -1,15 +1,18 @@
 package org.koitharu.kotatsu.extension.mihon.model
 
 import eu.kanade.tachiyomi.source.CatalogueSource
-import org.koitharu.kotatsu.parsers.model.MangaSource
+import org.koitharu.kotatsu.parsers.model.ContentType
+import org.koitharu.kotatsu.parsers.model.MangaParserSource
 
 class MihonMangaSource(
     val catalogueSource: CatalogueSource,
     val pkgName: String,
-) : MangaSource {
+) : MangaParserSource {
     override val name: String = "MIHON_${catalogueSource.id}"
     
-    // Internal properties for mapping
-    val title: String = catalogueSource.name
-    val locale: String = catalogueSource.lang
+    override val title: String = catalogueSource.name
+    override val locale: String = catalogueSource.lang
+    override val contentType: ContentType = ContentType.MANGA
+    override val isBroken: Boolean = false
+    override val isNsfw: Boolean = false
 }

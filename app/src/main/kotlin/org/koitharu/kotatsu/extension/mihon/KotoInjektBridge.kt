@@ -1,5 +1,6 @@
 package org.koitharu.kotatsu.extension.mihon
 
+import android.app.Application
 import android.content.Context
 import eu.kanade.tachiyomi.network.NetworkHelper
 import okhttp3.OkHttpClient
@@ -17,8 +18,10 @@ object KotoInjektBridge {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
                     addSingletonFactory { context }
+                    addSingletonFactory { context.applicationContext as Application }
                     addSingletonFactory { httpClient }
-                    addSingletonFactory<NetworkHelper> { MihonNetworkHelper(httpClient) }
+                    val networkHelper = MihonNetworkHelper(httpClient)
+                    addSingletonFactory<NetworkHelper> { networkHelper }
                 }
             })
         }
