@@ -12,8 +12,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.skepsun.kototoro.parsers.model.ContentSource
-import rx.Observable
+import io.reactivex.Observable
 import uy.kohesive.injekt.injectLazy
 import java.net.URI
 import java.net.URISyntaxException
@@ -21,7 +20,6 @@ import java.security.MessageDigest
 
 /**
  * A simple implementation for sources from a website.
- * Ported from Mihon source-api for extension compatibility.
  */
 @Suppress("unused")
 abstract class HttpSource : CatalogueSource {
@@ -60,9 +58,9 @@ abstract class HttpSource : CatalogueSource {
         get() = network.client
 
     /**
-     * Generates a unique ID for the source.
+     * Generates a unique ID for the source based on the provided [name], [lang] and
+     * [versionId].
      */
-    @Suppress("MemberVisibilityCanBePrivate")
     protected fun generateId(name: String, lang: String, versionId: Int): Long {
         val key = "${name.lowercase()}/$lang/$versionId"
         val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
@@ -86,8 +84,7 @@ abstract class HttpSource : CatalogueSource {
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getPopularManga"))
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(popularMangaRequest(page))).execute()
-            popularMangaParse(response)
+            popularMangaParse(client.newCall(popularMangaRequest(page)).execute())
         }
     }
 
@@ -98,28 +95,13 @@ abstract class HttpSource : CatalogueSource {
     // ======== Search manga ========
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getSearchManga"))
-    override fun fetchSearchManga(
-        page: Int,
-        query: String,
-        filters: FilterList,
-    ): Observable<MangasPage> {
-        return Observable.defer {
-            try {
-                Observable.fromCallable {
-                    val response = client.newCall(tagRequest(searchMangaRequest(page, query, filters))).execute()
-                    searchMangaParse(response)
-                }
-            } catch (e: NoClassDefFoundError) {
-                throw RuntimeException(e)
-            }
+    override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
+        return Observable.fromCallable {
+            searchMangaParse(client.newCall(searchMangaRequest(page, query, filters)).execute())
         }
     }
 
-    protected abstract fun searchMangaRequest(
-        page: Int,
-        query: String,
-        filters: FilterList,
-    ): Request
+    protected abstract fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request
 
     protected abstract fun searchMangaParse(response: Response): MangasPage
 
@@ -128,8 +110,7 @@ abstract class HttpSource : CatalogueSource {
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(latestUpdatesRequest(page))).execute()
-            latestUpdatesParse(response)
+            latestUpdatesParse(client.newCall(latestUpdatesRequest(page)).execute())
         }
     }
 
@@ -137,18 +118,18 @@ abstract class HttpSource : CatalogueSource {
 
     protected abstract fun latestUpdatesParse(response: Response): MangasPage
 
-    // ======== Content details ========
+    // ======== Manga details ========
 
-    @Suppress("DEPRECATION")
     override suspend fun getMangaDetails(manga: SManga): SManga {
-        return fetchMangaDetails(manga).toBlocking().first()
+        return fetchMangaDetails(manga).blockingFirst()
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getMangaDetails"))
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(mangaDetailsRequest(manga))).execute()
-            mangaDetailsParse(response).apply { initialized = true }
+            mangaDetailsParse(client.newCall(mangaDetailsRequest(manga)).execute()).apply {
+                initialized = true
+            }
         }
     }
 
@@ -160,16 +141,14 @@ abstract class HttpSource : CatalogueSource {
 
     // ======== Chapter list ========
 
-    @Suppress("DEPRECATION")
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
-        return fetchChapterList(manga).toBlocking().first()
+        return fetchChapterList(manga).blockingFirst()
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getChapterList"))
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(chapterListRequest(manga))).execute()
-            chapterListParse(response)
+            chapterListParse(client.newCall(chapterListRequest(manga)).execute())
         }
     }
 
@@ -181,16 +160,14 @@ abstract class HttpSource : CatalogueSource {
 
     // ======== Page list ========
 
-    @Suppress("DEPRECATION")
     override suspend fun getPageList(chapter: SChapter): List<Page> {
-        return fetchPageList(chapter).toBlocking().first()
+        return fetchPageList(chapter).blockingFirst()
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getPageList"))
     override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(pageListRequest(chapter))).execute()
-            pageListParse(response)
+            pageListParse(client.newCall(pageListRequest(chapter)).execute())
         }
     }
 
@@ -203,14 +180,13 @@ abstract class HttpSource : CatalogueSource {
     // ======== Image URL ========
 
     open suspend fun getImageUrl(page: Page): String {
-        return fetchImageUrl(page).toBlocking().first()
+        return fetchImageUrl(page).blockingFirst()
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
     open fun fetchImageUrl(page: Page): Observable<String> {
         return Observable.fromCallable {
-            val response = client.newCall(tagRequest(imageUrlRequest(page))).execute()
-            imageUrlParse(response)
+            imageUrlParse(client.newCall(imageUrlRequest(page)).execute())
         }
     }
 
@@ -220,36 +196,17 @@ abstract class HttpSource : CatalogueSource {
 
     protected abstract fun imageUrlParse(response: Response): String
 
-    private fun tagRequest(request: Request): Request {
-        if (request.tag(ContentSource::class.java) != null) {
-            return request
-        }
-        return request.newBuilder()
-            .tag(
-                ContentSource::class.java,
-                org.skepsun.kototoro.core.model.ContentSource("MIHON_$id"),
-            )
-            .build()
-    }
-
     // ======== Image request ========
 
     open suspend fun getImage(page: Page): Response {
         return client.newCall(imageRequest(page)).execute()
     }
 
-    open fun imageRequest(page: Page): Request {
+    protected open fun imageRequest(page: Page): Request {
         return GET(page.imageUrl!!, headers)
     }
 
-    /**
-     * Public helper to get headers for a page.
-     */
-    fun getPageHeaders(page: Page): Headers {
-        return imageRequest(page).headers
-    }
-
-    // ======== URL helpers ========
+    // ======== Helper methods ========
 
     fun SChapter.setUrlWithoutDomain(url: String) {
         this.url = getUrlWithoutDomain(url)

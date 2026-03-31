@@ -21,6 +21,7 @@ class MihonExtensionManager @Inject constructor(
 
     init {
         KotoInjektBridge.setup(context, httpClient)
+        KotoInjektBridge.registerMihonManager(this)
         refreshInstalledExtensions()
     }
 

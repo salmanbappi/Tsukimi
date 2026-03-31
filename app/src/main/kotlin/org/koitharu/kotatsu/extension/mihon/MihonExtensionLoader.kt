@@ -7,19 +7,18 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import org.koitharu.kotatsu.extension.mihon.model.MihonMangaSource
-import java.io.File
 
 class MihonExtensionLoader(private val context: Context) {
 
     fun loadExtension(packageName: String): List<MihonMangaSource> {
         val packageManager = context.packageManager
         val packageInfo = try {
-            packageManager.getPackageInfo(packageName, PackageManager.GET_CONFIGURATIONS or PackageManager.GET_SIGNATURES)
+            packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA)
         } catch (e: Exception) {
             return emptyList()
         }
 
-        val appInfo = packageInfo.applicationInfo
+        val appInfo = packageInfo.applicationInfo ?: return emptyList()
         val classLoader = PathClassLoader(appInfo.sourceDir, null, context.classLoader)
         
         val extensionClass = try {

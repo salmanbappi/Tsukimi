@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import rx.Observable
+import io.reactivex.Observable
 
 /**
  * A basic interface for creating a source. It could be an online source, a local source, etc.
@@ -33,7 +33,7 @@ interface Source {
      */
     @Suppress("DEPRECATION")
     suspend fun getMangaDetails(manga: SManga): SManga {
-        return fetchMangaDetails(manga).toBlocking().first()
+        return fetchMangaDetails(manga).blockingFirst()
     }
 
     /**
@@ -45,7 +45,7 @@ interface Source {
      */
     @Suppress("DEPRECATION")
     suspend fun getChapterList(manga: SManga): List<SChapter> {
-        return fetchChapterList(manga).toBlocking().first()
+        return fetchChapterList(manga).blockingFirst()
     }
 
     /**
@@ -58,7 +58,7 @@ interface Source {
      */
     @Suppress("DEPRECATION")
     suspend fun getPageList(chapter: SChapter): List<Page> {
-        return fetchPageList(chapter).toBlocking().first()
+        return fetchPageList(chapter).blockingFirst()
     }
 
     @Deprecated(

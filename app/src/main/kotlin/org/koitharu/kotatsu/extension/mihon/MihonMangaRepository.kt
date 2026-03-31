@@ -61,7 +61,6 @@ class MihonMangaRepository(
         val chapters = catalogueSource.getChapterList(sManga)
         
         MihonDataMapper.toKotoManga(details, source).copy(
-            chaptersCount = chapters.size,
             chapters = chapters.map { MihonDataMapper.toKotoChapter(it, source) }
         )
     }
@@ -69,7 +68,7 @@ class MihonMangaRepository(
     override suspend fun getPages(chapter: MangaChapter): List<MangaPage> = withContext(Dispatchers.IO) {
         val sChapter = MihonDataMapper.toMihonChapter(chapter)
         val pages = catalogueSource.getPageList(sChapter)
-        pages.map { MihonDataMapper.toKotoPage(it) }
+        pages.map { MihonDataMapper.toKotoPage(it, source) }
     }
 
     override suspend fun getPageUrl(page: MangaPage): String = withContext(Dispatchers.IO) {
