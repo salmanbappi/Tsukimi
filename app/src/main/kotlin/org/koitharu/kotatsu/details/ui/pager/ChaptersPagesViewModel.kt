@@ -378,7 +378,7 @@ abstract class ChaptersPagesViewModel(
 				bookmarksRepository.addBookmark(
 					Bookmark(
 						manga = manga,
-						pageId = 0L,
+						pageId = chapter.id,
 						chapterId = chapter.id,
 						page = 0,
 						scroll = 0,

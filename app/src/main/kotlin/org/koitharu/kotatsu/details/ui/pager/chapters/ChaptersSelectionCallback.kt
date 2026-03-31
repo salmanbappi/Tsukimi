@@ -149,6 +149,18 @@ class ChaptersSelectionCallback(
 				true
 			}
 
+			R.id.action_mark_current -> {
+				val ids = controller.peekCheckedIds()
+				if (ids.size == 1) {
+					recyclerView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+					viewModel.markChapterAsCurrent(ids.first())
+				} else {
+					return false
+				}
+				mode?.finish()
+				true
+			}
+
 			R.id.action_mark_up_to -> {
 				val ids = controller.peekCheckedIds()
 				if (ids.size == 1) {
