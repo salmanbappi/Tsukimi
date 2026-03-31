@@ -1,12 +1,6 @@
 name: Preview Build
 
 on:
-  push:
-    branches:
-      - preview
-  pull_request:
-    branches:
-      - preview
   workflow_dispatch:
 
 concurrency:
