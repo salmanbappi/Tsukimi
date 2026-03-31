@@ -1,6 +1,7 @@
 package org.koitharu.kotatsu.extension.mihon
 
 import android.content.Context
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,8 +24,9 @@ class MihonExtensionManager @Inject constructor(
     val installedExtensions: StateFlow<Map<String, List<MihonMangaSource>>> = _installedExtensions
 
     init {
+        Log.d("MihonExtensionManager", "Initializing MihonExtensionManager")
         // Core Injekt setup should have happened in BaseApp.onCreate
-        // Here we just ensure this manager is also available via Injekt if needed
+        // But we call it here too as a safety measure in case this is created earlier (e.g. by Hilt eager injection)
         KotoInjektBridge.setup(context, httpClient)
         KotoInjektBridge.registerMihonManager(this)
         refreshInstalledExtensions()
@@ -33,16 +35,21 @@ class MihonExtensionManager @Inject constructor(
     fun refreshInstalledExtensions() {
         processLifecycleScope.launch(Dispatchers.IO) {
             try {
+                Log.d("MihonExtensionManager", "Refreshing installed extensions")
                 val pm = context.packageManager
                 val packages = pm.getInstalledPackages(0)
                     .filter { it.packageName.startsWith("eu.kanade.tachiyomi.extension.") }
                 
+                Log.d("MihonExtensionManager", "Found ${packages.size} potential extensions")
+                
                 val newExtensions = packages.associate { pkg ->
+                    Log.d("MihonExtensionManager", "Loading extension: ${pkg.packageName}")
                     pkg.packageName to loader.loadExtension(pkg.packageName)
                 }
                 _installedExtensions.value = newExtensions
+                Log.d("MihonExtensionManager", "Extension refresh completed")
             } catch (e: Throwable) {
-                // Ignore
+                Log.e("MihonExtensionManager", "Failed to refresh extensions", e)
             }
         }
     }
