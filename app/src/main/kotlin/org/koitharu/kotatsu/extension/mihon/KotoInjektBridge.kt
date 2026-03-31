@@ -7,7 +7,7 @@ import okhttp3.OkHttpClient
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
-import uy.kohesive.injekt.api.addSingletonFactory
+import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.get
 
 object KotoInjektBridge {
@@ -15,10 +15,10 @@ object KotoInjektBridge {
         try {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
-                    try { addSingletonFactory { context } } catch (e: Throwable) { e.printStackTrace() }
-                    try { addSingletonFactory<Application> { context.applicationContext as Application } } catch (e: Throwable) { e.printStackTrace() }
-                    try { addSingletonFactory { httpClient } } catch (e: Throwable) { e.printStackTrace() }
-                    try { addSingletonFactory<NetworkHelper> { MihonNetworkHelper(httpClient) } } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingleton(context) } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingleton<Application>(context.applicationContext as Application) } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingleton(httpClient) } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingleton<NetworkHelper>(MihonNetworkHelper(httpClient)) } catch (e: Throwable) { e.printStackTrace() }
                 }
             })
         } catch (e: Throwable) {
@@ -30,7 +30,7 @@ object KotoInjektBridge {
         try {
             Injekt.importModule(object : InjektModule {
                 override fun InjektRegistrar.registerInjectables() {
-                    try { addSingletonFactory { manager } } catch (e: Throwable) { e.printStackTrace() }
+                    try { addSingleton(manager) } catch (e: Throwable) { e.printStackTrace() }
                 }
             })
         } catch (e: Throwable) {

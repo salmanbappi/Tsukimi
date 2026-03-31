@@ -61,6 +61,7 @@
 -keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod
 -keep class uy.kohesive.injekt.** { *; }
 -keep interface uy.kohesive.injekt.** { *; }
+-keep class uy.kohesive.injekt.api.InjektRegistrar { *; }
 -keep class * extends uy.kohesive.injekt.api.TypeReference { *; }
 -keep class * extends uy.kohesive.injekt.api.FullTypeReference { *; }
 -dontwarn uy.kohesive.injekt.**
