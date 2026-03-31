@@ -24,8 +24,8 @@ object MihonDataMapper {
             coverUrl = sManga.thumbnail_url,
             tags = emptySet(),
             state = when(sManga.status) {
-                1 -> MangaState.ONGOING
-                2 -> MangaState.FINISHED
+                SManga.ONGOING -> MangaState.ONGOING
+                SManga.COMPLETED -> MangaState.FINISHED
                 else -> MangaState.ONGOING
             },
             authors = sManga.author?.let { setOf(it) } ?: emptySet(),
@@ -44,9 +44,9 @@ object MihonDataMapper {
             author = manga.authors.joinToString(", ")
             description = manga.description
             status = when(manga.state) {
-                MangaState.ONGOING -> 1
-                MangaState.FINISHED -> 2
-                else -> 0
+                MangaState.ONGOING -> SManga.ONGOING
+                MangaState.FINISHED -> SManga.COMPLETED
+                else -> SManga.UNKNOWN
             }
         }
     }
@@ -56,10 +56,10 @@ object MihonDataMapper {
             id = sChapter.url.hashCode().toLong(),
             url = sChapter.url,
             title = sChapter.name,
-            volume = null,
+            volume = 0,
             number = sChapter.chapter_number,
             uploadDate = sChapter.date_upload,
-            branch = null,
+            branch = "",
             scanlator = sChapter.scanlator,
             source = source
         )
@@ -77,10 +77,10 @@ object MihonDataMapper {
 
     fun toKotoPage(page: Page, source: MihonMangaSource): MangaPage {
         return MangaPage(
-            id = page.index.toLong(),
-            url = page.imageUrl ?: page.url,
-            preview = null,
-            source = source
+            page.index.toLong(),
+            page.imageUrl ?: page.url,
+            null,
+            source
         )
     }
 }

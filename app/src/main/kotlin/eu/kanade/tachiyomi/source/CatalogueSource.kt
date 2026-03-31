@@ -11,6 +11,11 @@ import io.reactivex.Observable
 interface CatalogueSource : Source {
 
     /**
+     * Whether the source has a latest updates section.
+     */
+    val supportsLatest: Boolean
+
+    /**
      * Get a page with a list of manga.
      *
      * @since extensions-lib 1.5
