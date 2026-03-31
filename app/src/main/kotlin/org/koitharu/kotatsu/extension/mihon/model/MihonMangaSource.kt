@@ -1,18 +1,17 @@
 package org.koitharu.kotatsu.extension.mihon.model
 
 import eu.kanade.tachiyomi.source.CatalogueSource
-import org.koitharu.kotatsu.parsers.model.ContentType
-import org.koitharu.kotatsu.parsers.model.MangaParserSource
+import org.koitharu.kotatsu.parsers.model.MangaSource
 
 class MihonMangaSource(
     val catalogueSource: CatalogueSource,
     val pkgName: String,
-) : MangaParserSource {
+) : MangaSource {
     override val name: String = "MIHON_${catalogueSource.id}"
     
-    override val title: String = catalogueSource.name
-    override val locale: String = catalogueSource.lang
-    override val contentType: ContentType = ContentType.MANGA
-    override val isBroken: Boolean = false
-    override val isNsfw: Boolean = false
+    // Properties used by Kotatsu for various UI and filtering tasks
+    val title: String = catalogueSource.name
+    val locale: String = catalogueSource.lang
+    val isBroken: Boolean = false
+    val isNsfw: Boolean = false
 }
