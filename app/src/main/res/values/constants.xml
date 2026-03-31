@@ -11,7 +11,7 @@
 	<string name="shikimori_clientId" translatable="false">Mw6F0tPEOgyV7F9U9Twg50Q8SndMY7hzIOfXg0AX_XU</string>
 	<string name="shikimori_clientSecret" translatable="false">euBMt1GGRSDpVIFQVPxZrO7Kh6X4gWyv0dABuj4B-M8</string>
 	<string name="anilist_clientId" translatable="false">38287</string>
-	<string name="anilist_clientSecret" translatable="false">wrMqFosItQWsmB8dtAHfIFPDt15FfQi2ZGiKkJoW</string>
+	<string name="anilist_clientSecret" translatable="false">yGFsNTkVsWV47y4A6OaUycmMzBgfzkkDH3ioyn7y</string>
 	<string name="mal_clientId" translatable="false">63844509f6d4ca3797dc5c4f43962d22</string>
 	<string name="kitsu_clientId" translatable="false">dd031b32d2f56c990b1425efe6c42ad847e7fe3ab46bf1299f05ecd856bdb7dd</string>
 	<string name="kitsu_clientSecret" translatable="false">54d7307928f63414defd96399fc31ba847961ceaecef3a5fd93144e960c0e151</string>
