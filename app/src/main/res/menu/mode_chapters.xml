@@ -23,7 +23,7 @@
 
 	<item
 		android:id="@+id/action_mark_current"
-		android:icon="@drawable/ic_eye_check"
+		android:icon="@drawable/ic_check"
 		android:title="@string/mark_as_current"
 		app:showAsAction="ifRoom|withText" />
 
@@ -37,12 +37,6 @@
 		android:id="@+id/action_mark_read"
 		android:icon="@drawable/ic_eye_check"
 		android:title="@string/mark_read"
-		app:showAsAction="ifRoom|withText" />
-
-	<item
-		android:id="@+id/action_mark_unread"
-		android:icon="@drawable/ic_eye_off"
-		android:title="@string/mark_unread"
 		app:showAsAction="ifRoom|withText" />
 
 	<item
