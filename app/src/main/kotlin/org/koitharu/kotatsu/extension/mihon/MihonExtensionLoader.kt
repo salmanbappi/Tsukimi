@@ -27,7 +27,7 @@ class MihonExtensionLoader(private val context: Context) {
                 ?: metadata?.getString("tachiyomi.extension.class")
                 ?: return emptyList()
             classLoader.loadClass(className)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             return emptyList()
         }
 
@@ -39,7 +39,7 @@ class MihonExtensionLoader(private val context: Context) {
             } else if (obj is Source) {
                 sources.add(obj)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             return emptyList()
         }
 
