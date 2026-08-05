@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import android.provider.Settings
 import androidx.annotation.CheckResult
 import androidx.core.app.NotificationChannelCompat
@@ -33,8 +34,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -90,11 +92,17 @@ class TrackWorker @AssistedInject constructor(
 	override suspend fun doWork(): Result {
 		notificationHelper.updateChannels()
 		val isForeground = trySetForeground()
+		// Full run when manually triggered (TAG_ONESHOT), regardless of whether the
+		// foreground service promotion succeeded — Android may refuse the promotion
+		// on certain OEMs, but the user explicitly asked for an immediate full check.
+		val isFullRun = TAG_ONESHOT in tags
+		Log.i(LOG_TAG, "doWork: tags=$tags isForeground=$isForeground isFullRun=$isFullRun")
 		return try {
-			doWorkImpl(isFullRun = isForeground && TAG_ONESHOT in tags)
+			doWorkImpl(isFullRun = isFullRun)
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Throwable) {
+			Log.w(LOG_TAG, "doWork failed", e)
 			e.printStackTraceDebug()
 			Result.failure()
 		} finally {
@@ -106,99 +114,88 @@ class TrackWorker @AssistedInject constructor(
 
 	private suspend fun doWorkImpl(isFullRun: Boolean): Result {
 		if (!settings.isTrackerEnabled) {
+			Log.i(LOG_TAG, "doWorkImpl: tracker disabled, skipping")
 			return Result.success()
 		}
-		val tracks = getTracksUseCase(if (isFullRun) Int.MAX_VALUE else BATCH_SIZE)
+		val limit = if (isFullRun) Int.MAX_VALUE else BATCH_SIZE
+		val tracks = getTracksUseCase(limit)
+		Log.i(LOG_TAG, "doWorkImpl: isFullRun=$isFullRun limit=$limit -> fetched ${tracks.size} track(s) to check")
 		if (tracks.isEmpty()) {
 			return Result.success()
 		}
 
-		checkUpdatesAsync(tracks)
+		val notifications = checkUpdatesAsync(tracks)
+		Log.i(LOG_TAG, "doWorkImpl: checked ${tracks.size} track(s), ${notifications.size} produced notifications")
+		if (notifications.isNotEmpty() && applicationContext.checkNotificationPermission(null)) {
+			val groupNotification = notificationHelper.createGroupNotification(notifications)
+			notifications.forEach { notificationManager.notify(it.tag, it.id, it.notification) }
+			if (groupNotification != null) {
+				notificationManager.notify(TAG, TrackerNotificationHelper.GROUP_NOTIFICATION_ID, groupNotification)
+			}
+		}
 		return Result.success()
 	}
 
 	@CheckResult
-	private suspend fun checkUpdatesAsync(tracks: List<MangaTracking>) {
+	private suspend fun checkUpdatesAsync(tracks: List<MangaTracking>): List<NotificationInfo> {
 		val semaphore = Semaphore(MAX_PARALLELISM)
-		val groupNotifications = mutableListOf<NotificationInfo>()
-
-		try {
-			channelFlow {
-				for (track in tracks) {
-					launch {
-						semaphore.withPermit {
-							send(
-								runCatchingCancellable {
-									checkNewChaptersUseCase.invoke(track)
-								}.getOrElse { error ->
-									MangaUpdates.Failure(
-										manga = track.manga,
-										error = error,
-									)
-								},
-							)
-						}
-					}
-				}
-			}.onEachIndexed { index, it ->
-				if (applicationContext.checkNotificationPermission(WORKER_CHANNEL_ID)) {
-					notificationManager.notify(
-						WORKER_NOTIFICATION_ID,
-						createWorkerNotification(tracks.size, index + 1)
-					)
-				}
-
-				when (it) {
-					is MangaUpdates.Failure -> {
-						val e = it.error
-						if (e is CloudFlareException) {
-							captchaHandler.handle(e)
-						}
-					}
-
-					is MangaUpdates.Success -> {
-						processDownload(it)
-
-						if (it.isValid && it.isNotEmpty()) {
-							val notificationInfo = notificationHelper.createNotification(
-								manga = it.manga,
-								newChapters = it.newChapters,
-							)
-
-							if (notificationInfo != null &&
-								applicationContext.checkNotificationPermission(TrackerNotificationHelper.CHANNEL_ID)) {
-								notificationManager.notify(
-									notificationInfo.tag,
-									notificationInfo.id,
-									notificationInfo.notification
+		return channelFlow {
+			for (track in tracks) {
+				launch {
+					semaphore.withPermit {
+						send(
+							runCatchingCancellable {
+								checkNewChaptersUseCase.invoke(track)
+							}.getOrElse { error ->
+								MangaUpdates.Failure(
+									manga = track.manga,
+									error = error,
 								)
-
-								synchronized(groupNotifications) {
-									groupNotifications.add(notificationInfo)
-								}
-							}
-						}
-					}
-				}
-			}.collect()
-
-		} catch (e: CancellationException) {
-			e.printStackTraceDebug()
-		} finally {
-			withContext(NonCancellable) {
-				if (groupNotifications.size > 1 &&
-					applicationContext.checkNotificationPermission(TrackerNotificationHelper.CHANNEL_ID)) {
-					val groupNotification = notificationHelper.createGroupNotification(groupNotifications)
-					if (groupNotification != null) {
-						notificationManager.notify(
-							TAG,
-							TrackerNotificationHelper.GROUP_NOTIFICATION_ID,
-							groupNotification
+							},
 						)
 					}
 				}
 			}
-		}
+		}.onEachIndexed { index, it ->
+			if (applicationContext.checkNotificationPermission(WORKER_CHANNEL_ID)) {
+				notificationManager.notify(WORKER_NOTIFICATION_ID, createWorkerNotification(tracks.size, index + 1))
+			}
+			when (it) {
+				is MangaUpdates.Failure -> {
+					Log.w(
+						LOG_TAG,
+						"[${it.manga.id}] \"${it.manga.title}\" check failed: " +
+							"${it.error?.javaClass?.simpleName} ${it.error?.message}",
+					)
+					val e = it.error
+					if (e is CloudFlareException) {
+						// Don't block the update check on solving captchas; just notify the user
+						captchaHandler.handle(e, tryAutoResolve = false)
+					}
+				}
+
+				is MangaUpdates.Success -> {
+					Log.i(
+						LOG_TAG,
+						"[${it.manga.id}] \"${it.manga.title}\" checked: isValid=${it.isValid} " +
+							"newChapters=${it.newChapters.size}",
+					)
+					processDownload(it)
+				}
+			}
+		}.mapNotNull {
+			when (it) {
+				is MangaUpdates.Failure -> null
+				is MangaUpdates.Success -> if (it.isValid && it.isNotEmpty()) {
+					notificationHelper.createNotification(
+						manga = it.manga,
+						newChapters = it.newChapters,
+					)
+				} else {
+					null
+				}
+			}
+		}.toList()
 	}
 
 	override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -361,6 +358,7 @@ class TrackWorker @AssistedInject constructor(
 
 	private companion object {
 
+		const val LOG_TAG = "TrackWorker"
 		const val WORKER_CHANNEL_ID = "track_worker"
 		const val WORKER_NOTIFICATION_ID = 35
 		const val TAG = "tracking"

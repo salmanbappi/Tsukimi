@@ -942,6 +942,7 @@
 	<string name="no_presets_text">Create a preset to quickly switch between different source configurations</string>
 	<string name="select_languages">Select languages</string>
 	<string name="manage_preset_sources">Manage sources</string>
+	<string name="default_sources">Default</string>
 	<string name="ai_translation">AI Live Translation</string>
 	<string name="ai_translation_summary">Translate manga text on screen in real-time</string>
 	<string name="ai_engine">Translation Engine</string>

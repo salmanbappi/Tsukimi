@@ -95,6 +95,7 @@ import org.koitharu.kotatsu.parsers.util.runCatchingCancellable
 import org.koitharu.kotatsu.reader.domain.PageLoader
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -195,6 +196,7 @@ class DownloadWorker @AssistedInject constructor(
 			)
 			val destination = localMangaRepository.getOutputDir(manga, task.destination)
 			checkNotNull(destination) { applicationContext.getString(R.string.cannot_find_available_storage) }
+			val tempFiles = ConcurrentLinkedQueue<File>()
 			var output: LocalMangaOutput? = null
 			try {
 				if (manga.isLocal) {
@@ -210,7 +212,7 @@ class DownloadWorker @AssistedInject constructor(
 				)
 				val coverUrl = mangaDetails.largeCoverUrl.ifNullOrEmpty { mangaDetails.coverUrl }
 				if (!coverUrl.isNullOrEmpty()) {
-					downloadFile(coverUrl, destination, repo.source).let { file ->
+					downloadFile(coverUrl, destination, repo.source, tempFiles).let { file ->
 						output.addCover(file, getMediaType(coverUrl, file))
 						file.deleteAwait()
 					}
@@ -227,7 +229,7 @@ class DownloadWorker @AssistedInject constructor(
 					} ?: continue
 					val pageCounter = AtomicInteger(0)
 					channelFlow {
-						val semaphore = Semaphore(settings.concurrentPageDownloads)
+						val semaphore = Semaphore(MAX_PAGES_PARALLELISM)
 						for ((pageIndex, page) in pages.withIndex()) {
 							checkIsPaused()
 							launch {
@@ -235,7 +237,7 @@ class DownloadWorker @AssistedInject constructor(
 									runFailsafe {
 										val url = repo.getPageUrl(page)
 										val file = cache[url]
-											?: downloadFile(url, destination, repo.source)
+											?: downloadFile(url, destination, repo.source, tempFiles)
 										output.addPage(
 											chapter = chapter,
 											file = file,
@@ -298,9 +300,7 @@ class DownloadWorker @AssistedInject constructor(
 					applicationContext.unregisterReceiver(pausingReceiver)
 					output?.closeQuietly()
 					output?.cleanup()
-					destination.listFiles(TempFileFilter())?.forEach {
-						it.deleteAwait()
-					}
+					tempFiles.forEach { it.deleteAwait() }
 				}
 			}
 		}
@@ -375,6 +375,7 @@ class DownloadWorker @AssistedInject constructor(
 		url: String,
 		destination: File,
 		source: MangaSource,
+		tempFiles: MutableCollection<File>,
 	): File {
 		if (url.startsWith("content:", ignoreCase = true) || url.startsWith("file:", ignoreCase = true)) {
 			val uri = url.toUri()
@@ -383,6 +384,7 @@ class DownloadWorker @AssistedInject constructor(
 				MimeTypes.getNormalizedExtension(it.name)
 			} ?: cr.getType(uri)?.toMimeTypeOrNull()?.let { MimeTypes.getExtension(it) }
 			val file = destination.createTempFile(ext)
+			tempFiles += file
 			try {
 				cr.openSource(uri).use { input ->
 					file.sink(append = false).buffer().use {
@@ -395,7 +397,7 @@ class DownloadWorker @AssistedInject constructor(
 			}
 			return file
 		}
-		val request = PageLoader.createPageRequest(url, source).build()
+		val request = PageLoader.createPageRequest(url, source)
 		slowdownDispatcher.delay(source)
 		return imageProxyInterceptor.interceptPageRequest(request, okHttp)
 			.ensureSuccess()
@@ -405,7 +407,7 @@ class DownloadWorker @AssistedInject constructor(
 					response.requireBody().use { body ->
 						file = destination.createTempFile(
 							ext = MimeTypes.getExtension(body.contentType()?.toMimeType())
-						)
+						).also { tempFiles += it }
 						file.sink(append = false).buffer().use {
 							it.writeAllCancellable(body.source())
 						}
@@ -554,6 +556,7 @@ class DownloadWorker @AssistedInject constructor(
 					.setConstraints(constraints)
 					.addTag(TAG)
 					.setId(work.id)
+					.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
 					.build()
 				workManager.awaitUpdateWork(request)
 			}
@@ -571,6 +574,7 @@ class DownloadWorker @AssistedInject constructor(
 					.keepResultsForAtLeast(30, TimeUnit.DAYS)
 					.setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
 					.setInputData(task.toData())
+					.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
 					.build()
 			}
 			workManager.enqueue(requests).await()
@@ -584,6 +588,7 @@ class DownloadWorker @AssistedInject constructor(
 	private companion object {
 
 		const val MAX_FAILSAFE_ATTEMPTS = 2
+		const val MAX_PAGES_PARALLELISM = 4
 		const val DOWNLOAD_ERROR_DELAY = 2_000L
 		const val MAX_RETRY_DELAY = 7_200_000L // 2 hours
 		const val TAG = "download"

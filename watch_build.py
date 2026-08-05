@@ -5,6 +5,7 @@ import time
 import sys
 import os
 import re
+import argparse
 
 def run_command(command, check=True):
     try:
@@ -19,39 +20,76 @@ def get_current_branch():
     branch, _ = run_command("git branch --show-current")
     return branch or "preview"
 
-def get_latest_run(branch):
-    cmd = f'gh run list --branch {branch} --limit 5 --json databaseId,status,conclusion,displayTitle,createdAt'
+def get_current_sha():
+    sha, _ = run_command("git rev-parse HEAD")
+    return sha
+
+def get_latest_run(branch, workflow_filter=None, sha_filter=None):
+    cmd = f'gh run list --branch {branch} --limit 20 --json databaseId,name,workflowName,status,conclusion,displayTitle,createdAt,headSha'
     output, code = run_command(cmd)
-    if code == 0 and output:
+    if code != 0 or not output:
+        return None
+    
+    try:
         runs = json.loads(output)
-        if runs:
-            # Sort by ID descending to get the absolute newest
-            runs.sort(key=lambda x: x['databaseId'], reverse=True)
-            return runs[0]
-    return None
+    except Exception:
+        return None
+    
+    if not runs:
+        return None
+
+    # Filter out known non-build utility workflows if no specific workflow is requested
+    ignored_keywords = ["discord", "webhook", "issue", "label", "dependabot", "cleanup"]
+    
+    filtered_runs = []
+    for r in runs:
+        wf_name = (r.get("workflowName") or r.get("name") or "").lower()
+        
+        if workflow_filter:
+            if workflow_filter.lower() not in wf_name:
+                continue
+        else:
+            # Ignore utility workflows
+            if any(k in wf_name for k in ignored_keywords):
+                continue
+        
+        filtered_runs.append(r)
+
+    # Fallback to all runs if filtering removed everything
+    if not filtered_runs:
+        filtered_runs = runs
+
+    # If SHA filter provided or head SHA matches, prioritize runs for that SHA
+    if sha_filter:
+        sha_matches = [r for r in filtered_runs if r.get("headSha", "").startswith(sha_filter)]
+        if sha_matches:
+            filtered_runs = sha_matches
+
+    # Sort by databaseId descending
+    filtered_runs.sort(key=lambda x: x['databaseId'], reverse=True)
+    return filtered_runs[0]
 
 def diagnose_failure(run_id):
     print(f"\n❌ Build Failed. Fetching diagnostics for Run ID: {run_id}...")
     
-    # Get failed logs directly - this is usually the most efficient
-    # We use --log-failed to get only the logs of failed steps
     log_cmd = f"gh run view {run_id} --log-failed"
     logs, code = run_command(log_cmd, check=False)
     
-    if not logs or "no failed steps" in logs:
-        # Fallback to job-based logs if log-failed doesn't return what we want
-        print("Falling back to full job logs...")
+    if not logs or "no failed steps" in logs or code != 0:
+        print("Falling back to job logs...")
         cmd = f'gh run view {run_id} --json jobs'
         output, _ = run_command(cmd)
         if output:
-            data = json.loads(output)
-            failed_job = next((j for j in data.get('jobs', []) if j.get('conclusion') == 'failure'), None)
-            if failed_job:
-                job_id = failed_job.get('databaseId')
-                logs, _ = run_command(f"gh run view {run_id} --job {job_id} --log", check=False)
+            try:
+                data = json.loads(output)
+                failed_job = next((j for j in data.get('jobs', []) if j.get('conclusion') == 'failure'), None)
+                if failed_job:
+                    job_id = failed_job.get('databaseId')
+                    logs, _ = run_command(f"gh run view {run_id} --job {job_id} --log", check=False)
+            except Exception:
+                pass
 
     if logs:
-        # Define better error patterns (regex preferred)
         error_regexes = [
             r"Duplicate class .*",
             r"Could not resolve all files .*",
@@ -66,24 +104,17 @@ def diagnose_failure(run_id):
         
         log_lines = logs.splitlines()
         found_errors = []
-        
-        # Skip setup noise
         noise_patterns = ["Set up job", "Prepare all required actions", "Getting action download info", "Complete job name"]
         
         for i, line in enumerate(log_lines):
-            # Clean up the line (remove timestamp and job prefix if present)
-            # Format is usually: "Job Name\tStep Name\tTimestamp Z Line content"
             parts = line.split('\t')
             content = parts[-1] if len(parts) > 1 else line
-            
-            # Remove timestamp if it's there
             content = re.sub(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+Z\s+', '', content)
             
             if any(noise in line for noise in noise_patterns):
                 continue
                 
             if any(re.search(pattern, content) for pattern in error_regexes):
-                # Capture some context: 2 lines before, 8 lines after
                 start = max(0, i - 2)
                 end = min(len(log_lines), i + 10)
                 snippet = "\n".join(log_lines[start:end])
@@ -92,7 +123,7 @@ def diagnose_failure(run_id):
         
         if found_errors:
             print("\n--- Identified Error Snippets ---")
-            for err in found_errors[:5]: # Show top 5 unique errors
+            for err in found_errors[:5]:
                 print(err)
                 print("-" * 40)
         else:
@@ -102,18 +133,26 @@ def diagnose_failure(run_id):
         print("Could not retrieve logs.")
 
 def main():
-    branch = get_current_branch()
-    print(f"📡 Monitoring branch: {branch}")
+    parser = argparse.ArgumentParser(description="Watch GitHub build progress.")
+    parser.add_argument("branch", nargs="?", default=None, help="Branch name to monitor")
+    parser.add_argument("-w", "--workflow", default=None, help="Filter by workflow name")
+    parser.add_argument("--sha", default=None, help="Filter by commit SHA")
+    args = parser.parse_args()
+
+    branch = args.branch or get_current_branch()
+    current_sha = args.sha or get_current_sha()
     
-    # Get the latest run ID
-    run = get_latest_run(branch)
+    print(f"📡 Monitoring branch: {branch} (Commit: {current_sha[:7] if current_sha else 'any'})")
+    
+    run = get_latest_run(branch, workflow_filter=args.workflow, sha_filter=current_sha)
     
     if not run:
-        print("❌ No runs found.")
+        print("❌ No build runs found matching filters.")
         return
 
     run_id = run['databaseId']
-    print(f"🚀 Found Run: {run['displayTitle']} ({run_id})")
+    wf_name = run.get('workflowName') or run.get('name') or 'Build'
+    print(f"🚀 Found Run: {wf_name} - {run['displayTitle']} (ID: {run_id})")
     
     status = run['status']
     conclusion = run.get('conclusion')
@@ -128,24 +167,25 @@ def main():
                 status_cmd = f"gh run view {run_id} --json status,conclusion --jq '{{status: .status, conclusion: .conclusion}}'"
                 output, code = run_command(status_cmd)
                 if code == 0:
-                    data = json.loads(output)
-                    status = data['status']
-                    conclusion = data['conclusion']
-                    
-                    if status == 'completed':
-                        # Clear line
-                        sys.stdout.write('\r' + ' ' * last_msg_len + '\r')
-                        break
-                    
-                    msg = f"Status: {status}... {time.strftime('%H:%M:%S')}"
-                    last_msg_len = len(msg)
-                    sys.stdout.write(f"\r{msg}")
-                    sys.stdout.flush()
+                    try:
+                        data = json.loads(output)
+                        status = data['status']
+                        conclusion = data['conclusion']
+                        
+                        if status == 'completed':
+                            sys.stdout.write('\r' + ' ' * last_msg_len + '\r')
+                            break
+                        
+                        msg = f"Status: {status}... {time.strftime('%H:%M:%S')}"
+                        last_msg_len = len(msg)
+                        sys.stdout.write(f"\r{msg}")
+                        sys.stdout.flush()
+                    except Exception:
+                        pass
                 time.sleep(10)
         except KeyboardInterrupt:
             print("\n👋 Stopped watching. Checking final status...")
     
-    # Refresh conclusion
     final_output, _ = run_command(f'gh run view {run_id} --json conclusion --jq ".conclusion"')
     final_conclusion = final_output.strip()
     
