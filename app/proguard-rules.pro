@@ -29,3 +29,9 @@
 -keep class org.acra.config.DefaultRetryPolicy { *; }
 -keep class org.acra.attachment.DefaultAttachmentProvider { *; }
 -keep class org.acra.sender.JobSenderService
+
+# TensorFlow Lite & ML Kit
+-dontwarn org.tensorflow.lite.**
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn com.google.mlkit.**
+-keep class com.google.mlkit.** { *; }
