@@ -258,6 +258,8 @@ dependencies {
 
     debugImplementation libs.leakcanary.android
     debugImplementation libs.workinspector
+    nightlyImplementation libs.leakcanary.android
+    nightlyImplementation libs.workinspector
 
     testImplementation libs.junit
     testImplementation libs.json

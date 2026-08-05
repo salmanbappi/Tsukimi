@@ -780,6 +780,9 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_AI_SEAMLESS_TRANSLATION, false)
 		set(value) = prefs.edit { putBoolean(KEY_AI_SEAMLESS_TRANSLATION, value) }
 
+	val isAiSeamlessTranslationEnabled: Boolean
+		get() = isAiSeamlessTranslation
+
 	var aiUpscalingEnabled: Boolean
 		get() = prefs.getBoolean(KEY_AI_UPSCALING, false)
 		set(value) = prefs.edit { putBoolean(KEY_AI_UPSCALING, value) }
