@@ -5,31 +5,28 @@
 	android:title="@string/about">
 
 	<Preference
+		android:icon="@drawable/ic_info_outline"
 		android:key="app_version"
 		android:persistent="false"
 		android:summary="@string/check_for_updates" />
 
-	<Preference
-		android:key="dump_crash_log"
-		android:persistent="false"
-		android:title="Dump crash log"
-		android:summary="Save or share the most recent crash log"
-		app:iconSpaceReserved="false" />
-
 	<SwitchPreferenceCompat
 		android:defaultValue="false"
+		android:icon="@drawable/ic_app_update"
 		android:key="updates_unstable"
 		android:summary="@string/allow_unstable_updates_summary"
 		android:title="@string/allow_unstable_updates" />
 
 	<Preference
 		android:fragment="org.koitharu.kotatsu.settings.about.changelog.ChangelogFragment"
+		android:icon="@drawable/ic_new"
 		android:key="changelog"
 		android:persistent="false"
 		android:summary="@string/changelog_summary"
 		android:title="@string/changelog" />
 
 	<Preference
+		android:icon="@drawable/ic_book_page"
 		android:key="about_help"
 		android:persistent="false"
 		android:summary="@string/url_user_manual"
@@ -37,21 +34,24 @@
 		app:allowDividerAbove="true" />
 
 	<Preference
+		android:icon="@drawable/ic_script"
 		android:key="about_github"
 		android:persistent="false"
 		android:summary="@string/url_github"
 		android:title="@string/source_code" />
 
 	<Preference
+		android:icon="@drawable/ic_language"
 		android:key="about_app_translation"
 		android:persistent="false"
 		android:summary="@string/url_weblate"
 		android:title="@string/about_app_translation_summary" />
 
 	<Preference
-		android:key="about_telegram"
+		android:icon="@drawable/ic_discord"
+		android:key="about_discord"
 		android:persistent="false"
-		android:summary="@string/url_telegram_web"
+		android:summary="@string/url_discord"
 		android:title="@string/telegram_group" />
 
 </PreferenceScreen>
