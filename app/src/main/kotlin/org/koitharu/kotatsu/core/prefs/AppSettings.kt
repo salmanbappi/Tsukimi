@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.model.TranslationEngine
-
 import org.koitharu.kotatsu.core.model.ZoomMode
 import org.koitharu.kotatsu.core.network.DoHProvider
 import org.koitharu.kotatsu.core.util.ext.connectivityManager
@@ -43,6 +42,7 @@ import org.koitharu.kotatsu.reader.domain.ReaderColorFilter
 import java.io.File
 import java.net.Proxy
 import java.util.EnumSet
+import java.util.HashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -68,9 +68,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	val isAmoledTheme: Boolean
 		get() = prefs.getBoolean(KEY_THEME_AMOLED, false)
 
-	val isTabletUiForced: Boolean
-		get() = prefs.getBoolean(KEY_FORCE_TABLET_UI, false)
-
 	var mainNavItems: List<NavItem>
 		get() {
 			val raw = prefs.getString(KEY_NAV_MAIN, null)?.split(',')
@@ -91,6 +88,13 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	val isNavBarPinned: Boolean
 		get() = prefs.getBoolean(KEY_NAV_PINNED, false)
+
+	val isFloatingNavBar: Boolean
+		get() = if (prefs.contains(KEY_FLOATING_NAV)) {
+			prefs.getBoolean(KEY_FLOATING_NAV, false)
+		} else {
+			colorScheme == ColorScheme.EXPRESSIVE
+		}
 
 	val isMainFabEnabled: Boolean
 		get() = prefs.getBoolean(KEY_MAIN_FAB, true)
@@ -121,8 +125,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getEnumValue(KEY_LIST_MODE_FAVORITES, listMode)
 		set(value) = prefs.edit { putEnumValue(KEY_LIST_MODE_FAVORITES, value) }
 
-	val isTagsWarningsEnabled: Boolean
-		get() = prefs.getBoolean(KEY_TAGS_WARNINGS, true)
 
 	var isNsfwContentDisabled: Boolean
 		get() = prefs.getBoolean(KEY_DISABLE_NSFW, false)
@@ -139,10 +141,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 			}
 		}
 
-	var preferredLocales: Set<String>
-		get() = prefs.getStringSet(KEY_PREFERRED_LOCALES, emptySet()).orEmpty()
-		set(value) = prefs.edit { putStringSet(KEY_PREFERRED_LOCALES, value) }
-
 	var isReaderDoubleOnLandscape: Boolean
 		get() = prefs.getBoolean(KEY_READER_DOUBLE_PAGES, false)
 		set(value) = prefs.edit { putBoolean(KEY_READER_DOUBLE_PAGES, value) }
@@ -151,9 +149,13 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_READER_DOUBLE_FOLDABLE, false)
 		set(value) = prefs.edit { putBoolean(KEY_READER_DOUBLE_FOLDABLE, value) }
 
+	var isReaderDoubleCoverPage: Boolean
+		get() = prefs.getBoolean(KEY_READER_DOUBLE_COVER_PAGE, false)
+		set(value) = prefs.edit { putBoolean(KEY_READER_DOUBLE_COVER_PAGE, value) }
+
 	@get:FloatRange(0.0, 1.0)
 	var readerDoublePagesSensitivity: Float
-		get() = prefs.getFloat(KEY_READER_DOUBLE_PAGES_SENSITIVITY, 0.5f)
+		get() = getFloatCompat(KEY_READER_DOUBLE_PAGES_SENSITIVITY, 0.5f).coerceIn(0f, 1f)
 		set(@FloatRange(0.0, 1.0) value) = prefs.edit { putFloat(KEY_READER_DOUBLE_PAGES_SENSITIVITY, value) }
 
 	val readerScreenOrientation: Int
@@ -177,6 +179,18 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	val isReaderOptimizationEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_OPTIMIZE, false)
+
+	val isEInkFlashEnabled: Boolean
+		get() = prefs.getBoolean(KEY_EINK_FLASH, false)
+
+	val eInkFlashDuration: Int
+		get() = prefs.getInt(KEY_EINK_FLASH_DURATION, 300).coerceIn(100, 1000)
+
+	val eInkFlashEvery: Int
+		get() = prefs.getInt(KEY_EINK_FLASH_EVERY, 1).coerceAtLeast(1)
+
+	val eInkFlashColor: EInkFlashColor
+		get() = prefs.getEnumValue(KEY_EINK_FLASH_COLOR, EInkFlashColor.WHITE)
 
 	val readerControls: Set<ReaderControl>
 		get() = prefs.getStringSet(KEY_READER_CONTROLS, null)?.mapNotNullTo(EnumSet.noneOf(ReaderControl::class.java)) {
@@ -207,6 +221,14 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	val trackerDownloadStrategy: TrackerDownloadStrategy
 		get() = prefs.getEnumValue(KEY_TRACKER_DOWNLOAD, TrackerDownloadStrategy.DISABLED)
+
+	var isTrackerUnstuckMigrationDone: Boolean
+		get() = prefs.getBoolean(KEY_TRACKER_UNSTUCK_MIGRATION_V4, false)
+		set(value) = prefs.edit { putBoolean(KEY_TRACKER_UNSTUCK_MIGRATION_V4, value) }
+
+	var isTrackerProgressRefreshDone: Boolean
+		get() = prefs.getBoolean(KEY_TRACKER_PROGRESS_REFRESH_V1, false)
+		set(value) = prefs.edit { putBoolean(KEY_TRACKER_PROGRESS_REFRESH_V1, value) }
 
 	var notificationSound: Uri
 		get() = prefs.getString(KEY_NOTIFICATIONS_SOUND, null)?.toUriOrNull()
@@ -253,44 +275,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	var isIncognitoModeEnabled: Boolean
 		get() = prefs.getBoolean(KEY_INCOGNITO_MODE, false)
 		set(value) = prefs.edit { putBoolean(KEY_INCOGNITO_MODE, value) }
-
-	var isReaderZenModeEnabled: Boolean
-		get() = prefs.getBoolean(KEY_READER_ZEN_MODE, false)
-		set(value) = prefs.edit { putBoolean(KEY_READER_ZEN_MODE, value) }
-
-	var isReaderHapticsEnabled: Boolean
-		get() = prefs.getBoolean(KEY_READER_HAPTICS, true)
-		set(value) = prefs.edit { putBoolean(KEY_READER_HAPTICS, value) }
-
-	var isAiUpscaleEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_UPSCALE, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_UPSCALE, value) }
-
-	var isAiTranslationEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_TRANSLATION, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION, value) }
-
-	var isAiAutoTranslationEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_AUTO_TRANSLATION, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_AUTO_TRANSLATION, value) }
-
-	var isAiSeamlessTranslationEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_SEAMLESS_TRANSLATION, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_SEAMLESS_TRANSLATION, value) }
-
-	var aiTranslationEngine: TranslationEngine
-		get() = prefs.getEnumValue(KEY_AI_TRANSLATION_ENGINE, TranslationEngine.DEFAULT)
-		set(value) = prefs.edit { putEnumValue(KEY_AI_TRANSLATION_ENGINE, value) }
-
-	var deeplApiKey: String?
-		get() = prefs.getString(KEY_AI_TRANSLATION_DEEPL_KEY, null)?.nullIfEmpty()
-		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_DEEPL_KEY, value?.nullIfEmpty()) }
-
-	var groqApiKey: String?
-		get() = prefs.getString(KEY_AI_TRANSLATION_GROQ_KEY, null)?.nullIfEmpty()
-		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_GROQ_KEY, value?.nullIfEmpty()) }
-
-
 
 	val isReaderMultiTaskEnabled: Boolean
 		get() = prefs.getBoolean(KEY_READER_MULTITASK, false)
@@ -387,18 +371,15 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		get() = prefs.getBoolean(KEY_SOURCES_ENABLED_ALL, false)
 		set(value) = prefs.edit { putBoolean(KEY_SOURCES_ENABLED_ALL, value) }
 
-	var isBrokenSourcesHidden: Boolean
-		get() = prefs.getBoolean(KEY_SOURCES_HIDE_BROKEN, false)
-		set(value) = prefs.edit { putBoolean(KEY_SOURCES_HIDE_BROKEN, value) }
+	var activeSourcePresetId: Long
+		get() = getLongCompat(KEY_ACTIVE_SOURCE_PRESET, 0L)
+		set(value) = prefs.edit { putLong(KEY_ACTIVE_SOURCE_PRESET, value) }
 
 	val isPagesNumbersEnabled: Boolean
 		get() = prefs.getBoolean(KEY_PAGES_NUMBERS, false)
 
 	val screenshotsPolicy: ScreenshotsPolicy
 		get() = prefs.getEnumValue(KEY_SCREENSHOTS_POLICY, ScreenshotsPolicy.ALLOW)
-
-	val isAdBlockEnabled: Boolean
-		get() = prefs.getBoolean(KEY_ADBLOCK, false)
 
 	var userSpecifiedMangaDirectories: Set<File>
 		get() {
@@ -473,10 +454,8 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	var readerColorFilter: ReaderColorFilter?
 		get() = runCatching {
 			ReaderColorFilter(
-				brightness = prefs.getFloat(KEY_CF_BRIGHTNESS, ReaderColorFilter.EMPTY.brightness),
-				contrast = prefs.getFloat(KEY_CF_CONTRAST, ReaderColorFilter.EMPTY.contrast),
-				sharpening = prefs.getFloat(KEY_CF_SHARPENING, ReaderColorFilter.EMPTY.sharpening),
-				denoising = prefs.getFloat(KEY_CF_DENOISING, ReaderColorFilter.EMPTY.denoising),
+				brightness = getFloatCompat(KEY_CF_BRIGHTNESS, ReaderColorFilter.EMPTY.brightness),
+				contrast = getFloatCompat(KEY_CF_CONTRAST, ReaderColorFilter.EMPTY.contrast),
 				isInverted = prefs.getBoolean(KEY_CF_INVERTED, ReaderColorFilter.EMPTY.isInverted),
 				isGrayscale = prefs.getBoolean(KEY_CF_GRAYSCALE, ReaderColorFilter.EMPTY.isGrayscale),
 				isBookBackground = prefs.getBoolean(KEY_CF_BOOK, ReaderColorFilter.EMPTY.isBookBackground),
@@ -487,16 +466,12 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 				if (value != null) {
 					putFloat(KEY_CF_BRIGHTNESS, value.brightness)
 					putFloat(KEY_CF_CONTRAST, value.contrast)
-					putFloat(KEY_CF_SHARPENING, value.sharpening)
-					putFloat(KEY_CF_DENOISING, value.denoising)
 					putBoolean(KEY_CF_INVERTED, value.isInverted)
 					putBoolean(KEY_CF_GRAYSCALE, value.isGrayscale)
 					putBoolean(KEY_CF_BOOK, value.isBookBackground)
 				} else {
 					remove(KEY_CF_BRIGHTNESS)
 					remove(KEY_CF_CONTRAST)
-					remove(KEY_CF_SHARPENING)
-					remove(KEY_CF_DENOISING)
 					remove(KEY_CF_INVERTED)
 					remove(KEY_CF_GRAYSCALE)
 					remove(KEY_CF_BOOK)
@@ -567,7 +542,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	@get:FloatRange(from = 0.0, to = 1.0)
 	var readerAutoscrollSpeed: Float
-		get() = prefs.getFloat(KEY_READER_AUTOSCROLL_SPEED, 0f)
+		get() = getFloatCompat(KEY_READER_AUTOSCROLL_SPEED, 0f)
 		set(@FloatRange(from = 0.0, to = 1.0) value) = prefs.edit {
 			putFloat(
 				KEY_READER_AUTOSCROLL_SPEED,
@@ -642,14 +617,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 	val isAutoLocalChaptersCleanupEnabled: Boolean
 		get() = prefs.getBoolean(KEY_CHAPTERS_CLEAR_AUTO, false)
 
-	var concurrentSourceDownloads: Int
-		get() = prefs.getInt(KEY_CONCURRENT_SOURCE_DOWNLOADS, 5)
-		set(value) = prefs.edit { putInt(KEY_CONCURRENT_SOURCE_DOWNLOADS, value) }
-
-	var concurrentPageDownloads: Int
-		get() = prefs.getInt(KEY_CONCURRENT_PAGE_DOWNLOADS, 5)
-		set(value) = prefs.edit { putInt(KEY_CONCURRENT_PAGE_DOWNLOADS, value) }
-
 	fun isPagesCropEnabled(mode: ReaderMode): Boolean {
 		val rawValue = prefs.getStringSet(KEY_READER_CROP, emptySet())
 		if (rawValue.isNullOrEmpty()) {
@@ -712,7 +679,69 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	fun upsertAll(m: Map<String, *>) = prefs.edit {
 		clear()
-		putAll(m)
+		putAll(normalizeImportedPreferences(m))
+	}
+
+	private fun getLongCompat(key: String, defaultValue: Long): Long = try {
+		prefs.getLong(key, defaultValue)
+	} catch (_: ClassCastException) {
+		val fixedValue = when (val rawValue = prefs.all[key]) {
+			is Number -> rawValue.toLong()
+			is String -> rawValue.toLongOrNull()
+			else -> null
+		}
+		if (fixedValue == null) {
+			prefs.edit { remove(key) }
+			defaultValue
+		} else {
+			prefs.edit { putLong(key, fixedValue) }
+			fixedValue
+		}
+	}
+
+	private fun getFloatCompat(key: String, defaultValue: Float): Float = try {
+		prefs.getFloat(key, defaultValue)
+	} catch (_: ClassCastException) {
+		val fixedValue = when (val rawValue = prefs.all[key]) {
+			is Number -> rawValue.toFloat()
+			is String -> rawValue.toFloatOrNull()
+			else -> null
+		}
+		if (fixedValue == null || !fixedValue.isFinite()) {
+			prefs.edit { remove(key) }
+			defaultValue
+		} else {
+			prefs.edit { putFloat(key, fixedValue) }
+			fixedValue
+		}
+	}
+
+	private fun normalizeImportedPreferences(values: Map<String, *>): Map<String, *> {
+		val result = HashMap(values)
+		result[KEY_ACTIVE_SOURCE_PRESET]?.let { rawValue ->
+			val fixedValue = when (rawValue) {
+				is Long -> rawValue
+				is Number -> rawValue.toLong()
+				is String -> rawValue.toLongOrNull()
+				else -> null
+			}
+			if (fixedValue != null) {
+				result[KEY_ACTIVE_SOURCE_PRESET] = fixedValue
+			}
+		}
+		for (key in FLOAT_PREFERENCE_KEYS) {
+			result[key]?.let { rawValue ->
+				val fixedValue = when (rawValue) {
+					is Number -> rawValue.toFloat()
+					is String -> rawValue.toFloatOrNull()
+					else -> null
+				}
+				if (fixedValue != null && fixedValue.isFinite()) {
+					result[key] = fixedValue
+				}
+			}
+		}
+		return result
 	}
 
 	private fun isBackgroundNetworkRestricted(): Boolean {
@@ -723,12 +752,48 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		}
 	}
 
+	// --- Tsukimi unique features ---
+
+	var aiTranslationEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_TRANSLATION_ENABLED, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION_ENABLED, value) }
+
+	var aiTranslationEngine: TranslationEngine
+		get() = prefs.getEnumValue(KEY_AI_TRANSLATION_ENGINE, TranslationEngine.DEFAULT)
+		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_ENGINE, value.name) }
+
+	var aiTranslationTargetLang: String
+		get() = prefs.getString(KEY_AI_TRANSLATION_LANG, "EN") ?: "EN"
+		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_LANG, value) }
+
+	var aiTranslationSeamless: Boolean
+		get() = prefs.getBoolean(KEY_AI_TRANSLATION_SEAMLESS, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION_SEAMLESS, value) }
+
+	var aiAutoTranslate: Boolean
+		get() = prefs.getBoolean(KEY_AI_AUTO_TRANSLATE, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_AUTO_TRANSLATE, value) }
+
+	var aiUpscalingEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_UPSCALING, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_UPSCALING, value) }
+
+	var concurrentDownloads: Int
+		get() = prefs.getInt(KEY_CONCURRENT_DOWNLOADS, 1)
+		set(value) = prefs.edit { putInt(KEY_CONCURRENT_DOWNLOADS, value) }
+
 	companion object {
+
+		private val FLOAT_PREFERENCE_KEYS = setOf(
+			KEY_READER_DOUBLE_PAGES_SENSITIVITY,
+			KEY_CF_BRIGHTNESS,
+			KEY_CF_CONTRAST,
+			KEY_READER_AUTOSCROLL_SPEED,
+		)
 
 		const val TRACK_HISTORY = "history"
 		const val TRACK_FAVOURITES = "favourites"
 
-		const val KEY_ADBLOCK = "adblock"
 		const val KEY_LIST_MODE = "list_mode_2"
 		const val KEY_LIST_MODE_HISTORY = "list_mode_history"
 		const val KEY_LIST_MODE_FAVORITES = "list_mode_favorites"
@@ -752,6 +817,7 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_READER_DOUBLE_PAGES = "reader_double_pages"
 		const val KEY_READER_DOUBLE_PAGES_SENSITIVITY = "reader_double_pages_sensitivity_2"
 		const val KEY_READER_DOUBLE_FOLDABLE = "reader_double_foldable"
+		const val KEY_READER_DOUBLE_COVER_PAGE = "reader_double_cover_page"
 		const val KEY_READER_ZOOM_BUTTONS = "reader_zoom_buttons"
 		const val KEY_READER_CONTROL_LTR = "reader_taps_ltr"
 		const val KEY_READER_NAVIGATION_INVERTED = "reader_navigation_inverted"
@@ -767,6 +833,8 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_TRACKER_NOTIFICATIONS = "tracker_notifications"
 		const val KEY_TRACKER_NO_NSFW = "tracker_no_nsfw"
 		const val KEY_TRACKER_DOWNLOAD = "tracker_download"
+		const val KEY_TRACKER_UNSTUCK_MIGRATION_V4 = "tracker_unstuck_migration_v4"
+		const val KEY_TRACKER_PROGRESS_REFRESH_V1 = "tracker_progress_refresh_v1"
 		const val KEY_NOTIFICATIONS_SETTINGS = "notifications_settings"
 		const val KEY_NOTIFICATIONS_SOUND = "notifications_sound"
 		const val KEY_NOTIFICATIONS_VIBRATE = "notifications_vibrate"
@@ -816,26 +884,18 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_EXIT_CONFIRM = "exit_confirm"
 		const val KEY_INCOGNITO_MODE = "incognito"
 		const val KEY_READER_MULTITASK = "reader_multitask"
-		const val KEY_SYNC = "sync"
-		const val KEY_SYNC_SETTINGS = "sync_settings"
 		const val KEY_READER_BAR = "reader_bar"
 		const val KEY_READER_BAR_TRANSPARENT = "reader_bar_transparent"
 		const val KEY_READER_CHAPTER_TOAST = "reader_chapter_toast"
 		const val KEY_READER_BACKGROUND = "reader_background"
 		const val KEY_READER_SCREEN_ON = "reader_screen_on"
-		const val KEY_READER_ZEN_MODE = "reader_zen_mode"
-		const val KEY_READER_HAPTICS = "reader_haptics"
-		const val KEY_AI_UPSCALE = "ai_upscale"
-		const val KEY_AI_TRANSLATION = "ai_translation"
-		const val KEY_AI_AUTO_TRANSLATION = "ai_auto_translation"
-		const val KEY_AI_SEAMLESS_TRANSLATION = "ai_seamless_translation"
-		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
-		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
-		const val KEY_AI_TRANSLATION_GROQ_KEY = "ai_translation_groq_key"
-
 		const val KEY_SHORTCUTS = "dynamic_shortcuts"
 		const val KEY_READER_TAP_ACTIONS = "reader_tap_actions"
 		const val KEY_READER_OPTIMIZE = "reader_optimize"
+		const val KEY_EINK_FLASH = "eink_flash"
+		const val KEY_EINK_FLASH_DURATION = "eink_flash_duration"
+		const val KEY_EINK_FLASH_EVERY = "eink_flash_every"
+		const val KEY_EINK_FLASH_COLOR = "eink_flash_color"
 		const val KEY_LOCAL_LIST_ORDER = "local_order"
 		const val KEY_HISTORY_ORDER = "history_order"
 		const val KEY_FAVORITES_ORDER = "fav_order"
@@ -845,7 +905,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_WEBTOON_PULL_GESTURE = "webtoon_pull_gesture"
 		const val KEY_PREFETCH_CONTENT = "prefetch_content"
 		const val KEY_APP_LOCALE = "app_locale"
-		const val KEY_PREFERRED_LOCALES = "preferred_locales"
 		const val KEY_SOURCES_GRID = "sources_grid"
 		const val KEY_UPDATES_UNSTABLE = "updates_unstable"
 		const val KEY_TIPS_CLOSED = "tips_closed"
@@ -867,14 +926,13 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_NAV_MAIN = "nav_main"
 		const val KEY_NAV_LABELS = "nav_labels"
 		const val KEY_NAV_PINNED = "nav_pinned"
+		const val KEY_FLOATING_NAV = "floating_nav"
 		const val KEY_MAIN_FAB = "main_fab"
 		const val KEY_32BIT_COLOR = "enhanced_colors"
 		const val KEY_SOURCES_ORDER = "sources_sort_order"
 		const val KEY_SOURCES_CATALOG = "sources_catalog"
 		const val KEY_CF_BRIGHTNESS = "cf_brightness"
 		const val KEY_CF_CONTRAST = "cf_contrast"
-		const val KEY_CF_SHARPENING = "cf_sharpening"
-		const val KEY_CF_DENOISING = "cf_denoising"
 		const val KEY_CF_INVERTED = "cf_inverted"
 		const val KEY_CF_GRAYSCALE = "cf_grayscale"
 		const val KEY_CF_BOOK = "cf_book"
@@ -889,27 +947,22 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_SEARCH_SUGGESTION_TYPES = "search_suggest_types"
 		const val KEY_SOURCES_VERSION = "sources_version"
 		const val KEY_SOURCES_ENABLED_ALL = "sources_enabled_all"
-		const val KEY_SOURCES_HIDE_BROKEN = "sources_hide_broken"
 		const val KEY_QUICK_FILTER = "quick_filter"
 		const val KEY_COLLAPSE_DESCRIPTION = "description_collapse"
 		const val KEY_BACKUP_TG_ENABLED = "backup_periodic_tg_enabled"
 		const val KEY_BACKUP_TG_CHAT = "backup_periodic_tg_chat_id"
 		const val KEY_MANGA_LIST_BADGES = "manga_list_badges"
-		const val KEY_TAGS_WARNINGS = "tags_warnings"
 		const val KEY_DISCORD_RPC = "discord_rpc"
 		const val KEY_DISCORD_RPC_SKIP_NSFW = "discord_rpc_skip_nsfw"
 		const val KEY_DISCORD_TOKEN = "discord_token"
-		const val KEY_CONCURRENT_SOURCE_DOWNLOADS = "concurrent_source_downloads"
-		const val KEY_CONCURRENT_PAGE_DOWNLOADS = "concurrent_page_downloads"
-		const val KEY_FORCE_TABLET_UI = "force_tablet_ui"
+		const val KEY_ACTIVE_SOURCE_PRESET = "active_source_preset"
 
 		// keys for non-persistent preferences
 		const val KEY_APP_VERSION = "app_version"
-		const val KEY_DUMP_CRASH_LOG = "dump_crash_log"
 		const val KEY_IGNORE_DOZE = "ignore_dose"
 		const val KEY_TRACKER_DEBUG = "tracker_debug"
 		const val KEY_LINK_WEBLATE = "about_app_translation"
-		const val KEY_LINK_TELEGRAM = "about_telegram"
+		const val KEY_LINK_DISCORD = "about_discord"
 		const val KEY_LINK_GITHUB = "about_github"
 		const val KEY_LINK_MANUAL = "about_help"
 		const val KEY_PROXY_TEST = "proxy_test"
@@ -921,7 +974,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		const val KEY_CLEAR_MANGA_DATA = "manga_data_clear"
 		const val KEY_STORAGE_USAGE = "storage_usage"
 		const val KEY_WEBVIEW_CLEAR = "webview_clear"
-		const val KEY_GEMINI_OPTIMIZED = "gemini_optimized"
 
 		// old keys are for migration only
 		private const val KEY_IMAGES_PROXY_OLD = "images_proxy"
@@ -929,5 +981,14 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		// values
 		private const val READER_CROP_PAGED = 1
 		private const val READER_CROP_WEBTOON = 2
+
+		// Tsukimi feature keys
+		const val KEY_AI_TRANSLATION_ENABLED = "ai_translation_enabled"
+		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
+		const val KEY_AI_TRANSLATION_LANG = "ai_translation_lang"
+		const val KEY_AI_TRANSLATION_SEAMLESS = "ai_translation_seamless"
+		const val KEY_AI_AUTO_TRANSLATE = "ai_auto_translate"
+		const val KEY_AI_UPSCALING = "ai_upscaling"
+		const val KEY_CONCURRENT_DOWNLOADS = "concurrent_downloads"
 	}
 }
