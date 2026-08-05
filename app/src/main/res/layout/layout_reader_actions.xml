@@ -11,8 +11,47 @@
 
 	<FrameLayout
 		android:layout_width="wrap_content"
+		android:layout_height="wrap_content">
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_prev"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:layout_gravity="center"
+			android:contentDescription="@string/prev_chapter"
+			app:icon="@drawable/ic_prev" />
+	</FrameLayout>
+
+	<com.google.android.material.slider.Slider
+		android:id="@+id/slider"
+		android:layout_width="0dp"
 		android:layout_height="wrap_content"
-		android:layout_weight="1">
+		android:layout_weight="1"
+		android:stepSize="1.0"
+		android:valueFrom="0"
+		android:visibility="visible"
+		app:labelBehavior="floating"
+		tools:value="6"
+		tools:valueTo="20" />
+
+	<FrameLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content">
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_next"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:layout_gravity="center"
+			android:contentDescription="@string/next_chapter"
+			app:icon="@drawable/ic_next" />
+	</FrameLayout>
+
+	<FrameLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content">
 
 		<com.google.android.material.button.MaterialButton
 			android:id="@+id/button_save"

@@ -1,134 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
+<LinearLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto"
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
-	android:layout_height="wrap_content"
-	android:minHeight="?attr/listPreferredItemHeight">
+	android:layout_height="?attr/listPreferredItemHeight"
+	android:background="@drawable/list_selector"
+	android:baselineAligned="false"
+	android:gravity="center_vertical"
+	android:minHeight="@dimen/chapter_list_item_height"
+	android:orientation="horizontal">
 
-	<!-- Swipe Background (Start/Right) -->
-	<FrameLayout
-		android:id="@+id/swipe_bg_start"
-		android:layout_width="match_parent"
-		android:layout_height="match_parent"
-		android:background="@color/common_green"
-		android:visibility="invisible">
-		<ImageView
-			android:id="@+id/swipe_icon_start"
-			android:layout_width="24dp"
-			android:layout_height="24dp"
-			android:layout_gravity="center_vertical|start"
-			android:layout_marginStart="24dp"
-			android:src="@drawable/ic_check"
-			app:tint="@android:color/white" />
-	</FrameLayout>
-
-	<!-- Swipe Background (End/Left) -->
-	<FrameLayout
-		android:id="@+id/swipe_bg_end"
-		android:layout_width="match_parent"
-		android:layout_height="match_parent"
-		android:background="?attr/colorAccent"
-		android:visibility="invisible">
-		<ImageView
-			android:id="@+id/swipe_icon_end"
-			android:layout_width="24dp"
-			android:layout_height="24dp"
-			android:layout_gravity="center_vertical|end"
-			android:layout_marginEnd="24dp"
-			android:src="@drawable/ic_bookmark"
-			app:tint="@android:color/white" />
-	</FrameLayout>
-
-	<androidx.constraintlayout.widget.ConstraintLayout
-		android:id="@+id/foreground"
-		android:layout_width="match_parent"
-		android:layout_height="match_parent"
-		android:background="@drawable/list_selector"
-		android:minHeight="@dimen/chapter_list_item_height"
-		android:paddingHorizontal="?android:listPreferredItemPaddingStart">
-
-		<ImageView
-			android:id="@+id/imageView_bookmarked"
-			android:layout_width="18dp"
-			android:layout_height="18dp"
-			android:layout_marginEnd="4dp"
-			android:contentDescription="@string/bookmarks"
-			android:scaleType="centerInside"
-			android:visibility="gone"
-			app:layout_constraintBottom_toBottomOf="@+id/textView_title"
-			app:layout_constraintEnd_toStartOf="@+id/textView_title"
-			app:layout_constraintHorizontal_chainStyle="packed"
-			app:layout_constraintStart_toStartOf="parent"
-			app:layout_constraintTop_toTopOf="@+id/textView_title"
-			app:srcCompat="@drawable/ic_bookmark"
-			app:tint="?attr/colorAccent"
-			tools:visibility="visible" />
+	<LinearLayout
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginVertical="8dp"
+		android:layout_marginStart="?android:listPreferredItemPaddingStart"
+		android:layout_marginEnd="?android:listPreferredItemPaddingEnd"
+		android:layout_weight="1"
+		android:orientation="vertical">
 
 		<TextView
 			android:id="@+id/textView_title"
-			android:layout_width="0dp"
+			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
-			android:layout_marginTop="8dp"
 			android:drawablePadding="8dp"
 			android:ellipsize="end"
 			android:singleLine="true"
 			android:textAppearance="?attr/textAppearanceBodyLarge"
-			app:layout_constraintEnd_toStartOf="@+id/container_download"
-			app:layout_constraintStart_toEndOf="@+id/imageView_bookmarked"
-			app:layout_constraintTop_toTopOf="parent"
-			app:layout_goneMarginStart="0dp"
 			tools:text="@tools:sample/lorem[15]"
 			tools:textColor="?android:textColorPrimary" />
 
 		<TextView
 			android:id="@+id/textView_description"
-			android:layout_width="0dp"
+			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:layout_marginTop="2dp"
-			android:layout_marginBottom="8dp"
 			android:ellipsize="end"
 			android:singleLine="true"
 			android:textAppearance="?attr/textAppearanceBodySmall"
-			app:layout_constraintBottom_toBottomOf="parent"
-			app:layout_constraintEnd_toStartOf="@+id/container_download"
-			app:layout_constraintStart_toStartOf="@+id/textView_title"
-			app:layout_constraintTop_toBottomOf="@id/textView_title"
 			tools:text="05.10.2021 • Scanlator"
 			tools:textColor="?android:textColorTertiary" />
+	</LinearLayout>
 
-		<FrameLayout
-			android:id="@+id/container_download"
-			android:layout_width="40dp"
-			android:layout_height="40dp"
-			app:layout_constraintBottom_toBottomOf="parent"
-			app:layout_constraintEnd_toEndOf="parent"
-			app:layout_constraintTop_toTopOf="parent">
+	<ImageView
+		android:id="@+id/imageView_bookmarked"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginEnd="?android:listPreferredItemPaddingEnd"
+		android:contentDescription="@string/bookmarks"
+		app:srcCompat="@drawable/ic_bookmark" />
 
-			<ImageButton
-				android:id="@+id/button_download"
-				android:layout_width="match_parent"
-				android:layout_height="match_parent"
-				android:background="?attr/selectableItemBackgroundBorderless"
-				android:contentDescription="@string/download"
-				android:scaleType="centerInside"
-				android:src="@drawable/ic_download"
-				app:tint="?android:textColorPrimary" />
+	<ImageView
+		android:id="@+id/imageView_downloaded"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginEnd="?android:listPreferredItemPaddingEnd"
+		android:contentDescription="@string/downloaded"
+		app:srcCompat="@drawable/ic_storage" />
 
-			<com.google.android.material.progressindicator.CircularProgressIndicator
-				android:id="@+id/progress_download"
-				android:layout_width="24dp"
-				android:layout_height="24dp"
-				android:layout_gravity="center"
-				android:visibility="gone"
-				app:indicatorSize="24dp"
-				app:trackThickness="2dp"
-				tools:progress="50"
-				tools:visibility="visible" />
-
-		</FrameLayout>
-
-	</androidx.constraintlayout.widget.ConstraintLayout>
-
-</FrameLayout>
+</LinearLayout>

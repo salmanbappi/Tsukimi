@@ -124,43 +124,31 @@
 			app:constraint_referenced_ids="imageView_cover,rating_bar" />
 
 		<Button
-		        android:id="@+id/button_read"
-		        style="?materialButtonStyle"
-		        android:layout_width="0dp"
-		        android:layout_height="wrap_content"
-		        android:layout_marginStart="16dp"
-		        android:layout_marginTop="@dimen/margin_normal"
-		        android:layout_marginEnd="8dp"
-		        app:layout_constraintEnd_toStartOf="@id/button_select"
-		        app:layout_constraintStart_toStartOf="parent"
-		        app:layout_constraintTop_toBottomOf="@id/barrier_header"
-		        tools:text="@string/read" />
+			android:id="@+id/button_read"
+			style="?materialButtonStyle"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginTop="@dimen/margin_normal"
+			android:layout_marginEnd="12dp"
+			app:layout_constraintEnd_toStartOf="@id/button_open"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@id/barrier_header"
+			tools:text="@string/read" />
 
 		<com.google.android.material.button.MaterialButton
-		        android:id="@+id/button_select"
-		        style="?materialIconButtonStyle"
-		        android:layout_width="0dp"
-		        android:layout_height="0dp"
-		        android:layout_marginEnd="8dp"
-		        android:contentDescription="@string/action_select_all"
-		        app:icon="@drawable/ic_check"
-		        app:layout_constraintBottom_toBottomOf="@id/button_read"
-		        app:layout_constraintDimensionRatio="1"
-		        app:layout_constraintEnd_toStartOf="@id/button_open"
-		        app:layout_constraintTop_toTopOf="@id/button_read" />
+			android:id="@+id/button_open"
+			style="?materialIconButtonStyle"
+			android:layout_width="0dp"
+			android:layout_height="0dp"
+			android:layout_marginEnd="16dp"
+			android:contentDescription="@string/details"
+			app:icon="@drawable/ic_expand"
+			app:layout_constraintBottom_toBottomOf="@id/button_read"
+			app:layout_constraintDimensionRatio="1"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toTopOf="@id/button_read" />
 
-		<com.google.android.material.button.MaterialButton
-		        android:id="@+id/button_open"
-		        style="?materialIconButtonStyle"
-		        android:layout_width="0dp"
-		        android:layout_height="0dp"
-		        android:layout_marginEnd="16dp"
-		        android:contentDescription="@string/details"
-		        app:icon="@drawable/ic_expand"
-		        app:layout_constraintBottom_toBottomOf="@id/button_read"
-		        app:layout_constraintDimensionRatio="1"
-		        app:layout_constraintEnd_toEndOf="parent"
-		        app:layout_constraintTop_toTopOf="@id/button_read" />
 		<org.koitharu.kotatsu.core.ui.widgets.ChipsView
 			android:id="@+id/chips_tags"
 			android:layout_width="0dp"
