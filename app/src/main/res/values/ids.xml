@@ -7,6 +7,7 @@
 	<item name="group_branches" type="id" />
 	<item name="layout_tip" type="id" />
 	<item name="group_period" type="id" />
+	<item name="tag_pull_feedback_ready" type="id" />
 	<!-- Navigation -->
 	<item name="nav_history" type="id" />
 	<item name="nav_favorites" type="id" />
@@ -16,6 +17,4 @@
 	<item name="nav_updated" type="id" />
 	<item name="nav_suggestions" type="id" />
 	<item name="nav_bookmarks" type="id" />
-	<item name="cover_url" type="id" />
-	<item name="item_type" type="id" />
 </resources>

@@ -24,7 +24,6 @@
 	<color name="common_yellow">#FBC02D</color>
 	<color name="nsfw_18">#FF8A65</color>
 	<color name="nsfw_16">#FFD54F</color>
-	<color name="upscaled_tint">#4CAF50</color>
 
 	<!-- Color schemes colors -->
 	<color name="background_miku">#F7FAF8</color>
