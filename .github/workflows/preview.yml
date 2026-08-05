@@ -158,7 +158,7 @@ jobs:
           mkdir -p .github && echo "$SUMMARY" > .github/AI_NOTE_ACCUMULATOR
 
       - name: Build Preview APK
-        run: ./gradlew assembleNightly -PabiFilter=arm64-v8a --no-daemon
+        run: ./gradlew assembleNightly --no-daemon
         env:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -166,15 +166,25 @@ jobs:
 
       - name: Rename & Filter APKs
         run: |
-          APK_PATH=$(find app/build/outputs/apk/nightly -name "*.apk" | head -n 1)
-          cp "$APK_PATH" "Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk"
-          echo "APK_FILE=Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk" >> $GITHUB_ENV
+          mkdir -p preview-apks
+          cd app/build/outputs/apk/nightly/
+          for f in *.apk; do
+            [ -f "$f" ] || continue
+            ABI=$(echo "$f" | sed -E 's/app-(.*)-nightly.apk/\1/')
+            if [[ "$ABI" == "$f" ]]; then
+              cp "$f" "$GITHUB_WORKSPACE/preview-apks/Tsukimi-Preview-${{ env.TAG }}-universal.apk"
+            else
+              cp "$f" "$GITHUB_WORKSPACE/preview-apks/Tsukimi-Preview-${{ env.TAG }}-$ABI.apk"
+            fi
+          done
+          MAIN_APK=$(ls $GITHUB_WORKSPACE/preview-apks/Tsukimi-Preview-${{ env.TAG }}-*.apk | head -n 1)
+          echo "APK_FILE=$(basename $MAIN_APK)" >> $GITHUB_ENV
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Tsukimi-Preview-${{ env.TAG }}
-          path: Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk
+          path: preview-apks/*.apk
 
       - name: Finalize Version Bump
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -208,7 +218,7 @@ jobs:
             **Version**: ${{ env.VERSION_NAME }}
             **Revision**: ${{ env.COMMIT_COUNT }}
             **Branch**: `preview`
-          files: ${{ env.APK_FILE }}
+          files: preview-apks/*.apk
           prerelease: false
           generate_release_notes: false
 
@@ -237,7 +247,7 @@ jobs:
             echo "🔗 [View Commit Details]($COMMIT_URL)"
           } > telegram_caption.txt
           
-          curl -F document=@"${{ env.APK_FILE }}" \
+          curl -F document=@"preview-apks/${{ env.APK_FILE }}" \
                -F caption="$(cat telegram_caption.txt)" \
                -F parse_mode="Markdown" \
                "https://api.telegram.org/bot8150859050:AAHcs-9yp2NryZfyEa80-PIkowdGHcrX09k/sendDocument?chat_id=-1002538136245"

@@ -74,6 +74,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (file("keystore/tsukimi.jks").exists()) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
         }
         nightly {
@@ -81,8 +83,10 @@ android {
             applicationIdSuffix '.nightly'
             if (file("keystore/tsukimi.jks").exists()) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
-            
+
             applicationVariants.all { variant ->
                 if (variant.buildType.name == 'nightly') {
                     variant.outputs.all { output ->
