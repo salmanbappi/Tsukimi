@@ -212,6 +212,8 @@ class MangaDataRepository @Inject constructor(
 			ReaderColorFilter(
 				brightness = cfBrightness,
 				contrast = cfContrast,
+				sharpening = 0f,
+				denoising = 0f,
 				isInverted = cfInvert,
 				isGrayscale = cfGrayscale,
 				isBookBackground = cfBookEffect
