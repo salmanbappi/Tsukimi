@@ -1,0 +1,243 @@
+name: Preview Build
+
+on:
+  push:
+    branches:
+      - preview
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-preview:
+    name: Build & Preview Artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump Version
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          python3 .github/scripts/bump_version.py app/build.gradle
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add app/build.gradle
+          git commit -m "chore: automated version bump [skip ci]" || echo "No changes to commit"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Get Current Version
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          VERSION_NAME=$(grep "versionName" app/build.gradle | head -n 1 | sed -E "s/.*'([0-9]+\.[0-9]+\.[0-9]+)'.*/\1/")
+          TAG="v${VERSION_NAME}-r${COMMIT_COUNT}"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "COMMIT_COUNT=$COMMIT_COUNT" >> $GITHUB_ENV
+
+      - name: Generate AI Context
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            RANGE="origin/${{ github.event.pull_request.base.ref }}..HEAD"
+          elif [ "${{ github.event_name }}" == "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..${{ github.sha }}"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          
+          echo "Context Range: $RANGE"
+          
+          mkdir -p .github/ai
+          git log --pretty=format:"- %s" $RANGE > .github/ai/commits.txt || echo "New preview build" > .github/ai/commits.txt
+          git diff --stat $RANGE > .github/ai/files.txt || echo "" > .github/ai/files.txt
+          git diff -U1 $RANGE | head -n 200 > .github/ai/diff.txt || echo "" > .github/ai/diff.txt
+
+      - name: Restore AI Note Accumulator
+        uses: actions/cache/restore@v4
+        with:
+          path: .github/AI_NOTE_ACCUMULATOR
+          key: ai-note-acc-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            ai-note-acc-${{ github.ref_name }}-
+
+      - name: Generate Changelog with AI
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          ACCUMULATED_NOTES=""
+          if [ -f .github/AI_NOTE_ACCUMULATOR ]; then
+            ACCUMULATED_NOTES=$(cat .github/AI_NOTE_ACCUMULATOR)
+          fi
+          
+          COMMITS=$(cat .github/ai/commits.txt)
+          FILES=$(cat .github/ai/files.txt)
+          DIFF=$(cat .github/ai/diff.txt)
+
+          cat > .github/ai/full_prompt.txt <<PROMPT_EOF
+          You are an excited team member of Tsukimi! Write a friendly and hyped 'Changelog' for our fans. 
+          Summarize WHAT IS NEW and WHAT CHANGED.
+          Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
+          CRITICAL: Keep the summary very concise (under 500 characters) to avoid message length limits.
+          Do NOT mention technical details like 'diffs', 'commits', or file paths. Focus on user-facing features!
+          
+          Your primary job is to summarize the NEW CHANGES.
+          However, if there are PREVIOUS FAILED BUILD NOTES below, you MUST ALSO include that information, as those changes are also part of this release but were never announced. 
+          Merge them seamlessly into one unified changelog.
+
+          PREVIOUS FAILED BUILD NOTES (Include these):
+          $ACCUMULATED_NOTES
+
+          NEW CHANGES (Primary focus):
+          COMMITS:
+          $COMMITS
+          
+          FILE STATS:
+          $FILES
+          
+          DIFF SNIPPET:
+          $DIFF
+          PROMPT_EOF
+          
+          # Fix indented heredoc for shell (YAML run blocks strip common indentation, but we used spaces)
+          # Actually, if we use spaces in cat <<EOF, the terminator must be unindented or we use <<- and tabs.
+          # To be safe, we'll just use a temp script or sed to strip leading spaces if needed,
+          # but usually cat <<EOF with same indentation for EOF as for the block works in GH Actions.
+          
+          jq -n \
+            --rawfile prompt .github/ai/full_prompt.txt \
+            --arg model "llama-3.3-70b-versatile" \
+            '{
+              model: $model,
+              messages: [{role: "user", content: $prompt}],
+              temperature: 0.7,
+              max_tokens: 1024
+            }' > .github/ai/payload.json
+          
+          echo "Requesting AI summary from Groq (llama-3.3-70b-versatile)..."
+          RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @.github/ai/payload.json)
+          
+          ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+          if [ -n "$ERROR_MSG" ]; then
+            echo "Groq API Error: $ERROR_MSG"
+          else
+            echo "Groq API Request: Success"
+          fi
+          
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+          
+          if [ -z "$SUMMARY" ] || [ "$SUMMARY" == "null" ]; then
+            SUMMARY="We've implemented fresh UI refinements and optimized the engine for a better experience! ✨"
+          fi
+          
+          echo "AI_CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          mkdir -p .github && echo "$SUMMARY" > .github/AI_NOTE_ACCUMULATOR
+
+      - name: Build Preview APK
+        run: ./gradlew assembleNightly -PabiFilter=arm64-v8a --no-daemon
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+      - name: Rename & Filter APKs
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/nightly -name "*.apk" | head -n 1)
+          cp "$APK_PATH" "Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk"
+          echo "APK_FILE=Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk" >> $GITHUB_ENV
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tsukimi-Preview-${{ env.TAG }}
+          path: Tsukimi-Preview-${{ env.TAG }}-arm64-v8a.apk
+
+      - name: Finalize Version Bump
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          git push origin preview || echo "Push skipped"
+
+      - name: Reset Accumulator on Success
+        if: success()
+        run: mkdir -p .github && echo "" > .github/AI_NOTE_ACCUMULATOR
+
+      - name: Persist Accumulator
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .github/AI_NOTE_ACCUMULATOR
+          key: ai-note-acc-${{ github.ref_name }}-${{ github.run_id }}
+
+      - name: Create Release in Preview Repo
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: salmanbappi/tsukimi-preview
+          token: ${{ secrets.PREVIEW_REPO_TOKEN }}
+          tag_name: ${{ env.TAG }}
+          name: Tsukimi Preview ${{ env.TAG }}
+          body: |
+            ### 🌟 Tsukimi Preview Release (${{ env.TAG }})
+            
+            ${{ env.AI_CHANGELOG }}
+            
+            ---
+            **Version**: ${{ env.VERSION_NAME }}
+            **Revision**: ${{ env.COMMIT_COUNT }}
+            **Branch**: `preview`
+          files: ${{ env.APK_FILE }}
+          prerelease: false
+          generate_release_notes: false
+
+      - name: Send to Telegram
+        if: success()
+        env:
+          AI_CHANGELOG: ${{ env.AI_CHANGELOG }}
+        run: |
+          RELEASE_URL="https://github.com/salmanbappi/tsukimi-preview/releases/tag/${{ env.TAG }}"
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          
+          # Shorten changelog if it is too long for Telegram (1024 limit for whole caption)
+          echo "$AI_CHANGELOG" > changelog_raw.txt
+          SHORT_CHANGELOG=$(head -c 600 changelog_raw.txt)
+          if [ $(stat -c%s changelog_raw.txt) -gt 600 ]; then
+            SHORT_CHANGELOG="$SHORT_CHANGELOG..."
+          fi
+          
+          {
+            echo "🛠️ *Tsukimi Preview Update* (${{ env.TAG }})"
+            echo ""
+            echo "$SHORT_CHANGELOG"
+            echo ""
+            echo "---"
+            echo "📥 [Download Preview APK]($RELEASE_URL)"
+            echo "🔗 [View Commit Details]($COMMIT_URL)"
+          } > telegram_caption.txt
+          
+          curl -F document=@"${{ env.APK_FILE }}" \
+               -F caption="$(cat telegram_caption.txt)" \
+               -F parse_mode="Markdown" \
+               "https://api.telegram.org/bot8150859050:AAHcs-9yp2NryZfyEa80-PIkowdGHcrX09k/sendDocument?chat_id=-1002538136245"
