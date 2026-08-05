@@ -456,6 +456,8 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 			ReaderColorFilter(
 				brightness = getFloatCompat(KEY_CF_BRIGHTNESS, ReaderColorFilter.EMPTY.brightness),
 				contrast = getFloatCompat(KEY_CF_CONTRAST, ReaderColorFilter.EMPTY.contrast),
+				sharpening = getFloatCompat(KEY_CF_SHARPENING, ReaderColorFilter.EMPTY.sharpening),
+				denoising = getFloatCompat(KEY_CF_DENOISING, ReaderColorFilter.EMPTY.denoising),
 				isInverted = prefs.getBoolean(KEY_CF_INVERTED, ReaderColorFilter.EMPTY.isInverted),
 				isGrayscale = prefs.getBoolean(KEY_CF_GRAYSCALE, ReaderColorFilter.EMPTY.isGrayscale),
 				isBookBackground = prefs.getBoolean(KEY_CF_BOOK, ReaderColorFilter.EMPTY.isBookBackground),
@@ -754,25 +756,29 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 
 	// --- Tsukimi unique features ---
 
-	var aiTranslationEnabled: Boolean
-		get() = prefs.getBoolean(KEY_AI_TRANSLATION_ENABLED, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION_ENABLED, value) }
+	var isAiTranslationEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_TRANSLATION, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION, value) }
+
+	var isAiAutoTranslateEnabled: Boolean
+		get() = prefs.getBoolean(KEY_AI_AUTO_TRANSLATION, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_AUTO_TRANSLATION, value) }
 
 	var aiTranslationEngine: TranslationEngine
 		get() = prefs.getEnumValue(KEY_AI_TRANSLATION_ENGINE, TranslationEngine.DEFAULT)
 		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_ENGINE, value.name) }
 
-	var aiTranslationTargetLang: String
-		get() = prefs.getString(KEY_AI_TRANSLATION_LANG, "EN") ?: "EN"
-		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_LANG, value) }
+	var groqApiKey: String?
+		get() = prefs.getString(KEY_AI_TRANSLATION_GROQ_KEY, null)
+		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_GROQ_KEY, value) }
 
-	var aiTranslationSeamless: Boolean
-		get() = prefs.getBoolean(KEY_AI_TRANSLATION_SEAMLESS, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_TRANSLATION_SEAMLESS, value) }
+	var deeplApiKey: String?
+		get() = prefs.getString(KEY_AI_TRANSLATION_DEEPL_KEY, null)
+		set(value) = prefs.edit { putString(KEY_AI_TRANSLATION_DEEPL_KEY, value) }
 
-	var aiAutoTranslate: Boolean
-		get() = prefs.getBoolean(KEY_AI_AUTO_TRANSLATE, false)
-		set(value) = prefs.edit { putBoolean(KEY_AI_AUTO_TRANSLATE, value) }
+	var isAiSeamlessTranslation: Boolean
+		get() = prefs.getBoolean(KEY_AI_SEAMLESS_TRANSLATION, false)
+		set(value) = prefs.edit { putBoolean(KEY_AI_SEAMLESS_TRANSLATION, value) }
 
 	var aiUpscalingEnabled: Boolean
 		get() = prefs.getBoolean(KEY_AI_UPSCALING, false)
@@ -983,11 +989,14 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
 		private const val READER_CROP_WEBTOON = 2
 
 		// Tsukimi feature keys
-		const val KEY_AI_TRANSLATION_ENABLED = "ai_translation_enabled"
+		const val KEY_CF_SHARPENING = "cf_sharpening"
+		const val KEY_CF_DENOISING = "cf_denoising"
+		const val KEY_AI_TRANSLATION = "ai_translation_enabled"
+		const val KEY_AI_AUTO_TRANSLATION = "ai_auto_translate"
 		const val KEY_AI_TRANSLATION_ENGINE = "ai_translation_engine"
-		const val KEY_AI_TRANSLATION_LANG = "ai_translation_lang"
-		const val KEY_AI_TRANSLATION_SEAMLESS = "ai_translation_seamless"
-		const val KEY_AI_AUTO_TRANSLATE = "ai_auto_translate"
+		const val KEY_AI_TRANSLATION_GROQ_KEY = "ai_translation_groq_key"
+		const val KEY_AI_TRANSLATION_DEEPL_KEY = "ai_translation_deepl_key"
+		const val KEY_AI_SEAMLESS_TRANSLATION = "ai_seamless_translation"
 		const val KEY_AI_UPSCALING = "ai_upscaling"
 		const val KEY_CONCURRENT_DOWNLOADS = "concurrent_downloads"
 	}

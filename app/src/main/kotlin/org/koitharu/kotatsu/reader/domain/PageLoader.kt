@@ -86,7 +86,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import org.koitharu.kotatsu.core.ui.image.Anime4KUpscalerTransformation
 import org.koitharu.kotatsu.core.ui.image.ImageFiltersTransformation
-import org.koitharu.kotatsu.core.util.ext.md5
+import java.security.MessageDigest
 import coil3.size.Size
 
 @ActivityRetainedScoped
@@ -110,6 +110,11 @@ class PageLoader @Inject constructor(
 	private val convertLock = Mutex()
 	private val prefetchLock = Mutex()
 	private val processingLocks = ConcurrentHashMap<String, Mutex>()
+
+	private fun String.md5(): String {
+		val digest = MessageDigest.getInstance("MD5")
+		return digest.digest(toByteArray()).joinToString("") { "%02x".format(it) }
+	}
 
 	@Volatile
 	private var repository: MangaRepository? = null
