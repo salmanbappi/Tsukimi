@@ -10,17 +10,6 @@
 	tools:ignore="ViewBindingType"
 	tools:viewBindingType="android.view.ViewGroup">
 
-	<ImageView
-		android:id="@+id/imageView_cover_bg"
-		android:layout_width="match_parent"
-		android:layout_height="420dp"
-		android:alpha="0.25"
-		android:layout_gravity="top"
-		android:layout_marginTop="12dp"
-		android:scaleType="centerCrop"
-		android:visibility="gone"
-		tools:ignore="ContentDescription" />
-
 	<com.google.android.material.appbar.AppBarLayout
 		android:id="@+id/appbar"
 		android:layout_width="match_parent"
@@ -113,9 +102,8 @@
 					android:layout_marginTop="16dp"
 					android:layout_marginEnd="16dp"
 					android:ellipsize="end"
-					android:includeFontPadding="false"
 					android:maxLines="@integer/details_title_lines"
-					android:textAppearance="?attr/textAppearanceTitleLarge"
+					android:textAppearance="?attr/textAppearanceHeadlineSmall"
 					android:textIsSelectable="true"
 					app:layout_constraintEnd_toEndOf="parent"
 					app:layout_constraintStart_toEndOf="@id/imageView_cover"

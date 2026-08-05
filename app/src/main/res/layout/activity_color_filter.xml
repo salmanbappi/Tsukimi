@@ -170,6 +170,52 @@
 				app:layout_constraintStart_toStartOf="parent"
 				app:layout_constraintTop_toBottomOf="@id/textView_contrast" />
 
+			<TextView
+				android:id="@+id/textView_sharpening"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_small"
+				android:text="@string/sharpening"
+				android:textAppearance="?textAppearanceTitleMedium"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/slider_contrast" />
+
+			<com.google.android.material.slider.Slider
+				android:id="@+id/slider_sharpening"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_small"
+				android:value="0.0"
+				android:valueFrom="0.0"
+				android:valueTo="2.0"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/textView_sharpening" />
+
+			<TextView
+				android:id="@+id/textView_denoising"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_small"
+				android:text="@string/denoising"
+				android:textAppearance="?textAppearanceTitleMedium"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/slider_sharpening" />
+
+			<com.google.android.material.slider.Slider
+				android:id="@+id/slider_denoising"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_small"
+				android:value="0.0"
+				android:valueFrom="0.0"
+				android:valueTo="1.0"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@id/textView_denoising" />
+
 			<com.google.android.material.materialswitch.MaterialSwitch
 				android:id="@+id/switch_book"
 				android:layout_width="0dp"
@@ -179,7 +225,7 @@
 				android:textAppearance="?textAppearanceTitleMedium"
 				app:layout_constraintEnd_toEndOf="parent"
 				app:layout_constraintStart_toStartOf="parent"
-				app:layout_constraintTop_toBottomOf="@id/slider_contrast" />
+				app:layout_constraintTop_toBottomOf="@id/slider_denoising" />
 
 			<Button
 				android:id="@+id/button_reset"

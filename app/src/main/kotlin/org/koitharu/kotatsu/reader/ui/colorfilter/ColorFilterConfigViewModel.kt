@@ -48,6 +48,14 @@ class ColorFilterConfigViewModel @Inject constructor(
 		updateColorFilter { it.copy(contrast = contrast) }
 	}
 
+	fun setSharpening(sharpening: Float) {
+		updateColorFilter { it.copy(sharpening = sharpening) }
+	}
+
+	fun setDenoising(denoising: Float) {
+		updateColorFilter { it.copy(denoising = denoising) }
+	}
+
 	fun setInversion(invert: Boolean) {
 		updateColorFilter { it.copy(isInverted = invert) }
 	}

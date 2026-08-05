@@ -14,26 +14,26 @@ import androidx.viewbinding.ViewBinding
 import com.davemorrissey.labs.subscaleview.DefaultOnImageEventListener
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koitharu.kotatsu.BuildConfig
 import org.koitharu.kotatsu.R
 import org.koitharu.kotatsu.core.exceptions.resolve.ExceptionResolver
-import org.koitharu.kotatsu.core.image.CoilImageView
 import org.koitharu.kotatsu.core.os.NetworkState
 import org.koitharu.kotatsu.core.ui.list.lifecycle.LifecycleAwareViewHolder
 import org.koitharu.kotatsu.core.util.ext.getDisplayMessage
-import org.koitharu.kotatsu.core.util.ext.isAnimatedImage
 import org.koitharu.kotatsu.core.util.ext.isLowRamDevice
 import org.koitharu.kotatsu.core.util.ext.isSerializable
 import org.koitharu.kotatsu.core.util.ext.observe
 import org.koitharu.kotatsu.databinding.LayoutPageInfoBinding
 import org.koitharu.kotatsu.parsers.util.ifZero
 import org.koitharu.kotatsu.reader.domain.PageLoader
+import org.koitharu.kotatsu.reader.ui.ai.AiEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
+import org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
 import org.koitharu.kotatsu.reader.ui.pager.vm.PageState
 import org.koitharu.kotatsu.reader.ui.pager.vm.PageViewModel
-import org.koitharu.kotatsu.reader.ui.pager.webtoon.WebtoonHolder
 
 abstract class BasePageHolder<B : ViewBinding>(
 	protected val binding: B,
@@ -42,24 +42,32 @@ abstract class BasePageHolder<B : ViewBinding>(
 	networkState: NetworkState,
 	exceptionResolver: ExceptionResolver,
 	lifecycleOwner: LifecycleOwner,
+	isWebtoon: Boolean,
 ) : LifecycleAwareViewHolder(binding.root, lifecycleOwner), DefaultOnImageEventListener, ComponentCallbacks2 {
 
-	protected val viewModel = PageViewModel(
-		loader = loader,
-		settingsProducer = readerSettingsProducer,
-		networkState = networkState,
-		exceptionResolver = exceptionResolver,
-		isWebtoon = this is WebtoonHolder,
-	)
+	private val aiFeatureManager: AiFeatureManager by lazy {
+		EntryPointAccessors.fromApplication(context, AiEntryPoint::class.java).aiFeatureManager()
+	}
+
+	protected val viewModel: PageViewModel by lazy {
+		PageViewModel(
+			loader = loader,
+			settingsProducer = readerSettingsProducer,
+			networkState = networkState,
+			exceptionResolver = exceptionResolver,
+			isWebtoon = isWebtoon,
+			aiFeatureManager = aiFeatureManager,
+		)
+	}
 	protected val bindingInfo = LayoutPageInfoBinding.bind(binding.root)
 	protected abstract val ssiv: SubsamplingScaleImageView
-
-	protected val animatedView: CoilImageView? by lazy {
-		itemView.findViewById(R.id.animatedView)
-	}
+	protected open val translationOverlay: AiTranslationOverlayView? = null
 
 	protected val settings: ReaderSettings
 		get() = viewModel.settingsProducer.value
+
+	private var lastSharpening = -1f
+	private var lastDenoising = -1f
 
 	val context: Context
 		get() = itemView.context
@@ -86,17 +94,42 @@ abstract class BasePageHolder<B : ViewBinding>(
 		}
 		bindingInfo.buttonRetry.setOnClickListener(clickListener)
 		bindingInfo.buttonErrorDetails.setOnClickListener(clickListener)
+		translationOverlay?.setupWithSSIV(ssiv)
 	}
 
 	@CallSuper
 	protected open fun onConfigChanged(settings: ReaderSettings) {
 		settings.applyBackground(itemView)
-		if (settings.applyBitmapConfig(ssiv)) {
-			reloadImage()
+		val sharpeningChanged = lastSharpening != -1f && lastSharpening != settings.sharpening
+		val denoisingChanged = lastDenoising != -1f && lastDenoising != settings.denoising
+		lastSharpening = settings.sharpening
+		lastDenoising = settings.denoising
+		
+		if (settings.applyBitmapConfig(ssiv) || sharpeningChanged || denoisingChanged) {
+			if (sharpeningChanged || denoisingChanged) {
+				boundData?.let { viewModel.retry(it.toMangaPage(), isFromUser = false, forceSharpen = true) }
+			} else {
+				reloadImage()
+			}
 		} else if (viewModel.state.value is PageState.Shown) {
 			onReady()
+			restoreTranslationIfPossible()
 		}
 		ssiv.applyDownSampling(isResumed())
+	}
+
+	private fun restoreTranslationIfPossible() {
+		val page = boundData ?: return
+		val pageKey = "${page.chapterId}_${page.index}"
+		val cached = aiFeatureManager.getFromCache(pageKey)
+		if (settings.isAiTranslationEnabled && cached != null) {
+			translationOverlay?.setupWithSSIV(ssiv)
+			translationOverlay?.isVisible = true
+			translationOverlay?.setTranslatedBlocks(cached)
+		} else {
+			translationOverlay?.isVisible = false
+			translationOverlay?.setTranslatedBlocks(emptyList())
+		}
 	}
 
 	fun reloadImage() {
@@ -106,9 +139,7 @@ abstract class BasePageHolder<B : ViewBinding>(
 
 	fun bind(data: ReaderPage) {
 		boundData = data
-		ssiv.isVisible = true
-		animatedView?.isVisible = false
-		animatedView?.disposeImage()
+		restoreTranslationIfPossible()
 		viewModel.onBind(data.toMangaPage())
 		onBind(data)
 	}
@@ -149,11 +180,18 @@ abstract class BasePageHolder<B : ViewBinding>(
 	open fun onRecycled() {
 		viewModel.onRecycle()
 		ssiv.recycle()
-		animatedView?.disposeImage()
+		translationOverlay?.isVisible = false
+		translationOverlay?.setTranslatedBlocks(emptyList())
 	}
 
 	override fun onTrimMemory(level: Int) {
-		// TODO
+		if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+			if (!isResumed()) {
+				onRecycled()
+			} else {
+				ssiv.applyDownSampling(isForeground = true)
+			}
+		}
 	}
 
 	override fun onConfigurationChanged(newConfig: Configuration) = Unit
@@ -173,7 +211,6 @@ abstract class BasePageHolder<B : ViewBinding>(
 			bindingInfo.progressBar.isIndeterminate = true
 			bindingInfo.textViewStatus.setText(R.string.loading_)
 		}
-		val isAnimated = boundData?.url?.isAnimatedImage() == true
 		when (state) {
 			is PageState.Converting -> {
 				bindingInfo.textViewStatus.setText(R.string.processing_)
@@ -193,13 +230,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 			}
 
 			is PageState.Loaded -> {
-				if (isAnimated) {
-					showAnimated(boundData!!, state)
-					bindingInfo.layoutProgress.isGone = true
-				} else {
-					bindingInfo.textViewStatus.setText(R.string.preparing_)
-					ssiv.setImage(state.source)
-				}
+				bindingInfo.textViewStatus.setText(R.string.preparing_)
+				ssiv.setImage(state.source)
 			}
 
 			is PageState.Loading -> {
@@ -208,21 +240,8 @@ abstract class BasePageHolder<B : ViewBinding>(
 				}
 			}
 
-			is PageState.Shown -> Unit
-		}
-	}
-
-	private fun showAnimated(page: ReaderPage, loadedState: PageState.Loaded) {
-		ssiv.isVisible = false
-		animatedView?.let {
-			it.isVisible = true
-			it.setImageAsync(page)
-		}
-		viewModel.state.update { currentState ->
-			if (currentState is PageState.Loaded) {
-				PageState.Shown(loadedState.source, loadedState.isConverted)
-			} else {
-				currentState
+			is PageState.Shown -> {
+				restoreTranslationIfPossible()
 			}
 		}
 	}

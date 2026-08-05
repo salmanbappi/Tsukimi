@@ -1,27 +1,20 @@
 package org.koitharu.kotatsu.tracker.domain
 
-import android.content.Context
-import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.room.withTransaction
 import dagger.Reusable
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onStart
 import org.koitharu.kotatsu.core.db.MangaDatabase
 import org.koitharu.kotatsu.core.db.entity.toManga
 import org.koitharu.kotatsu.core.db.entity.toMangaTags
-import org.koitharu.kotatsu.core.parser.MangaRepository
-import org.koitharu.kotatsu.core.parser.ParserMangaRepository
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.util.ext.mapItems
 import org.koitharu.kotatsu.core.util.ext.toInstantOrNull
 import org.koitharu.kotatsu.details.domain.ProgressUpdateUseCase
 import org.koitharu.kotatsu.list.domain.ListFilterOption
-import org.koitharu.kotatsu.parsers.config.ConfigKey
 import org.koitharu.kotatsu.parsers.model.Manga
-import org.koitharu.kotatsu.parsers.model.MangaSource
 import org.koitharu.kotatsu.parsers.util.ifZero
 import org.koitharu.kotatsu.tracker.data.TrackEntity
 import org.koitharu.kotatsu.tracker.data.TrackLogEntity
@@ -29,7 +22,6 @@ import org.koitharu.kotatsu.tracker.data.toTrackingLogItem
 import org.koitharu.kotatsu.tracker.domain.model.MangaTracking
 import org.koitharu.kotatsu.tracker.domain.model.MangaUpdates
 import org.koitharu.kotatsu.tracker.domain.model.TrackingLogItem
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -41,8 +33,6 @@ class TrackingRepository @Inject constructor(
 	private val db: MangaDatabase,
 	private val settings: AppSettings,
 	private val progressUpdateUseCase: ProgressUpdateUseCase,
-	@ApplicationContext private val context: Context,
-	private val mangaRepositoryFactory: MangaRepository.Factory,
 ) {
 
 	private var isGcCalled = AtomicBoolean(false)
@@ -53,10 +43,6 @@ class TrackingRepository @Inject constructor(
 
 	fun observeNewChaptersCount(mangaId: Long): Flow<Int> {
 		return db.getTracksDao().observeNewChapters(mangaId)
-	}
-
-	suspend fun getLastUpdateTime(mangaId: Long): Long {
-		return db.getTrackLogsDao().getLastLogTime(mangaId) ?: 0L
 	}
 
 	@Deprecated("")
@@ -83,68 +69,16 @@ class TrackingRepository @Inject constructor(
 			.onStart { gcIfNotCalled() }
 	}
 
-	suspend fun getTracks(offset: Int, limit: Int, minActivityTime: Long, staleCheckTime: Long): List<MangaTracking> {
-		// Tracks from sources with update checking disabled never get their last_check_time
-		// advanced, so they permanently sort to the front of the batch. Filtering them after
-		// the SQL LIMIT would let them occupy batch slots forever, starving the rest of the
-		// queue — page through until the requested amount of checkable tracks is collected.
-		val result = ArrayList<MangaTracking>(if (limit == Int.MAX_VALUE) 16 else limit)
-		var currentOffset = offset
-		while (result.size < limit) {
-			val window = db.getTracksDao().findAll(
-				offset = currentOffset,
-				limit = limit - result.size,
-				minActivityTime = minActivityTime,
-				staleCheckTime = staleCheckTime,
+	suspend fun getTracks(offset: Int, limit: Int): List<MangaTracking> {
+		return db.getTracksDao().findAll(offset = offset, limit = limit).map {
+			MangaTracking(
+				manga = it.manga.toManga(emptySet(), null),
+				lastChapterId = it.track.lastChapterId,
+				lastCheck = it.track.lastCheckTime.toInstantOrNull(),
+				lastChapterDate = it.track.lastChapterDate.toInstantOrNull(),
+				newChapters = it.track.newChapters,
 			)
-			if (window.isEmpty()) {
-				break
-			}
-			currentOffset += window.size
-			for (item in window) {
-				val manga = item.manga.toManga(emptySet(), null)
-				if (isUpdateCheckingDisabled(manga)) {
-					Log.i(
-						TAG,
-						"getTracks: [${manga.id}] \"${manga.title}\" skipped: " +
-							"update checking disabled for source ${manga.source.name}",
-					)
-					continue
-				}
-				result.add(
-					MangaTracking(
-						manga = manga,
-						lastChapterId = item.track.lastChapterId,
-						lastCheck = item.track.lastCheckTime.toInstantOrNull(),
-						lastChapterDate = item.track.lastChapterDate.toInstantOrNull(),
-						newChapters = item.track.newChapters,
-					),
-				)
-				if (result.size >= limit) {
-					break
-				}
-			}
 		}
-		Log.i(
-			TAG,
-			"getTracks: collected ${result.size} of ${if (limit == Int.MAX_VALUE) "all" else limit} requested, " +
-				"scanned ${currentOffset - offset} eligible row(s), " +
-				"total tracks in db: ${db.getTracksDao().getTracksCount()}, " +
-				"minActivityTime=${minActivityTime.toInstantOrNull()}, staleCheckTime=${staleCheckTime.toInstantOrNull()}",
-		)
-		return result
-	}
-
-	private fun isUpdateCheckingDisabled(manga: Manga): Boolean {
-		val repository = mangaRepositoryFactory.create(manga.source)
-		if (repository !is ParserMangaRepository) {
-			return false // Non-parser sources (local, etc.) are not disabled
-		}
-
-		// Check if parser has DisableUpdateChecking ConfigKey
-		val configKeys = repository.getConfigKeys()
-		val disableKey = configKeys.filterIsInstance<ConfigKey.DisableUpdateChecking>().firstOrNull()
-		return disableKey?.defaultValue == true
 	}
 
 	@Deprecated("")
@@ -190,7 +124,6 @@ class TrackingRepository @Inject constructor(
 
 	suspend fun gc() = db.withTransaction {
 		db.getTracksDao().gc()
-		db.getTracksDao().clearStaleCounters(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(MAX_STALE_UPDATE_DAYS))
 		db.getTrackLogsDao().run {
 			gc()
 			trim(MAX_LOG_SIZE)
@@ -252,19 +185,12 @@ class TrackingRepository @Inject constructor(
 		dao.gc()
 		val ids = dao.findAllIds().toMutableSet()
 		val size = ids.size
-		var addedFromHistory = 0
-		var addedFromFavourites = 0
-		// A manga can be tracked by both history and favourites: once the history pass has
-		// handled an id, the favourites pass must not touch it — recreating the row would
-		// wipe its baseline (lastChapterId), silently resetting the track on every run.
-		val handled = HashSet<Long>(size)
 		// history
 		if (AppSettings.TRACK_HISTORY in settings.trackSources) {
 			val historyIds = db.getHistoryDao().findAllIds()
 			for (mangaId in historyIds) {
-				if (handled.add(mangaId) && !ids.remove(mangaId)) {
+				if (!ids.remove(mangaId)) {
 					dao.upsert(TrackEntity.create(mangaId))
-					addedFromHistory++
 				}
 			}
 		}
@@ -272,24 +198,14 @@ class TrackingRepository @Inject constructor(
 		if (AppSettings.TRACK_FAVOURITES in settings.trackSources) {
 			val favoritesIds = db.getFavouritesDao().findIdsWithTrack()
 			for (mangaId in favoritesIds) {
-				if (handled.add(mangaId) && !ids.remove(mangaId)) {
+				if (!ids.remove(mangaId)) {
 					dao.upsert(TrackEntity.create(mangaId))
-					addedFromFavourites++
 				}
 			}
 		}
 		// remove unused
 		for (mangaId in ids) {
 			dao.delete(mangaId)
-		}
-		if (addedFromHistory != 0 || addedFromFavourites != 0 || ids.isNotEmpty()) {
-			Log.i(
-				TAG,
-				"updateTracks: existing=$size, +history=$addedFromHistory, +favourites=$addedFromFavourites, " +
-					"removed=${ids.size}" +
-					(if (ids.isEmpty()) "" else " (ids: ${ids.take(REMOVED_IDS_LOG_LIMIT)})") +
-					" trackSources=${settings.trackSources}",
-			)
 		}
 		size - ids.size
 	}
@@ -310,24 +226,15 @@ class TrackingRepository @Inject constructor(
 				lastError = updates.error?.toString(),
 			)
 
-			is MangaUpdates.Success -> {
-				val chapters = updates.manga.getChapters(updates.branch)
-				TrackEntity(
-					mangaId = mangaId,
-					lastChapterId = chapters.lastOrNull()?.id ?: NO_ID,
-					// Cap at the total chapter count: the unread counter can never exceed how many
-					// chapters exist, even if a transient detection glitch tries to inflate it.
-					newChapters = if (updates.isValid) {
-						(newChapters + updates.newChapters.size).coerceIn(0, chapters.size)
-					} else {
-						0
-					},
-					lastCheckTime = System.currentTimeMillis(),
-					lastChapterDate = updates.lastChapterDate().ifZero { lastChapterDate },
-					lastResult = if (updates.isNotEmpty()) TrackEntity.RESULT_HAS_UPDATE else TrackEntity.RESULT_NO_UPDATE,
-					lastError = null,
-				)
-			}
+			is MangaUpdates.Success -> TrackEntity(
+				mangaId = mangaId,
+				lastChapterId = updates.manga.getChapters(updates.branch).lastOrNull()?.id ?: NO_ID,
+				newChapters = if (updates.isValid) newChapters + updates.newChapters.size else 0,
+				lastCheckTime = System.currentTimeMillis(),
+				lastChapterDate = updates.lastChapterDate().ifZero { lastChapterDate },
+				lastResult = if (updates.isNotEmpty()) TrackEntity.RESULT_HAS_UPDATE else TrackEntity.RESULT_NO_UPDATE,
+				lastError = null,
+			)
 		}
 	}
 
@@ -335,12 +242,5 @@ class TrackingRepository @Inject constructor(
 		if (isGcCalled.compareAndSet(false, true)) {
 			gc()
 		}
-	}
-
-	private companion object {
-
-		const val TAG = "Tracker"
-		const val MAX_STALE_UPDATE_DAYS = 90L
-		const val REMOVED_IDS_LOG_LIMIT = 20
 	}
 }

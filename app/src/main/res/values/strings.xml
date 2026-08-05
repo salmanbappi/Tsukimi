@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name" translatable="false">Kotatsu-Redo</string>
+    <string name="app_name" translatable="false">Tsukimi</string>
     <string name="local_storage">Local storage</string>
     <string name="favourites">Favorites</string>
     <string name="history">History</string>
@@ -129,7 +129,7 @@
     <string name="enter_password">Enter password</string>
     <string name="wrong_password">Wrong password</string>
     <string name="protect_application">Protect the app</string>
-    <string name="protect_application_summary">Ask for password when starting Kotatsu</string>
+    <string name="protect_application_summary">Ask for password when starting Tsukimi</string>
     <string name="repeat_password">Repeat the password</string>
     <string name="passwords_mismatch">Mismatching passwords</string>
     <string name="about">About</string>
@@ -164,13 +164,13 @@
     <string name="silent">Silent</string>
     <string name="captcha_required">CAPTCHA required</string>
     <string name="captcha_solve">Solve</string>
-    <string name="captcha_solving">Solving captcha automatically…</string>
     <string name="clear_cookies">Clear cookies</string>
     <string name="cookies_cleared">All cookies were removed</string>
     <string name="clear_feed">Clear feed</string>
     <string name="text_clear_updates_feed_prompt">Clear all update history permanently?</string>
     <string name="check_for_new_chapters">Check for new chapters</string>
     <string name="reverse">Reverse</string>
+    <string name="dump_crash_log">Dump crash log</string>
     <string name="chapters_grid_view">Grid view</string>
     <string name="sign_in">Sign in</string>
     <string name="auth_required">Sign in to view this content</string>
@@ -242,8 +242,6 @@
     <string name="back">Back</string>
     <string name="sync">Synchronization</string>
     <string name="sync_title">Sync your data</string>
-    <string name="sync_login">Log in to sync your data</string>
-	<string name="reset_password">Reset password</string>
     <string name="email_enter_hint">Enter your email to continue</string>
     <string name="hide">Hide</string>
     <string name="new_sources_text">New manga sources are available</string>
@@ -331,12 +329,12 @@
     <string name="import_completed_hint">You can delete the original file from storage to save space</string>
     <string name="import_will_start_soon">Import will start soon</string>
     <string name="feed">Feed</string>
-    <string name="manga_error_description_pattern">Error details:&lt;br&gt;&lt;tt&gt;%1$s&lt;/tt&gt;&lt;br&gt;&lt;br&gt;1. Try to &lt;a href="%2$s"&gt;open manga in a web browser&lt;/a&gt; to ensure it is available on its source&lt;br&gt;2. Make sure you are using the &lt;a href="kotatsu://about"&gt;latest version of Kotatsu&lt;/a&gt;&lt;br&gt;3. If it is available, send an error report to the developers.</string>
+    <string name="manga_error_description_pattern">Error details:&lt;br&gt;&lt;tt&gt;%1$s&lt;/tt&gt;&lt;br&gt;&lt;br&gt;1. Try to &lt;a href="%2$s"&gt;open manga in a web browser&lt;/a&gt; to ensure it is available on its source&lt;br&gt;2. Make sure you are using the &lt;a href="tsukimi://about"&gt;latest version of Tsukimi&lt;/a&gt;&lt;br&gt;3. If it is available, send an error report to the developers.</string>
     <string name="history_shortcuts">Show recent manga shortcuts</string>
     <string name="history_shortcuts_summary">Make recent manga available by long pressing on application icon</string>
     <string name="reader_control_ltr_summary">Do not adjust the page switching direction to the reader mode, e. g. pressing the right key always switches to the next page. This option affects only hardware input devices</string>
     <string name="reader_control_ltr">Ergonomic reader control</string>
-    <string name="color_correction">Color correction</string>
+    <string name="color_correction">Filters</string>
     <string name="brightness">Brightness</string>
     <string name="contrast">Contrast</string>
     <string name="reset">Reset</string>
@@ -354,13 +352,16 @@
     <string name="source_disabled">Source disabled</string>
     <string name="prefetch_content">Content preloading</string>
     <string name="mark_as_current">Mark as current</string>
+    <string name="mark_up_to_here">Mark as read up to here</string>
+    <string name="mark_read">Mark as read</string>
+    <string name="mark_unread">Mark as unread</string>
     <string name="language">Language</string>
     <string name="share_logs">Share logs</string>
     <string name="enable_logging">Enable logging</string>
     <string name="enable_logging_summary">Record some actions for debug purposes. Don\'t turn it on if you\'re not sure what you\'re doing</string>
     <string name="show_suspicious_content">Show suspicious content</string>
     <string name="theme_name_dynamic">Dynamic</string>
-    <string name="theme_name_expressive">Expressive</string>
+    <string name="theme_name_expressive">Expressive (Test)</string>
     <string name="color_theme">Color scheme</string>
     <string name="show_in_grid_view">Show in grid view</string>
     <string name="theme_name_miku">Miku</string>
@@ -528,16 +529,11 @@
     <string name="manual">Manual</string>
     <string name="available_d">Available: %1$d</string>
     <string name="disable_nsfw_summary">Disable NSFW sources and hide adult manga from list if possible</string>
+    <string name="hide_broken_sources">Hide broken sources</string>
+    <string name="hide_broken_sources_summary">Hide sources marked as broken from source lists</string>
     <string name="state_paused">Paused</string>
     <string name="reader_optimize">Reduce memory consumption (beta)</string>
     <string name="reader_optimize_summary">Reduce offscreen pages quality to use less memory</string>
-    <string name="e_ink">E-Ink</string>
-    <string name="flash_on_page_change">Flash on page change</string>
-    <string name="flash_on_page_change_summary">Refresh the screen with a short full-screen flash to reduce ghosting on E-Ink displays</string>
-    <string name="flash_duration">Flash duration</string>
-    <string name="flash_every">Flash every</string>
-    <string name="flash_with">Flash with</string>
-    <string name="milliseconds_pattern">%1$d ms</string>
     <string name="state">State</string>
     <string name="error_multiple_genres_not_supported">Filtering by multiple genres is not supported by this manga source</string>
     <string name="error_multiple_states_not_supported">Filtering by multiple states is not supported by this manga source</string>
@@ -593,7 +589,6 @@
     <string name="use_two_pages_landscape">Use two pages layout on landscape orientation (beta)</string>
     <string name="auto_double_foldable">Auto Two-Page On Foldable</string>
     <string name="two_page_scroll_sensitivity">Two-Page Scroll Sensitivity</string>
-    <string name="double_page_cover_page">First page as cover (solo)</string>
     <string name="default_webtoon_zoom_out">Default webtoon zoom out</string>
     <string name="fullscreen_mode">Fullscreen mode</string>
     <string name="reader_fullscreen_summary">Hide system status and navigation bars</string>
@@ -604,7 +599,11 @@
     <string name="check_for_new_chapters_disabled">Checking for new chapters is disabled</string>
     <string name="show_labels_in_navbar">Show labels in navigation bar</string>
     <string name="pages_saving">Saving pages</string>
-    <string name="ask_for_dest_dir_every_time">Ask for the destination dir every time</string>
+    <string name="ask_for_dest_dir_every_time">Ask for destination directory every time</string>
+    <string name="concurrent_source_downloads">Concurrent source downloads</string>
+    <string name="concurrent_page_downloads">Concurrent page downloads</string>
+    <string name="concurrent_source_downloads_summary">How many different chapters will be downloaded at the same time</string>
+    <string name="concurrent_page_downloads_summary">How many pages within a single chapter will be downloaded at the same time</string>
     <string name="default_page_save_dir">Default page save directory</string>
     <string name="remove_from_history">Remove from history</string>
     <string name="location">Location</string>
@@ -648,7 +647,7 @@
     <string name="show_pages_thumbs">Show pages thumbnails</string>
     <string name="show_pages_thumbs_summary">Enable the \"Pages\" tab on the details screen</string>
     <string name="error_no_data_received">No data was received from server</string>
-    <string name="unsupported_backup_message">Please select a proper Kotatsu backup file</string>
+    <string name="unsupported_backup_message">Please select a proper Tsukimi backup file</string>
     <string name="list_ellipsize_pattern" translatable="false">(+%d)</string>
     <!-- Short hours format pattern -->
     <string name="hours_short">%d h</string>
@@ -701,16 +700,14 @@
     <string name="source_unpinned">Source unpinned</string>
     <string name="sources_unpinned">Sources unpinned</string>
     <string name="sources_pinned">Sources pinned</string>
-    <string name="manga_pinned">Pinned</string>
-    <string name="manga_unpinned">Unpinned</string>
     <string name="recent_sources">Recent sources</string>
     <string name="percent_read">Percent read</string>
     <string name="percent_left">Percent left</string>
     <string name="chapters_read">Chapters read</string>
     <string name="chapters_left">Chapters left</string>
     <string name="external_source">External/plugin</string>
-    <string name="plugin_incompatible">Incompatible plugin or internal error. Make sure you are using the latest version of the plugin and Kotatsu</string>
-    <string name="plugin_incompatible_with_cause">Plugin error: %s\n Make sure you are using the latest version of the plugin and Kotatsu</string>
+    <string name="plugin_incompatible">Incompatible plugin or internal error. Make sure you are using the latest version of the plugin and Tsukimi</string>
+    <string name="plugin_incompatible_with_cause">Plugin error: %s\n Make sure you are using the latest version of the plugin and Tsukimi</string>
     <string name="connection_ok">Connection is OK</string>
     <string name="invalid_proxy_configuration">Invalid proxy configuration</string>
     <string name="show_quick_filters">Show quick filters</string>
@@ -768,7 +765,7 @@
     <string name="debug">Debug</string>
     <string name="source_code">Source code</string>
     <string name="user_manual">User manual</string>
-    <string name="telegram_group">Discord group</string>
+    <string name="telegram_group">Telegram group</string>
     <string name="error_image_format">Unsupported image format: %s</string>
     <string name="error_not_image">Invalid format: expected image but got %s</string>
     <string name="start_download">Start download</string>
@@ -816,7 +813,7 @@
     <string name="send_backups_telegram">Send backups in Telegram</string>
     <string name="test_connection">Test connection</string>
     <string name="telegram_chat_id_summary">Enter the chat ID where backups should be sent</string>
-    <string name="open_telegram_bot_summary">Press to open chat with Kotatsu Backup Bot</string>
+    <string name="open_telegram_bot_summary">Press to open chat with Tsukimi Backup Bot</string>
     <string name="clear_database">Clear database</string>
     <string name="clear_database_summary">Delete information about manga that is not used</string>
     <string name="enable_all_sources">Enable all manga sources</string>
@@ -825,6 +822,30 @@
     <string name="reader_chapter_toast">Show chapter change popup</string>
     <string name="reader_chapter_toast_summary">Show a pop-up message with a chapter title when it is changed</string>
     <string name="reader_info_bar_transparent">Transparent reader information bar</string>
+    <string name="reader_zen_mode">Focus mode</string>
+    <string name="reader_zen_mode_summary">Hide all UI elements, including information bar, while reading</string>
+    <string name="reader_haptics">Haptic feedback</string>
+    <string name="reader_haptics_summary">Vibrate when switching pages or reaching the end</string>
+    <string name="ai_features">Experimental AI features</string>
+    <string name="ai_translation">Live AI translation</string>
+    <string name="ai_translation_summary">Use on-device OCR and translation to translate manga pages (Beta)</string>
+    <string name="ai_translation_seamless">Seamless translation mode</string>
+    <string name="ai_translation_seamless_summary">Replace the original text background with the bubble color instead of a white box (Beta)</string>
+    <string name="auto_ai_translation">Auto translation</string>
+    <string name="auto_ai_translation_summary">Automatically translate pages as they become visible</string>
+    <string name="ai_translation_engine">Translation engine</string>
+    <string name="deepl_api_key">DeepL API key</string>
+    <string name="deepl_api_key_summary">Supports both Free and Pro keys. Free keys end with :fx</string>
+    <string name="groq_api_key">Groq API key</string>
+    <string name="groq_api_key_summary">Supports Llama 3.1. Enter your API key (gsk-...)</string>
+    <string name="ai_upscaling">AI upscaling</string>
+    <string name="ai_upscaling_summary">Use on-device AI to improve quality of low-resolution scans (Beta)</string>
+    <string name="sharpening">Sharpening</string>
+    <string name="denoising">Denoising</string>
+    <string name="ai_upscale_model">Upscaling model</string>
+    <string name="ai_upscale_model_fast">Fast (Waifu2x)</string>
+    <string name="ai_upscale_model_elite">Elite (Real-ESRGAN)</string>
+    <string name="ai_upscaled">AI Upscaled</string>
     <string name="backup_restored_background">The backup will be restored in the background</string>
     <string name="restoring_backup">Restoring backup</string>
     <string name="reader_controls_in_bottom_bar">Reader controls in bottom bar</string>
@@ -838,24 +859,24 @@
     <string name="global_search">Global search</string>
     <string name="disable_captcha_notifications">Disable captcha notifications</string>
     <string name="disable_captcha_notifications_summary">You will not receive notifications about solving CAPTCHA for this source but this can lead to breaking background operations (checking for new chapters, obtaining recommendations, etc)</string>
-    <string name="disable_captcha_auto_solve">Disable automatic CAPTCHA solving</string>
-    <string name="disable_captcha_auto_solve_summary">Don\'t try to solve CAPTCHA silently in the background. You will be asked to solve it manually instead.</string>
     <string name="chapter_volume_number">Vol %1$s Chapter %2$s</string>
     <string name="chapter_number">Chapter %s</string>
     <string name="unnamed_chapter">Unnamed chapter</string>
     <string name="search_disabled_sources">Search through disabled sources</string>
     <string name="error_details">Error details</string>
     <string name="error_disclaimer_manga">Try to open manga in a web browser to ensure it is available on its source.</string>
-    <string name="error_disclaimer_app_outdated">It looks like your version of Kotatsu is out of date. Please install the latest version to get all available fixes.</string>
+    <string name="error_disclaimer_app_outdated">It looks like your version of Tsukimi is out of date. Please install the latest version to get all available fixes.</string>
     <string name="error_disclaimer_report">You can submit a bug report to the developers. This will help us investigate and fix the issue.</string>
     <string name="link_to_manga_on_s">Link to manga on %s</string>
-    <string name="link_to_manga_in_app">Link to manga in Kotatsu</string>
+    <string name="link_to_manga_in_app">Link to manga in Tsukimi</string>
     <string name="clear_browser_data">Clear browser data</string>
     <string name="clear_browser_data_summary">Clear browser data such as cache and cookies. Warning: Authorization in manga sources may become invalid</string>
     <string name="no_write_permission_to_file">Does not have permission to write a file</string>
     <string name="exclude_nsfw_from_suggestions_summary">Adult manga will not be shown in suggestions. This option may work inaccurate with some sources</string>
     <string name="include_disabled_sources">Include disabled sources</string>
     <string name="suggestions_disabled_sources_summary">Show suggestions from all manga sources, including disabled ones</string>
+    <string name="tags_warnings">Highlight dangerous genres</string>
+    <string name="tags_warnings_summary">Highlight genres that may be inappropriate for most users</string>
     <string name="error_non_file_uri">The selected path cannot be used because it does not denote a file or directory</string>
     <string name="manga_override_hint">These changes will affect how manga is displayed in the app</string>
     <string name="use_default_cover">Use default cover</string>
@@ -872,6 +893,8 @@
     <string name="changelog_summary">Changes history for recently released versions</string>
     <string name="collapse">Collapse</string>
     <string name="expand">Expand</string>
+    <string name="adblock">Block ads in browser</string>
+    <string name="adblock_summary">Block advertisement in the built-in browser (beta)</string>
     <string name="collapse_long_description">Collapse long description</string>
     <string name="creating_backup">Creating backup</string>
     <string name="share_backup">Share backup</string>
@@ -883,8 +906,6 @@
     <string name="local_storage_cleanup">Local storage cleanup</string>
     <string name="packup_creation_failed">Failed to create backup</string>
     <string name="main_screen">Main screen</string>
-    <string name="floating_nav_bar">Floating navigation bar</string>
-    <string name="floating_nav_bar_summary">Use a rounded floating navigation bar style</string>
     <string name="main_screen_fab">Show floating Continue button</string>
     <string name="main_screen_fab_summary">Allows to continue reading in a one click. This button will not appear in incognito mode or when the history is empty</string>
     <string name="error_corrupted_zip">Corrupted ZIP archive (%s)</string>
@@ -896,7 +917,7 @@
     <string name="discord_token_hint">Paste your Discord Token here</string>
     <string name="discord_rpc_summary">Show your reading status on Discord</string>
     <string name="obtain">Obtain</string>
-    <string name="discord_rpc_description">Reading manga on Kotatsu - a manga reader app</string>
+    <string name="discord_rpc_description">Reading manga on Tsukimi - a manga reader app</string>
     <string name="reading_s">Reading %s</string>
     <string name="read_on_s">Read on %s</string>
     <string name="rpc_skip_nsfw_summary">Do not use RPC for adult content</string>
@@ -920,27 +941,11 @@
     <string name="download_default_directory">Default directory for downloading manga</string>
     <string name="private_app_directory_warning">This directory with all data will be deleted if you uninstall the application</string>
     <string name="available_pattern">%1$s available</string>
-	<string name="forgot_password">Forgot password</string>
-	<string name="reset_email_sent">If a valid account exists, an email to reset your password has been sent to your inbox</string>
-    <string name="sync_auth_reset_title">Reset password</string>
+    <string name="action_select_all">Select multiple</string>
+	<string name="sync_auth_reset_title">Reset password</string>
 	<string name="sync_auth_reset_hint">Please set a new password for your account</string>
 	<string name="confirm_password">Confirm Password</string>
-	<string name="password_reset">Password reset successfully</string>
-	<string name="no_reset_token">No reset token provided</string>
-	<string name="source_presets">Source presets</string>
 	<string name="create_preset">New preset</string>
-	<string name="edit_preset">Edit preset</string>
 	<string name="preset_name">Preset name</string>
 	<string name="preset_languages">Languages</string>
-	<string name="preset_sources">Sources</string>
-	<string name="preset_created">Preset created</string>
-	<string name="preset_saved">Preset saved</string>
-	<string name="preset_deleted">Preset deleted</string>
-	<string name="preset_activated">Preset activated</string>
-	<string name="preset_deactivated">Preset deactivated</string>
-	<string name="no_presets">No presets yet</string>
-	<string name="no_presets_text">Create a preset to quickly switch between different source configurations</string>
-	<string name="select_languages">Select languages</string>
-	<string name="manage_preset_sources">Manage sources</string>
-	<string name="default_sources">Default</string>
 </resources>

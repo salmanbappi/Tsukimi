@@ -15,18 +15,20 @@ import coil3.ImageLoader
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.transformations
+import coil3.size.Size
 import coil3.toBitmap
 import com.davemorrissey.labs.subscaleview.ImageSource
-import dagger.hilt.android.ActivityRetainedLifecycle
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -36,15 +38,16 @@ import okhttp3.Request
 import okio.use
 import org.jetbrains.annotations.Blocking
 import org.koitharu.kotatsu.core.LocalizedAppContext
-import org.koitharu.kotatsu.core.exceptions.resolve.CaptchaAutoResolveCoordinator
 import org.koitharu.kotatsu.core.image.BitmapDecoderCompat
 import org.koitharu.kotatsu.core.network.CommonHeaders
 import org.koitharu.kotatsu.core.network.MangaHttpClient
 import org.koitharu.kotatsu.core.network.imageproxy.ImageProxyInterceptor
 import org.koitharu.kotatsu.core.parser.CachingMangaRepository
+import org.koitharu.kotatsu.core.ui.image.Anime4KUpscalerTransformation
 import org.koitharu.kotatsu.core.parser.MangaRepository
 import org.koitharu.kotatsu.core.prefs.AppSettings
 import org.koitharu.kotatsu.core.ui.image.TrimTransformation
+import org.koitharu.kotatsu.core.ui.image.ImageFiltersTransformation
 import org.koitharu.kotatsu.core.util.FileSize
 import org.koitharu.kotatsu.core.util.MimeTypes
 import org.koitharu.kotatsu.core.util.ext.URI_SCHEME_ZIP
@@ -57,7 +60,7 @@ import org.koitharu.kotatsu.core.util.ext.isFileUri
 import org.koitharu.kotatsu.core.util.ext.isNotEmpty
 import org.koitharu.kotatsu.core.util.ext.isPowerSaveMode
 import org.koitharu.kotatsu.core.util.ext.isZipUri
-import org.koitharu.kotatsu.core.util.ext.lifecycleScope
+import org.koitharu.kotatsu.core.util.ext.md5
 import org.koitharu.kotatsu.core.util.ext.mangaSourceExtra
 import org.koitharu.kotatsu.core.util.ext.printStackTraceDebug
 import org.koitharu.kotatsu.core.util.ext.ramAvailable
@@ -68,6 +71,7 @@ import org.koitharu.kotatsu.core.util.progress.ProgressDeferred
 import org.koitharu.kotatsu.download.ui.worker.DownloadSlowdownDispatcher
 import org.koitharu.kotatsu.local.data.LocalStorageCache
 import org.koitharu.kotatsu.local.data.PageCache
+import org.koitharu.kotatsu.local.data.ProcessedPageCache
 import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.parsers.model.MangaSource
 import org.koitharu.kotatsu.parsers.util.requireBody
@@ -78,35 +82,37 @@ import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
+import java.util.concurrent.ConcurrentHashMap
 
-@ActivityRetainedScoped
+@Singleton
 class PageLoader @Inject constructor(
 	@LocalizedAppContext private val context: Context,
-	lifecycle: ActivityRetainedLifecycle,
 	@MangaHttpClient private val okHttp: OkHttpClient,
 	@PageCache private val cache: LocalStorageCache,
+	@ProcessedPageCache private val processedCache: LocalStorageCache,
 	private val coil: ImageLoader,
 	private val settings: AppSettings,
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
-	private val captchaAutoResolveCoordinator: CaptchaAutoResolveCoordinator,
+	private val optimizationHelper: ReaderOptimizationHelper,
 ) {
 
-	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
+	val loaderScope = CoroutineScope(SupervisorJob() + InternalErrorHandler() + Dispatchers.Default)
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
-	private val semaphore = Semaphore(3)
-	private val convertLock = Mutex()
+	private val activeSemaphore = Semaphore(1)
+	private val prefetchSemaphore = Semaphore(optimizationHelper.getParallelism())
+	private val processingLocks = ConcurrentHashMap<String, Mutex>()
 	private val prefetchLock = Mutex()
 
 	@Volatile
 	private var repository: MangaRepository? = null
 	private val prefetchQueue = LinkedList<MangaPage>()
 	private val counter = AtomicInteger(0)
-	private var prefetchQueueLimit = PREFETCH_LIMIT_DEFAULT // TODO adaptive
 	private val edgeDetector = EdgeDetector(context)
 
 	fun isPrefetchApplicable(): Boolean {
@@ -118,13 +124,14 @@ class PageLoader @Inject constructor(
 
 	@AnyThread
 	fun prefetch(pages: List<ReaderPage>) = loaderScope.launch {
+		val limit = optimizationHelper.getPrefetchLimit()
 		prefetchLock.withLock {
 			for (page in pages.asReversed()) {
 				if (tasks.containsKey(page.id)) {
 					continue
 				}
 				prefetchQueue.offerFirst(page.toMangaPage())
-				if (prefetchQueue.size > prefetchQueueLimit) {
+				if (prefetchQueue.size > limit) {
 					prefetchQueue.pollLast()
 				}
 			}
@@ -188,28 +195,33 @@ class PageLoader @Inject constructor(
 	}
 
 	@CheckResult
-	suspend fun convertBimap(uri: Uri): Uri = convertLock.withLock {
-		if (uri.isZipUri()) {
-			runInterruptible(Dispatchers.IO) {
-				ZipFile(uri.schemeSpecificPart).use { zip ->
-					val entry = zip.getEntry(uri.fragment)
-					context.ensureRamAtLeast(entry.size * 2)
-					zip.getInputStream(entry).use {
-						BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
-					}
+	suspend fun convertBimap(uri: Uri): Uri {
+		val lockKey = uri.toString()
+		val lock = processingLocks.computeIfAbsent(lockKey) { Mutex() }
+		
+		return lock.withLock {
+			if (uri.isZipUri()) {
+				runInterruptible(Dispatchers.IO) {
+						ZipFile(uri.schemeSpecificPart).use { zip ->
+								val entry = zip.getEntry(uri.fragment)
+								context.ensureRamAtLeast(entry.size * 2)
+								zip.getInputStream(entry).use {
+									BitmapDecoderCompat.decode(it, MimeTypes.getMimeTypeFromExtension(entry.name))
+								}
+						}
+				}.use { image ->
+					cache.set(uri.toString(), image).toUri()
 				}
-			}.use { image ->
-				cache.set(uri.toString(), image).toUri()
+			} else {
+				val file = uri.toFile()
+				runInterruptible(Dispatchers.IO) {
+					context.ensureRamAtLeast(file.length() * 2)
+					BitmapDecoderCompat.decode(file)
+				}.use { image ->
+					image.compressToPNG(file)
+				}
+				uri
 			}
-		} else {
-			val file = uri.toFile()
-			runInterruptible(Dispatchers.IO) {
-				context.ensureRamAtLeast(file.length() * 2)
-				BitmapDecoderCompat.decode(file)
-			}.use { image ->
-				image.compressToPNG(file)
-			}
-			uri
 		}
 	}
 
@@ -221,6 +233,52 @@ class PageLoader @Inject constructor(
 
 	suspend fun getPageUrl(page: MangaPage): String {
 		return getRepository(page.source).getPageUrl(page)
+	}
+
+	suspend fun applyImageFilters(uri: Uri, sharpening: Float, denoising: Float): Uri {
+		if (uri.isZipUri()) return uri
+		
+		val rawFile = uri.toFile()
+		val cacheKey = "${rawFile.absolutePath}_s${sharpening}_d${denoising}".md5()
+		
+		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
+		
+		return lock.withLock {
+			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+			withContext(Dispatchers.IO) {
+				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+				val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
+				processedCache.set(cacheKey, filtered)
+				filtered.recycle()
+				bitmap.recycle()
+			}
+			
+			processedCache.get(cacheKey)?.toUri() ?: uri
+		}
+	}
+
+	suspend fun applyAiUpscale(uri: Uri): Uri {
+		if (uri.isZipUri()) return uri
+
+		val rawFile = uri.toFile()
+		val cacheKey = "${rawFile.absolutePath}_anime4k_upscale".md5()
+
+		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
+
+		return lock.withLock {
+			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+
+			withContext(Dispatchers.IO) {
+				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
+				val upscaled = Anime4KUpscalerTransformation(2.0f, 1.0f).transform(bitmap, Size.ORIGINAL)
+				processedCache.set(cacheKey, upscaled)
+				upscaled.recycle()
+				bitmap.recycle()
+			}
+
+			processedCache.get(cacheKey)?.toUri() ?: uri
+		}
 	}
 
 	suspend fun invalidate(clearCache: Boolean) {
@@ -281,45 +339,34 @@ class PageLoader @Inject constructor(
 		progress: MutableStateFlow<Float>,
 		isPrefetch: Boolean,
 		skipCache: Boolean,
-	): Uri = semaphore.withPermit {
-		captchaAutoResolveCoordinator.runWithVerification(
-			source = page.source,
-			mayStartVerification = !isPrefetch,
-		) {
-			loadPageAttempt(page, progress, isPrefetch, skipCache)
-		}
-	}
-
-	private suspend fun loadPageAttempt(
-		page: MangaPage,
-		progress: MutableStateFlow<Float>,
-		isPrefetch: Boolean,
-		skipCache: Boolean,
 	): Uri {
-		val pageUrl = getPageUrl(page)
-		check(pageUrl.isNotBlank()) { "Cannot obtain full image url for $page" }
-		if (!skipCache) {
-			cache.get(pageUrl)?.let { return it.toUri() }
-		}
-		val uri = pageUrl.toUri()
-		return when {
-			uri.isZipUri() -> if (uri.scheme == URI_SCHEME_ZIP) {
-				uri
-			} else { // legacy uri
-				uri.buildUpon().scheme(URI_SCHEME_ZIP).build()
+		val sem = if (isPrefetch) prefetchSemaphore else activeSemaphore
+		return sem.withPermit {
+			val pageUrl = getPageUrl(page)
+			check(pageUrl.isNotBlank()) { "Cannot obtain full image url for $page" }
+			if (!skipCache) {
+				cache.get(pageUrl)?.let { return@withPermit it.toUri() }
 			}
-
-			uri.isFileUri() -> uri
-			else -> {
-				if (isPrefetch) {
-					downloadSlowdownDispatcher.delay(page.source)
+			val uri = pageUrl.toUri()
+			when {
+				uri.isZipUri() -> if (uri.scheme == URI_SCHEME_ZIP) {
+					uri
+				} else { // legacy uri
+					uri.buildUpon().scheme(URI_SCHEME_ZIP).build()
 				}
-				val request = createPageRequest(pageUrl, page.source)
+
+				uri.isFileUri() -> uri
+				else -> {
+					if (isPrefetch) {
+						downloadSlowdownDispatcher.delay(page.source)
+					}
+				val request = createPageRequest(pageUrl, page.source).build()
 				imageProxyInterceptor.interceptPageRequest(request, okHttp).ensureSuccess().use { response ->
 					response.requireBody().withProgress(progress).use {
 						cache.set(pageUrl, it.source(), it.contentType()?.toMimeType())
-					}
+						}
 				}.toUri()
+				}
 			}
 		}
 	}
@@ -360,7 +407,6 @@ class PageLoader @Inject constructor(
 			.header(CommonHeaders.ACCEPT, "image/webp,image/png;q=0.9,image/jpeg,*/*;q=0.8")
 			.cacheControl(CommonHeaders.CACHE_CONTROL_NO_STORE)
 			.tag(MangaSource::class.java, mangaSource)
-			.build()
 
 
 		@Blocking

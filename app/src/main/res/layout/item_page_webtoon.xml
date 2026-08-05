@@ -2,6 +2,7 @@
 <org.koitharu.kotatsu.reader.ui.pager.webtoon.WebtoonFrameLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
 	android:layout_height="wrap_content"
 	android:defaultFocusHighlightEnabled="false">
@@ -16,13 +17,27 @@
 		app:quickScaleEnabled="false"
 		app:zoomEnabled="false" />
 
-	<org.koitharu.kotatsu.core.image.CoilImageView
-		android:id="@+id/animatedView"
+	<org.koitharu.kotatsu.reader.ui.ai.AiTranslationOverlayView
+		android:id="@+id/translationOverlay"
 		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:adjustViewBounds="true"
-		android:scaleType="fitCenter"
+		android:layout_height="match_parent"
 		android:visibility="gone" />
+
+	<com.google.android.material.button.MaterialButton
+		android:id="@+id/badge_ai_upscale"
+		style="@style/Widget.Material3.Button.TonalButton"
+		android:layout_width="wrap_content"
+		android:layout_height="24dp"
+		android:layout_gravity="start|bottom"
+		android:layout_margin="@dimen/margin_small"
+		android:padding="0dp"
+		android:text="@string/ai_upscaled"
+		android:textSize="10sp"
+		android:visibility="gone"
+		app:icon="@drawable/ic_auto_fix"
+		app:iconPadding="4dp"
+		app:iconSize="12dp"
+		tools:visibility="visible" />
 
 	<include layout="@layout/layout_page_info" />
 

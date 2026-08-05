@@ -1,13 +1,12 @@
 [versions]
 acra = "5.13.1"
-activity = "1.13.0"
+activity = "1.11.0"
 adapterdelegates = "4.3.2"
 appcompat = "1.7.1"
-avifDecoder = "1.3.0.841110fd"
+avifDecoder = "1.1.1.14d8e3c4"
 biometric = "1.4.0-alpha04"
-coil = "3.4.0"
+coil = "3.3.0"
 collections = "1.5.0"
-composeBom = "2024.12.01"
 # https://github.com/google/conscrypt/issues/1268
 #noinspection NewerVersionAvailable,GradleDependency - 2.5.3 cause crashes
 conscrypt = "2.5.2"
@@ -23,7 +22,9 @@ fragment = "1.8.9"
 gradle = "8.13.0"
 guava = "33.4.8-android"
 hilt = "1.3.0"
+injekt = "1.16.1"
 json = "20250517"
+jsoup = "1.18.3"
 junit = "4.13.2"
 junitKtx = "1.3.0"
 kotlin = "2.2.10"
@@ -32,17 +33,20 @@ ksp = "2.2.10-2.0.2"
 leakcanary = "3.0-alpha-8"
 lifecycle = "2.9.4"
 markwon = "4.6.2"
-material = "1.14.0"
+material = "1.14.0-alpha05"
 moshi = "1.15.2"
-okhttp = "5.3.2"
-okio = "3.17.0"
+okhttp = "5.2.1"
+okio = "3.16.1"
 parsers = "204c9ee032"
 preference = "1.2.1"
 recyclerview = "1.4.0"
-room = "2.8.4"
+room = "2.7.2"
+rxandroid = "2.1.1"
+rxjava = "2.2.21"
 serialization = "1.9.0"
 ssiv = "376930523c"
 swiperefreshlayout = "1.1.0"
+splashscreen = "1.0.1"
 testRules = "1.7.0"
 testRunner = "1.7.0"
 transition = "1.6.0"
@@ -58,12 +62,6 @@ acra-http = { module = "ch.acra:acra-http", version.ref = "acra" }
 adapterdelegates = { module = "com.hannesdorfmann:adapterdelegates4-kotlin-dsl", version.ref = "adapterdelegates" }
 adapterdelegates-viewbinding = { module = "com.hannesdorfmann:adapterdelegates4-kotlin-dsl-viewbinding", version.ref = "adapterdelegates" }
 androidx-activity = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
-androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
-androidx-compose-ui = { module = "androidx.compose.ui:ui" }
-androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
-androidx-compose-activity = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-collection = { module = "androidx.collection:collection-ktx", version.ref = "collections" }
@@ -84,6 +82,7 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 androidx-rules = { module = "androidx.test:rules", version.ref = "testRules" }
 androidx-runner = { module = "androidx.test:runner", version.ref = "testRunner" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
+androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "testRules" }
 androidx-transition = { module = "androidx.transition:transition-ktx", version.ref = "transition" }
 androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
@@ -102,7 +101,9 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "dagge
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "dagger" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "dagger" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "dagger" }
+injekt-core = { module = "uy.kohesive.injekt:injekt-core", version.ref = "injekt" }
 json = { module = "org.json:json", version.ref = "json" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kizzyrpc = { module = "com.github.dead8309:KizzyRPC", version.ref = "kizzyRpc" }
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -110,6 +111,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-guava = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-guava", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm", version.ref = "serialization" }
+kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
 leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
@@ -121,6 +123,8 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-dnsoverhttps = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps", version.ref = "okhttp" }
 okhttp-tls = { module = "com.squareup.okhttp3:okhttp-tls", version.ref = "okhttp" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+rxandroid = { module = "io.reactivex.rxjava2:rxandroid", version.ref = "rxandroid" }
+rxjava = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava" }
 ssiv = { module = "com.github.KotatsuApp:subsampling-scale-image-view", version.ref = "ssiv" }
 workinspector = { module = "com.github.Koitharu:WorkInspector", version.ref = "workinspector" }
 androidx-window = { module = "androidx.window:window", version.ref = "window" }
@@ -130,8 +134,6 @@ android-application = { id = "com.android.application", version.ref = "gradle" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "dagger" }
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinx-serizliation = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-# Tracks the Kotlin version, not DropSauce's: the Compose compiler plugin has to match the compiler.
-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room = { id = "androidx.room", version.ref = "room" }
 decoroutinator = { id = "dev.reformator.stacktracedecoroutinator", version.ref = "decoroutinator" }

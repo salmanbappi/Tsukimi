@@ -3,6 +3,7 @@ package org.koitharu.kotatsu.reader.ui.pager.vm
 import android.graphics.Rect
 import android.net.Uri
 import androidx.annotation.WorkerThread
+import androidx.core.net.toFile
 import com.davemorrissey.labs.subscaleview.DefaultOnImageEventListener
 import com.davemorrissey.labs.subscaleview.ImageSource
 import kotlinx.coroutines.CancellationException
@@ -27,6 +28,12 @@ import org.koitharu.kotatsu.core.util.ext.throttle
 import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.reader.domain.PageLoader
 import org.koitharu.kotatsu.reader.ui.config.ReaderSettings
+import org.koitharu.kotatsu.reader.ui.ai.AiFeatureManager
+
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
 
 class PageViewModel(
 	private val loader: PageLoader,
@@ -34,36 +41,39 @@ class PageViewModel(
 	private val networkState: NetworkState,
 	private val exceptionResolver: ExceptionResolver,
 	private val isWebtoon: Boolean,
+	private val aiFeatureManager: AiFeatureManager,
 ) : DefaultOnImageEventListener {
 
 	private val scope = loader.loaderScope + Dispatchers.Main.immediate
 	private var job: Job? = null
 	private var cachedBounds: Rect? = null
+	private var boundPage: MangaPage? = null
 
 	val state = MutableStateFlow<PageState>(PageState.Empty)
 
 	fun isLoading() = job?.isActive == true
 
 	fun onBind(page: MangaPage) {
+		boundPage = page
 		val prevJob = job
 		job = scope.launch(Dispatchers.Default) {
 			prevJob?.cancelAndJoin()
-			doLoad(page, force = false)
+			doLoad(page, force = false, forceSharpen = false)
 		}
 	}
 
-	fun retry(page: MangaPage, isFromUser: Boolean) {
+	fun retry(page: MangaPage, isFromUser: Boolean, forceSharpen: Boolean = false) {
 		val prevJob = job
 		job = scope.launch {
 			prevJob?.cancelAndJoin()
 			val e = (state.value as? PageState.Error)?.error
 			if (e != null && ExceptionResolver.canResolve(e)) {
 				if (isFromUser) {
-					exceptionResolver.resolve(e, tryAutoResolve = false)
+					exceptionResolver.resolve(e)
 				}
 			}
 			withContext(Dispatchers.Default) {
-				doLoad(page, force = true)
+				doLoad(page, force = isFromUser, forceSharpen = forceSharpen)
 			}
 		}
 	}
@@ -76,13 +86,14 @@ class PageViewModel(
 	fun onRecycle() {
 		state.value = PageState.Empty
 		cachedBounds = null
+		boundPage = null
 		job?.cancel()
 	}
 
 	override fun onImageLoaded() {
 		state.update { currentState ->
 			if (currentState is PageState.Loaded) {
-				PageState.Shown(currentState.source, currentState.isConverted)
+				PageState.Shown(currentState.source, currentState.isConverted, currentState.isUpscaled)
 			} else {
 				currentState
 			}
@@ -131,7 +142,7 @@ class PageViewModel(
 	}
 
 	@WorkerThread
-	private suspend fun doLoad(data: MangaPage, force: Boolean) = coroutineScope {
+	private suspend fun doLoad(data: MangaPage, force: Boolean, forceSharpen: Boolean) = coroutineScope {
 		state.value = PageState.Loading(null, -1)
 		val previewJob = launch {
 			val preview = loader.loadPreview(data) ?: return@launch
@@ -142,14 +153,37 @@ class PageViewModel(
 		try {
 			val task = loader.loadPageAsync(data, force)
 			val progressObserver = observeProgress(this, task.progressAsFlow())
-			val uri = task.await()
+			var uri = task.await()
 			progressObserver.cancelAndJoin()
 			previewJob.cancel()
-			cachedBounds = if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {
-				loader.getTrimmedBounds(uri)
-			} else {
-				null
+			
+			val sharpening = settingsProducer.value.sharpening
+			val denoising = settingsProducer.value.denoising
+			val isUpscaleEnabled = settingsProducer.value.isAiUpscaleEnabled
+			
+			// Start filter and bounds calculation concurrently
+			val filteredUriDeferred = async(Dispatchers.Default) {
+				var processedUri = uri
+				if (isUpscaleEnabled) {
+					processedUri = loader.applyAiUpscale(processedUri)
+				}
+				if (sharpening > 0f || denoising > 0f) {
+					processedUri = loader.applyImageFilters(processedUri, sharpening, denoising)
+				}
+				processedUri
 			}
+
+			val boundsDeferred = async(Dispatchers.Default) {
+				if (settingsProducer.value.isPagesCropEnabled(isWebtoon)) {
+					loader.getTrimmedBounds(uri)
+				} else {
+					null
+				}
+			}
+
+			uri = filteredUriDeferred.await()
+			cachedBounds = boundsDeferred.await()
+			
 			state.value = PageState.Loaded(uri.toImageSource(cachedBounds), isConverted = false)
 		} catch (e: CancellationException) {
 			throw e

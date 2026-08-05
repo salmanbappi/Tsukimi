@@ -134,6 +134,7 @@
 		<item>@string/save_page</item>
 		<item>@string/automatic_scroll</item>
 		<item>@string/bookmark_add</item>
+		<item>@string/ai_translation</item>
 	</string-array>
 	<string-array name="list_badges" translatable="false">
 		<item>@string/favourites</item>
@@ -143,5 +144,15 @@
 		<item>@string/enable</item>
 		<item>@string/ask_every_time</item>
 		<item>@string/disable</item>
+	</string-array>
+	<string-array name="ai_translation_engines" translatable="false">
+		<item>Google ML Kit (Default)</item>
+		<item>DeepL API (Premium)</item>
+		<item>Groq API (Llama 3.1)</item>
+	</string-array>
+	<string-array name="values_ai_translation_engines" translatable="false">
+		<item>ML_KIT</item>
+		<item>DEEPL</item>
+		<item>GROQ</item>
 	</string-array>
 </resources>

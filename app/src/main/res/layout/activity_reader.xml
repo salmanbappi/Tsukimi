@@ -12,16 +12,37 @@
 		android:layout_height="match_parent"
 		tools:background="@color/grey" />
 
-	<com.google.android.material.button.MaterialButton
-		android:id="@+id/button_timer"
-		style="?materialIconButtonOutlinedStyle"
+	<LinearLayout
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:layout_gravity="bottom|end"
 		android:layout_margin="16dp"
-		app:backgroundTint="@color/bg_floating_button"
-		app:icon="@drawable/ic_timelapse"
-		app:layout_insetEdge="bottom" />
+		android:orientation="vertical"
+		android:gravity="end">
+
+		<com.google.android.material.floatingactionbutton.FloatingActionButton
+			android:id="@+id/button_ai_translate_fab"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginBottom="8dp"
+			android:contentDescription="@string/ai_translation"
+			android:visibility="gone"
+			app:backgroundTint="?attr/colorTertiaryContainer"
+			app:srcCompat="@drawable/ic_translate"
+			app:fabSize="normal"
+			app:elevation="6dp"
+			app:pressedTranslationZ="12dp"
+			app:tint="?attr/colorOnTertiaryContainer" />
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_timer"
+			style="?materialIconButtonOutlinedStyle"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			app:backgroundTint="?attr/colorSurfaceContainerHigh"
+			app:icon="@drawable/ic_timelapse" />
+
+	</LinearLayout>
 
 	<org.koitharu.kotatsu.core.ui.widgets.ZoomControl
 		android:id="@+id/zoomControl"
@@ -44,6 +65,92 @@
 		android:textSize="12sp"
 		android:visibility="gone"
 		tools:visibility="visible" />
+
+	<LinearLayout
+		android:id="@+id/container_slider_vertical"
+		android:layout_width="56dp"
+		android:layout_height="match_parent"
+		android:layout_gravity="end|center_vertical"
+		android:layout_marginEnd="8dp"
+		android:layout_marginTop="100dp"
+		android:layout_marginBottom="100dp"
+		android:gravity="center_horizontal"
+		android:orientation="vertical"
+		android:paddingVertical="8dp"
+		android:visibility="gone"
+		tools:visibility="visible">
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_prev_vertical"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:backgroundTint="?attr/colorSurfaceContainerHigh"
+			android:contentDescription="@string/prev_chapter"
+			android:rotation="90"
+			app:icon="@drawable/ic_prev"
+			app:iconTint="?attr/colorPrimary" />
+
+		<LinearLayout
+			android:id="@+id/pill_vertical_slider"
+			android:layout_width="48dp"
+			android:layout_height="0dp"
+			android:layout_marginVertical="8dp"
+			android:layout_weight="1"
+			android:background="@drawable/bg_reader_vertical_controls"
+			android:backgroundTint="?attr/colorSurfaceContainerHigh"
+			android:gravity="center_horizontal"
+			android:orientation="vertical"
+			android:paddingVertical="16dp">
+
+			<TextView
+				android:id="@+id/textView_current_page_vertical"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textAppearance="?attr/textAppearanceBodySmall"
+				android:textColor="?attr/colorOnSurface"
+				tools:text="1" />
+
+			<org.koitharu.kotatsu.reader.ui.widgets.VerticalSliderWrapper
+				android:layout_width="match_parent"
+				android:layout_height="0dp"
+				android:layout_marginVertical="8dp"
+				android:layout_weight="1">
+
+				<com.google.android.material.slider.Slider
+					android:id="@+id/slider_vertical"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					android:rotation="90"
+					android:valueFrom="0"
+					app:labelBehavior="gone"
+					tools:value="6"
+					tools:valueTo="20" />
+
+			</org.koitharu.kotatsu.reader.ui.widgets.VerticalSliderWrapper>
+
+			<TextView
+				android:id="@+id/textView_total_pages_vertical"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textAppearance="?attr/textAppearanceBodySmall"
+				android:textColor="?attr/colorOnSurface"
+				tools:text="20" />
+
+		</LinearLayout>
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button_next_vertical"
+			style="?materialIconButtonStyle"
+			android:layout_width="48dp"
+			android:layout_height="48dp"
+			android:backgroundTint="?attr/colorSurfaceContainerHigh"
+			android:contentDescription="@string/next_chapter"
+			android:rotation="90"
+			app:icon="@drawable/ic_next"
+			app:iconTint="?attr/colorPrimary" />
+
+	</LinearLayout>
 
 	<org.koitharu.kotatsu.reader.ui.ScrollTimerControlView
 		android:id="@+id/timerControl"

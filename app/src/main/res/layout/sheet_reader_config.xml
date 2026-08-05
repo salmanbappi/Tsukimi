@@ -145,19 +145,6 @@
                 android:visibility="gone"
                 tools:visibility="visible" />
 
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switch_double_cover_page"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/margin_small"
-                android:drawablePadding="?android:listPreferredItemPaddingStart"
-                android:minHeight="?android:listPreferredItemHeightSmall"
-                android:paddingStart="?android:listPreferredItemPaddingStart"
-                android:paddingEnd="?android:listPreferredItemPaddingEnd"
-                android:text="@string/double_page_cover_page"
-                android:textAppearance="@style/TextAppearance.Kotatsu.GridTitle"
-                android:textColor="?colorOnSurfaceVariant" />
-
             <TextView
                 android:id="@+id/text_double_sensitivity"
                 android:layout_width="match_parent"
@@ -203,6 +190,60 @@
                 android:visibility="gone"
                 app:drawableStartCompat="@drawable/ic_screen_rotation_lock"
                 tools:visibility="visible" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_zen_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawablePadding="?android:listPreferredItemPaddingStart"
+                android:minHeight="?android:listPreferredItemHeightSmall"
+                android:paddingStart="?android:listPreferredItemPaddingStart"
+                android:paddingEnd="?android:listPreferredItemPaddingEnd"
+                android:text="@string/reader_zen_mode"
+                android:textAppearance="?textAppearanceListItem"
+                android:textColor="?colorOnSurfaceVariant"
+                app:drawableStartCompat="@drawable/ic_eye_hide" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="@dimen/margin_normal"
+                android:layout_marginTop="@dimen/margin_normal"
+                android:text="@string/ai_features"
+                android:textAppearance="?textAppearanceTitleSmall" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_ai_translation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/margin_small"
+                android:drawablePadding="?android:listPreferredItemPaddingStart"
+                android:minHeight="?android:listPreferredItemHeightSmall"
+                android:paddingStart="?android:listPreferredItemPaddingStart"
+                android:paddingEnd="?android:listPreferredItemPaddingEnd"
+                android:text="@string/ai_translation"
+                android:textAppearance="?textAppearanceListItem"
+                android:textColor="?colorOnSurfaceVariant"
+                app:drawableStartCompat="@drawable/ic_translate" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_auto_ai_translation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:drawablePadding="?android:listPreferredItemPaddingStart"
+                android:minHeight="?android:listPreferredItemHeightSmall"
+                android:paddingStart="?android:listPreferredItemPaddingStart"
+                android:paddingEnd="?android:listPreferredItemPaddingEnd"
+                android:text="@string/auto_ai_translation"
+                android:textAppearance="@style/TextAppearance.Kotatsu.GridTitle"
+                android:textColor="?colorOnSurfaceVariant"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+
+
+
 
             <org.koitharu.kotatsu.core.ui.widgets.ListItemTextView
                 android:id="@+id/button_scroll_timer"

@@ -1,230 +1,262 @@
-import java.time.LocalDateTime
-
 plugins {
-	id 'com.android.application'
-	id 'kotlin-android'
-	id 'com.google.devtools.ksp'
-	id 'kotlin-parcelize'
-	id 'dagger.hilt.android.plugin'
-	id 'androidx.room'
-	id 'org.jetbrains.kotlin.plugin.serialization'
-	id 'org.jetbrains.kotlin.plugin.compose'
-	// enable if needed
-	// id 'dev.reformator.stacktracedecoroutinator'
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'com.google.devtools.ksp'
+    id 'kotlin-parcelize'
+    id 'dagger.hilt.android.plugin'
+    id 'androidx.room'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
 android {
-	compileSdk = 37
-	buildToolsVersion = '35.0.0'
-	namespace = 'org.koitharu.kotatsu'
-
-    dependenciesInfo {
-        // Disables dependency metadata when building APKs.
-        includeInApk = false
-        // Disables dependency metadata when building Android App Bundles.
-        includeInBundle = false
-    }
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    namespace 'org.koitharu.kotatsu'
 
     defaultConfig {
-		applicationId 'io.github.kotatsuredo.kotatsu'
-		minSdk = 23
-		targetSdk = 37
-		versionCode = 2039
-        versionName = '9.8.1'
-		generatedDensities = []
-		testInstrumentationRunner 'org.koitharu.kotatsu.HiltTestRunner'
-		ksp {
-			arg('room.generateKotlin', 'true')
-		}
-		androidResources {
-			// https://issuetracker.google.com/issues/408030127
-			generateLocaleConfig false
-		}
-		def localProperties = new Properties()
-		def localPropertiesFile = rootProject.file('local.properties')
-		if (localPropertiesFile.exists()) {
-			localProperties.load(new FileInputStream(localPropertiesFile))
-		}
-		resValue 'string', 'tg_backup_bot_token', localProperties.getProperty('tg_backup_bot_token', '')
-	}
-	buildTypes {
-		debug {
-			applicationIdSuffix = '.debug'
-		}
-		release {
-			minifyEnabled true
-			shrinkResources true
-			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-		}
-		nightly {
-			initWith release
-			applicationIdSuffix = '.nightly'
-		}
-	}
-	buildFeatures {
-		viewBinding true
-		buildConfig true
-		compose true
-	}
-	packagingOptions {
-		resources {
-			excludes += [
-				'META-INF/README.md',
-				'META-INF/NOTICE.md'
-			]
-		}
-	}
-	sourceSets {
-		androidTest.assets.srcDirs += files("$projectDir/schemas".toString())
-		main.java.srcDirs += 'src/main/kotlin/'
-	}
-	compileOptions {
-		coreLibraryDesugaringEnabled true
-		sourceCompatibility JavaVersion.VERSION_17
-		targetCompatibility JavaVersion.VERSION_17
-	}
-	kotlinOptions {
-		jvmTarget = JavaVersion.VERSION_17.toString()
-		freeCompilerArgs += [
-			'-opt-in=kotlin.ExperimentalStdlibApi',
-			'-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi',
-			'-opt-in=kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi',
-			'-opt-in=kotlinx.coroutines.InternalForInheritanceCoroutinesApi',
-			'-opt-in=kotlinx.coroutines.FlowPreview',
-			'-opt-in=kotlin.contracts.ExperimentalContracts',
-			'-opt-in=coil3.annotation.ExperimentalCoilApi',
-			'-opt-in=coil3.annotation.InternalCoilApi',
-			'-opt-in=kotlinx.serialization.ExperimentalSerializationApi',
-			'-Xjspecify-annotations=strict',
-			'-Xannotation-default-target=first-only',
-			'-Xtype-enhancement-improvements-strict-mode'
-		]
-	}
-	room {
+        applicationId 'com.tsukimi.app'
+        minSdk 23
+        targetSdk 36
+        versionCode 1149
+        versionName = '3.0.111'
+        generatedDensities = []
+        testInstrumentationRunner 'org.koitharu.kotatsu.HiltTestRunner'
+        ksp {
+            arg('room.generateKotlin', 'true')
+        }
+        androidResources {
+            generateLocaleConfig false
+        }
+        def localProperties = new Properties()
+        def localPropertiesFile = rootProject.file('local.properties')
+        if (localPropertiesFile.exists()) {
+            localProperties.load(new FileInputStream(localPropertiesFile))
+        }
+        resValue 'string', 'tg_backup_bot_token', localProperties.getProperty('tg_backup_bot_token', '')
+    }
+
+    splits {
+        abi {
+            enable true
+            reset()
+            if (project.hasProperty("abiFilter")) {
+                include project.property("abiFilter").split(",")
+                universalApk false
+            } else {
+                include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                universalApk true
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("keystore/tsukimi.jks")
+            storePassword "salman2005"
+            keyAlias "tsukimi"
+            keyPassword "salman2005"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        nightly {
+            initWith release
+            applicationIdSuffix '.nightly'
+            signingConfig signingConfigs.release
+            
+            applicationVariants.all { variant ->
+                if (variant.buildType.name == 'nightly') {
+                    variant.outputs.all { output ->
+                        def now = java.time.LocalDateTime.now()
+                        output.versionCodeOverride = now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")).toInteger()
+                        output.versionNameOverride = 'N' + now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+                    }
+                }
+            }
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+
+    packagingOptions {
+        resources {
+            excludes += [
+                'META-INF/README.md',
+                'META-INF/NOTICE.md'
+            ]
+        }
+    }
+
+    sourceSets {
+        androidTest.assets.srcDirs += files("$projectDir/schemas".toString())
+        main.java.srcDirs += 'src/main/kotlin/'
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+        freeCompilerArgs += [
+            '-opt-in=kotlin.ExperimentalStdlibApi',
+            '-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi',
+            '-opt-in=kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi',
+            '-opt-in=kotlinx.coroutines.InternalForInheritanceCoroutinesApi',
+            '-opt-in=kotlinx.coroutines.FlowPreview',
+            '-opt-in=kotlin.contracts.ExperimentalContracts',
+            '-opt-in=coil3.annotation.ExperimentalCoilApi',
+            '-opt-in=coil3.annotation.InternalCoilApi',
+            '-opt-in=kotlinx.serialization.ExperimentalSerializationApi',
+            '-Xjspecify-annotations=strict',
+            '-Xannotation-default-target=first-only',
+            '-Xtype-enhancement-improvements-strict-mode'
+        ]
+    }
+
+    room {
         schemaDirectory "$projectDir/schemas"
-	}
-	lint {
-		abortOnError true
-		disable 'MissingTranslation', 'PrivateResource', 'SetJavaScriptEnabled', 'SimpleDateFormat'
-	}
-	testOptions {
-		unitTests.includeAndroidResources true
-		unitTests.returnDefaultValues false
-		kotlinOptions {
-			freeCompilerArgs += ['-opt-in=org.koitharu.kotatsu.parsers.InternalParsersApi']
-		}
-	}
-	applicationVariants.configureEach { variant ->
-		if (variant.name == 'nightly') {
-			variant.outputs.each { output ->
-				def now = LocalDateTime.now()
-				output.versionCodeOverride = now.format("yyMMdd").toInteger()
-				output.versionNameOverride = 'N' + now.format("yyyyMMdd")
-			}
-		}
-	}
+    }
+
+    lint {
+        abortOnError true
+        disable 'MissingTranslation', 'PrivateResource', 'SetJavaScriptEnabled', 'SimpleDateFormat'
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources true
+        unitTests.returnDefaultValues false
+        kotlinOptions {
+            freeCompilerArgs += ['-opt-in=org.koitharu.kotatsu.parsers.InternalParsersApi']
+        }
+    }
 }
+
 dependencies {
-	def parsersVersion = libs.versions.parsers.get()
-	if (System.properties.containsKey('parsersVersionOverride')) {
-		// usage:
-		// -DparsersVersionOverride=$(curl -s https://api.github.com/repos/kotatsuapp/kotatsu-parsers/commits/master -H "Accept: application/vnd.github.sha" | cut -c -10)
-		parsersVersion = System.getProperty('parsersVersionOverride')
-	}
-	//noinspection UseTomlInstead
-	implementation("com.github.clquwu:kotatsu-parsers-redo:$parsersVersion") {
-		exclude group: 'org.json', module: 'json'
-	}
+    def parsersVersion = libs.versions.parsers.get()
+    if (System.properties.containsKey('parsersVersionOverride')) {
+        parsersVersion = System.getProperty('parsersVersionOverride')
+    }
+    //noinspection UseTomlInstead
+    implementation("com.github.clquwu:kotatsu-parsers-redo:$parsersVersion") {
+        exclude group: 'org.json', module: 'json'
+    }
 
-	coreLibraryDesugaring libs.desugar.jdk.libs
-	implementation libs.kotlin.stdlib
-	implementation libs.kotlinx.coroutines.android
-	implementation libs.kotlinx.coroutines.guava
+    coreLibraryDesugaring libs.desugar.jdk.libs
+    implementation libs.kotlin.stdlib
+    implementation libs.kotlinx.coroutines.android
+    implementation libs.kotlinx.coroutines.guava
 
-	implementation platform(libs.androidx.compose.bom)
-	implementation libs.androidx.compose.runtime
-	implementation libs.androidx.compose.ui
-	implementation libs.androidx.compose.foundation
-	implementation libs.androidx.compose.material3
-	implementation libs.androidx.compose.activity
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.core
+    implementation libs.androidx.splashscreen
+    implementation libs.androidx.activity
+    implementation libs.androidx.fragment
+    implementation libs.androidx.transition
+    implementation libs.androidx.collection
+    implementation libs.lifecycle.viewmodel
+    implementation libs.lifecycle.service
+    implementation libs.lifecycle.process
+    implementation libs.androidx.constraintlayout
+    implementation libs.androidx.documentfile
+    implementation libs.androidx.swiperefreshlayout
+    implementation libs.androidx.recyclerview
+    implementation libs.androidx.viewpager2
+    implementation libs.androidx.preference
+    implementation libs.androidx.biometric
+    implementation libs.material
+    implementation libs.androidx.lifecycle.common.java8
+    implementation libs.androidx.webkit
 
-	implementation libs.androidx.appcompat
-	implementation libs.androidx.core
-	implementation libs.androidx.activity
-	implementation libs.androidx.fragment
-	implementation libs.androidx.transition
-	implementation libs.androidx.collection
-	implementation libs.lifecycle.viewmodel
-	implementation libs.lifecycle.service
-	implementation libs.lifecycle.process
-	implementation libs.androidx.constraintlayout
-	implementation libs.androidx.documentfile
-	implementation libs.androidx.swiperefreshlayout
-	implementation libs.androidx.recyclerview
-	implementation libs.androidx.viewpager2
-	implementation libs.androidx.preference
-	implementation libs.androidx.biometric
-	implementation libs.material
-	implementation libs.androidx.lifecycle.common.java8
-	implementation libs.androidx.webkit
-
-	implementation libs.androidx.work.runtime
-	implementation libs.guava
+    implementation libs.androidx.work.runtime
+    implementation libs.guava
 
     // Foldable/Window layout
     implementation libs.androidx.window
 
-	implementation libs.androidx.room.runtime
-	implementation libs.androidx.room.ktx
-	ksp libs.androidx.room.compiler
+    implementation libs.androidx.room.runtime
+    implementation libs.androidx.room.ktx
+    ksp libs.androidx.room.compiler
 
-	implementation libs.okhttp
-	implementation libs.okhttp.tls
-	implementation libs.okhttp.dnsoverhttps
-	implementation libs.okio
-	implementation libs.kotlinx.serialization.json
+    implementation libs.okhttp
+    implementation libs.okhttp.tls
+    implementation libs.okhttp.dnsoverhttps
+    implementation libs.okio
+    implementation libs.kotlinx.serialization.json
+    implementation libs.kotlinx.serialization.protobuf
 
-	implementation libs.adapterdelegates
-	implementation libs.adapterdelegates.viewbinding
+    implementation libs.adapterdelegates
+    implementation libs.adapterdelegates.viewbinding
 
-	implementation libs.hilt.android
-	ksp libs.hilt.compiler
-	implementation libs.androidx.hilt.work
-	ksp libs.androidx.hilt.compiler
+    implementation libs.hilt.android
+    ksp libs.hilt.compiler
+    implementation libs.androidx.hilt.work
+    ksp libs.androidx.hilt.compiler
 
-	implementation libs.coil.core
-	implementation libs.coil.network
-	implementation libs.coil.gif
-	implementation libs.coil.svg
-	implementation libs.avif.decoder
-	implementation libs.ssiv
-	implementation libs.disk.lru.cache
-	implementation libs.markwon
-	implementation libs.kizzyrpc
+    implementation libs.coil.core
+    implementation libs.coil.network
+    implementation libs.coil.gif
+    implementation libs.coil.svg
+    implementation libs.avif.decoder
+    implementation libs.ssiv
+    implementation libs.disk.lru.cache
+    implementation libs.markwon
+    implementation libs.kizzyrpc
+    implementation libs.injekt.core
+    implementation libs.rxjava
+    implementation libs.rxandroid
+    implementation libs.jsoup
 
-	implementation libs.acra.http
-	implementation libs.acra.dialog
+    implementation libs.acra.http
+    implementation libs.acra.dialog
 
-	implementation libs.conscrypt.android
+    implementation libs.conscrypt.android
 
-	debugImplementation libs.leakcanary.android
-	nightlyImplementation libs.leakcanary.android
-	debugImplementation libs.workinspector
+    // AI Features
+    implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-korean:16.0.0'
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.google.mlkit:translate:17.0.1'
+    implementation 'com.google.mlkit:language-id:17.0.6'
+    implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+    implementation 'org.tensorflow:tensorflow-lite-gpu:2.16.1'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1'
 
-	testImplementation libs.junit
-	testImplementation libs.json
-	testImplementation libs.kotlinx.coroutines.test
+    debugImplementation libs.leakcanary.android
+    debugImplementation libs.workinspector
 
-	androidTestImplementation libs.androidx.runner
-	androidTestImplementation libs.androidx.rules
-	androidTestImplementation libs.androidx.test.core
-	androidTestImplementation libs.androidx.junit
+    testImplementation libs.junit
+    testImplementation libs.json
+    testImplementation libs.kotlinx.coroutines.test
 
-	androidTestImplementation libs.kotlinx.coroutines.test
+    androidTestImplementation libs.androidx.runner
+    androidTestImplementation libs.androidx.rules
+    androidTestImplementation libs.androidx.test.core
+    androidTestImplementation libs.androidx.junit
 
-	androidTestImplementation libs.androidx.room.testing
-	androidTestImplementation libs.moshi.kotlin
+    androidTestImplementation libs.kotlinx.coroutines.test
 
-	androidTestImplementation libs.hilt.android.testing
-	kspAndroidTest libs.hilt.android.compiler
+    androidTestImplementation libs.androidx.room.testing
+    androidTestImplementation libs.moshi.kotlin
+
+    androidTestImplementation libs.hilt.android.testing
+    kspAndroidTest libs.hilt.android.compiler
 }
