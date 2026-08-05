@@ -51,12 +51,15 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("keystore/tsukimi.jks")
-            storePassword "salman2005"
-            keyAlias "tsukimi"
-            keyPassword "salman2005"
-            v1SigningEnabled true
-            v2SigningEnabled true
+            def ksFile = file("keystore/tsukimi.jks")
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword "salman2005"
+                keyAlias "tsukimi"
+                keyPassword "salman2005"
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
         }
     }
 
@@ -68,12 +71,16 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (file("keystore/tsukimi.jks").exists()) {
+                signingConfig signingConfigs.release
+            }
         }
         nightly {
             initWith release
             applicationIdSuffix '.nightly'
-            signingConfig signingConfigs.release
+            if (file("keystore/tsukimi.jks").exists()) {
+                signingConfig signingConfigs.release
+            }
             
             applicationVariants.all { variant ->
                 if (variant.buildType.name == 'nightly') {
