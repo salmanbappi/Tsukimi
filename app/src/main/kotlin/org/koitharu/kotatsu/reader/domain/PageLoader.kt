@@ -81,27 +81,27 @@ import java.io.File
 import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
-import javax.inject.Inject
-import javax.inject.Singleton
-import kotlin.coroutines.AbstractCoroutineContextElement
-import kotlin.coroutines.CoroutineContext
-import java.util.concurrent.ConcurrentHashMap
+import dagger.hilt.android.ActivityRetainedLifecycle
+import dagger.hilt.android.scopes.ActivityRetainedScoped
+import org.koitharu.kotatsu.core.exceptions.resolve.CaptchaAutoResolveCoordinator
+import org.koitharu.kotatsu.core.util.ext.lifecycleScope
 
-@Singleton
+@ActivityRetainedScoped
 class PageLoader @Inject constructor(
 	@LocalizedAppContext private val context: Context,
+	lifecycle: ActivityRetainedLifecycle,
 	@MangaHttpClient private val okHttp: OkHttpClient,
 	@PageCache private val cache: LocalStorageCache,
-	@ProcessedPageCache private val processedCache: LocalStorageCache,
 	private val coil: ImageLoader,
 	private val settings: AppSettings,
 	private val mangaRepositoryFactory: MangaRepository.Factory,
 	private val imageProxyInterceptor: ImageProxyInterceptor,
 	private val downloadSlowdownDispatcher: DownloadSlowdownDispatcher,
+	private val captchaAutoResolveCoordinator: CaptchaAutoResolveCoordinator,
 	private val optimizationHelper: ReaderOptimizationHelper,
 ) {
 
-	val loaderScope = CoroutineScope(SupervisorJob() + InternalErrorHandler() + Dispatchers.Default)
+	val loaderScope = lifecycle.lifecycleScope + InternalErrorHandler() + Dispatchers.Default
 
 	private val tasks = LongSparseArray<ProgressDeferred<Uri, Float>>()
 	private val activeSemaphore = Semaphore(1)
@@ -244,17 +244,17 @@ class PageLoader @Inject constructor(
 		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
 		
 		return lock.withLock {
-			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+			cache.get(cacheKey)?.let { return@withLock it.toUri() }
 
 			withContext(Dispatchers.IO) {
 				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
 				val filtered = ImageFiltersTransformation(sharpening, denoising).transform(bitmap, Size.ORIGINAL)
-				processedCache.set(cacheKey, filtered)
+				cache.set(cacheKey, filtered)
 				filtered.recycle()
 				bitmap.recycle()
 			}
 			
-			processedCache.get(cacheKey)?.toUri() ?: uri
+			cache.get(cacheKey)?.toUri() ?: uri
 		}
 	}
 
@@ -267,17 +267,17 @@ class PageLoader @Inject constructor(
 		val lock = processingLocks.computeIfAbsent(cacheKey) { Mutex() }
 
 		return lock.withLock {
-			processedCache.get(cacheKey)?.let { return@withLock it.toUri() }
+			cache.get(cacheKey)?.let { return@withLock it.toUri() }
 
 			withContext(Dispatchers.IO) {
 				val bitmap = BitmapDecoderCompat.decode(rawFile) ?: return@withContext
 				val upscaled = Anime4KUpscalerTransformation(2.0f, 1.0f).transform(bitmap, Size.ORIGINAL)
-				processedCache.set(cacheKey, upscaled)
+				cache.set(cacheKey, upscaled)
 				upscaled.recycle()
 				bitmap.recycle()
 			}
 
-			processedCache.get(cacheKey)?.toUri() ?: uri
+			cache.get(cacheKey)?.toUri() ?: uri
 		}
 	}
 
