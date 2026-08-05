@@ -9,9 +9,11 @@ jobs:
     if: ${{ github.event.release.prerelease == false }}
     name: Notify Discord - New Release
     runs-on: ubuntu-latest
+    env:
+      DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
     steps:
       - name: Send release embed to Discord
-        if: ${{ secrets.DISCORD_RELEASE_WEBHOOK != '' }}
+        if: ${{ env.DISCORD_RELEASE_WEBHOOK != '' }}
         uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
@@ -29,9 +31,11 @@ jobs:
     if: ${{ github.event.release.prerelease == true }}
     name: Notify Discord - Pre-Release
     runs-on: ubuntu-latest
+    env:
+      DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
     steps:
       - name: Send prerelease embed to Discord
-        if: ${{ secrets.DISCORD_RELEASE_WEBHOOK != '' }}
+        if: ${{ env.DISCORD_RELEASE_WEBHOOK != '' }}
         uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
